@@ -392,6 +392,10 @@ let direction;
 let nextDirection;
 let directionQueue;
 const activeDirectionKeys = new Set();
+const activeDirectionClicks = new Set();
+const directionPointerStarts = new Map();
+const directionClickTimers = new Map();
+const minimumDirectionClickMs = 230;
 let score;
 let state;
 let tickMs;
@@ -2784,7 +2788,22 @@ function updateDirectionButtonPressed(directionName) {
   if (!button) return;
 
   const keyIsPressed = [...activeDirectionKeys].some((key) => keyMap[key] === directionName);
-  button.classList.toggle("is-pressed", keyIsPressed);
+  button.classList.toggle("is-pressed", keyIsPressed || activeDirectionClicks.has(directionName));
+}
+
+function animateDirectionClick(directionName, elapsedMs) {
+  if (elapsedMs >= minimumDirectionClickMs) return;
+
+  clearTimeout(directionClickTimers.get(directionName));
+  activeDirectionClicks.add(directionName);
+  updateDirectionButtonPressed(directionName);
+
+  const remainingMs = minimumDirectionClickMs - elapsedMs;
+  directionClickTimers.set(directionName, setTimeout(() => {
+    activeDirectionClicks.delete(directionName);
+    directionClickTimers.delete(directionName);
+    updateDirectionButtonPressed(directionName);
+  }, remainingMs));
 }
 
 function isWallHit(point) {
@@ -4008,23 +4027,38 @@ document.addEventListener("keyup", (event) => {
 
 window.addEventListener("blur", () => {
   activeDirectionKeys.clear();
+  activeDirectionClicks.clear();
+  directionPointerStarts.clear();
+  directionClickTimers.forEach((timer) => clearTimeout(timer));
+  directionClickTimers.clear();
   document.querySelectorAll("[data-direction]").forEach((button) => {
     button.classList.remove("is-pressed");
   });
 });
 
 document.querySelectorAll("[data-direction]").forEach((button) => {
-  button.addEventListener("pointerdown", () => {
+  button.addEventListener("pointerdown", (event) => {
     queueDirection(button.dataset.direction);
+    directionPointerStarts.set(event.pointerId, {
+      directionName: button.dataset.direction,
+      startedAt: performance.now()
+    });
   });
   button.addEventListener("pointerup", () => {
     if (gameMode === "breakout" && breakout) breakout.paddle.input = 0;
   });
-  button.addEventListener("pointercancel", () => {
+  button.addEventListener("pointercancel", (event) => {
+    directionPointerStarts.delete(event.pointerId);
     if (gameMode === "breakout" && breakout) breakout.paddle.input = 0;
   });
 });
-document.addEventListener("pointerup", () => {
+document.addEventListener("pointerup", (event) => {
+  const pointerStart = directionPointerStarts.get(event.pointerId);
+  if (pointerStart) {
+    directionPointerStarts.delete(event.pointerId);
+    animateDirectionClick(pointerStart.directionName, performance.now() - pointerStart.startedAt);
+  }
+
   if (gameMode === "breakout" && breakout) breakout.paddle.input = 0;
 });
 
