@@ -445,6 +445,8 @@ let previousCrossingSnake;
 let crossingCars;
 let crossingPhase;
 let crossingTransitionUntil;
+let crossingEntryColumn = Math.floor(crossingGrid.columns / 2);
+let crossingSnakeLength = 3;
 const mazeStart = { x: 10, y: 15 };
 const mazeExit = { x: 10, y: 0 };
 let breakout;
@@ -1185,6 +1187,8 @@ function launchCrossing() {
   if (gameMode === "crossing" && state !== "gameover") return;
   gameMode = "crossing";
   grid = { ...crossingGrid };
+  crossingEntryColumn = Math.floor(crossingGrid.columns / 2);
+  crossingSnakeLength = 3;
   crossingStage = 1;
   crossingScore = 0;
   crossingPhase = "playing";
@@ -1206,11 +1210,15 @@ function launchCrossing() {
 }
 
 function resetCrossingStage() {
-  crossingSnake = [
-    { x: 7, y: crossingGrid.rows - 1 },
-    { x: 6, y: crossingGrid.rows - 1 },
-    { x: 5, y: crossingGrid.rows - 1 }
-  ];
+  // Enter the road vertically: the head sits on the bottom bank while the body
+  // trails off-screen below it, so only the head shows until the snake climbs.
+  // Left/right on the bank slides this entry column before committing upward.
+  const entryX = Math.min(crossingGrid.columns - 1, Math.max(0, crossingEntryColumn));
+  // Carry the persistent length across stages (only stage clears grow it).
+  crossingSnake = Array.from({ length: crossingSnakeLength }, (_, index) => ({
+    x: entryX,
+    y: crossingGrid.rows - 1 + index
+  }));
   previousCrossingSnake = crossingSnake.map((part) => ({ ...part }));
   crossingCars = buildCrossingCars(crossingStage);
   crossingPhase = "playing";
@@ -1270,7 +1278,9 @@ function launchBreakout() {
     },
     balls: [],
     bricks: buildBreakoutLevel(boardMetrics.width),
-    powerups: []
+    powerups: [],
+    seedBoosts: [],
+    heartsCollected: 0
   };
   breakout.paddle.x = (boardMetrics.width - breakoutPaddleWidth()) / 2;
   breakout.paddle.y = boardMetrics.height - segmentSize - 10;
@@ -1343,10 +1353,13 @@ function createBreakoutPowerup(type, x, y) {
   };
 }
 
-function randomBreakoutPowerupType() {
+const breakoutMaxHeartsPerLevel = 2;
+const breakoutSeedBoostMs = 30000;
+
+function randomBreakoutPowerupType(heartsAllowed) {
   const roll = Math.random();
-  if (roll < 0.45) return "seed";
-  if (roll < 0.72) return "heart";
+  if (roll < 0.55) return "seed";
+  if (heartsAllowed && roll < 0.65) return "heart";
   return "multiball";
 }
 
@@ -2298,6 +2311,7 @@ function stepCrossing(now) {
   if (!crossingSnake || !crossingCars) return;
 
   if (crossingPhase === "clearing") {
+    previousCrossingSnake = crossingSnake.map((part) => ({ ...part }));
     if (now < crossingTransitionUntil) return;
     crossingStage += 1;
     resetCrossingStage();
@@ -2313,7 +2327,12 @@ function stepCrossing(now) {
     return;
   }
 
-  if (directionQueue.length === 0) return;
+  if (directionQueue.length === 0) {
+    // Idle on the bank: keep the previous snapshot in sync so a stationary
+    // snake doesn't re-animate its last hop every tick (the shaking glitch).
+    previousCrossingSnake = crossingSnake.map((part) => ({ ...part }));
+    return;
+  }
   direction = directionQueue.shift();
   nextDirection = directionQueue.length > 0
     ? directionQueue[directionQueue.length - 1]
@@ -2322,13 +2341,19 @@ function stepCrossing(now) {
   const head = crossingSnake[0];
   const vector = vectors[direction];
   const nextHead = { x: head.x + vector.x, y: head.y + vector.y };
-  if (isWallHit(nextHead)) return;
+  if (isWallHit(nextHead)) {
+    previousCrossingSnake = crossingSnake.map((part) => ({ ...part }));
+    return;
+  }
 
   previousCrossingSnake = crossingSnake.map((part) => ({ ...part }));
   crossingSnake.unshift(nextHead);
+  // Length stays fixed while crossing lanes; growth only happens on a full
+  // stage clear (see the push below when the top bank is reached).
+  crossingSnake.pop();
 
-  const reachedNewLane = nextHead.y !== head.y && nextHead.y > 0 && nextHead.y < crossingGrid.rows - 1;
-  if (!reachedNewLane) crossingSnake.pop();
+  // Track the head's column so the next stage re-enters where it left off.
+  crossingEntryColumn = crossingSnake[0].x;
 
   if (isCrossingCarHit()) {
     endCrossing();
@@ -2336,7 +2361,11 @@ function stepCrossing(now) {
   }
 
   if (nextHead.y === 0) {
+    crossingSnakeLength += 1;
     crossingSnake.push({ ...crossingSnake[crossingSnake.length - 1] });
+    // Snap the previous snapshot to match so the clearing pause doesn't keep
+    // replaying the final hop's interpolation (the end-of-stage flicker).
+    previousCrossingSnake = crossingSnake.map((part) => ({ ...part }));
     const reward = 10 + crossingStage * 5;
     crossingScore += crossingStage * 100;
     crossingBest = Math.max(crossingBest, crossingScore);
@@ -2360,11 +2389,15 @@ function updateCrossingCars() {
 }
 
 function isCrossingCarHit() {
+  // Shrink the collision box inward to match the car's visual inset
+  // (drawCrossingCar insets by ~0.12 cell on each side) instead of using
+  // the full logical width, which felt too wide horizontally.
+  const carMargin = 0.18;
   return crossingSnake.some((part) => crossingCars.some((car) => {
     if (car.row !== part.y) return false;
     return [-crossingGrid.columns, 0, crossingGrid.columns].some((offset) => {
-      const left = car.x + offset;
-      const right = left + car.width;
+      const left = car.x + offset + carMargin;
+      const right = car.x + offset + car.width - carMargin;
       return part.x + 1 > left && part.x < right;
     });
   }));
@@ -2401,9 +2434,13 @@ function stepBreakout(deltaMs) {
       powerup.x <= paddle.x + paddleWidth + powerup.radius;
     if (caught) {
       if (powerup.type === "seed") {
-        setBreakoutPaddleLength(Math.min(10, paddle.length + 1));
+        if (paddle.length < 10) {
+          setBreakoutPaddleLength(paddle.length + 1);
+          breakout.seedBoosts.push(elapsedMs + breakoutSeedBoostMs);
+        }
       } else if (powerup.type === "heart") {
         breakout.lives += 1;
+        breakout.heartsCollected += 1;
       } else if (powerup.type === "multiball") {
         pendingMultiballs.push(powerup);
       }
@@ -2412,6 +2449,19 @@ function stepBreakout(deltaMs) {
     }
   });
   breakout.powerups = remainingPowerups;
+
+  if (breakout.seedBoosts.length > 0) {
+    const stillActive = [];
+    let expiredCount = 0;
+    breakout.seedBoosts.forEach((expiresAt) => {
+      if (elapsedMs >= expiresAt) expiredCount += 1;
+      else stillActive.push(expiresAt);
+    });
+    if (expiredCount > 0) {
+      setBreakoutPaddleLength(Math.max(breakoutConfig.basePaddleLength, paddle.length - expiredCount));
+    }
+    breakout.seedBoosts = stillActive;
+  }
 
   const remainingBalls = [];
   for (const ball of breakout.balls) {
@@ -2463,8 +2513,9 @@ function stepBreakout(deltaMs) {
       if (cameFromAbove || cameFromBelow) ball.vy *= -1;
       else ball.vx *= -1;
       if (Math.random() < breakoutConfig.powerupDropChance) {
+        const heartsAllowed = breakout.heartsCollected < breakoutMaxHeartsPerLevel;
         breakout.powerups.push(createBreakoutPowerup(
-          randomBreakoutPowerupType(),
+          randomBreakoutPowerupType(heartsAllowed),
           brick.x + brick.width / 2,
           brick.y + brick.height / 2
         ));
@@ -2492,6 +2543,11 @@ function stepBreakout(deltaMs) {
       return;
     }
     breakout.balls = [buildBreakoutBall(0)];
+    breakout.paddle.input = 0;
+    state = "ready";
+    syncHud();
+    showOverlay(`Ball Lost · ${breakout.lives} ${breakout.lives === 1 ? "life" : "lives"} left`);
+    setScreenHint("Left / right to move · catch seeds to grow");
   } else {
     breakout.balls = remainingBalls;
   }
@@ -2736,13 +2792,14 @@ function queueCrossingDirection(next) {
   const queuedFrom = directionQueue.length > 0
     ? directionQueue[directionQueue.length - 1]
     : direction;
-  if (next === queuedFrom) return;
 
   const currentVector = vectors[queuedFrom];
   const nextVector = vectors[next];
   const reversing =
     currentVector.x + nextVector.x === 0 &&
     currentVector.y + nextVector.y === 0;
+  // Backing down off the bank is blocked, but repeating forward/side is allowed
+  // so the snake can advance every step (forward or to the side).
   if (reversing && crossingSnake.length > 1) return;
 
   if (directionQueue.length >= maxQueuedDirections) directionQueue.shift();
@@ -2867,8 +2924,17 @@ function stepVsSnake() {
   const opponentHead = duelNextHead(duelOpponent);
   const playerFood = duelFoods.findIndex((food) => food.x === playerHead.x && food.y === playerHead.y);
   const opponentFood = duelFoods.findIndex((food) => food.x === opponentHead.x && food.y === opponentHead.y);
-  const playerCollision = isWallHit(playerHead) || duelContains(duelPlayer.body, playerHead) || duelContains(duelOpponent.body, playerHead);
-  const opponentCollision = isWallHit(opponentHead) || duelContains(duelOpponent.body, opponentHead) || duelContains(duelPlayer.body, opponentHead);
+  // Resolve movement simultaneously. The opponent's head and tail may leave
+  // their current squares on this tick, so they should not block a cutoff
+  // unless both heads actually move into the same square.
+  const playerBodyAfterMove = (playerFood >= 0 ? duelPlayer.body : duelPlayer.body.slice(0, -1)).slice(1);
+  const opponentBodyAfterMove = (opponentFood >= 0 ? duelOpponent.body : duelOpponent.body.slice(0, -1)).slice(1);
+  const playerCollision = isWallHit(playerHead) ||
+    duelContains(playerBodyAfterMove, playerHead) ||
+    duelContains(opponentBodyAfterMove, playerHead);
+  const opponentCollision = isWallHit(opponentHead) ||
+    duelContains(opponentBodyAfterMove, opponentHead) ||
+    duelContains(playerBodyAfterMove, opponentHead);
   const headOn = playerHead.x === opponentHead.x && playerHead.y === opponentHead.y;
 
   if (playerCollision || opponentCollision || headOn) {
@@ -3149,6 +3215,8 @@ function drawCrossing() {
   crossingCars.forEach((car) => drawCrossingCar(car));
 
   crossingSnake.forEach((part, index) => {
+    // Body segments still below the bottom bank stay hidden until they climb in.
+    if (part.y >= crossingGrid.rows || part.y < 0) return;
     const previousPart = previousCrossingSnake?.[index] || previousCrossingSnake?.[previousCrossingSnake.length - 1] || part;
     const point = interpolatedPoint(previousPart, part, index);
     const inset = Math.max(3, boardMetrics.cellSize * (index === 0 ? 0.105 : 0.135));
