@@ -391,7 +391,8 @@ let foods;
 let direction;
 let nextDirection;
 let directionQueue;
-let pressedDirectionButton;
+const activeDirectionKeys = new Set();
+const activeDirectionPointers = new Map();
 let score;
 let state;
 let tickMs;
@@ -2779,19 +2780,13 @@ function queueMazeDirection(next) {
   nextDirection = next;
 }
 
-function animateDirectionButton(directionName) {
-  if (pressedDirectionButton === directionName) return;
-
-  if (pressedDirectionButton) {
-    const previousButton = document.querySelector(`[data-direction="${pressedDirectionButton}"]`);
-    if (previousButton) previousButton.classList.remove("is-pressed");
-  }
-
+function updateDirectionButtonPressed(directionName) {
   const button = document.querySelector(`[data-direction="${directionName}"]`);
   if (!button) return;
 
-  pressedDirectionButton = directionName;
-  button.classList.add("is-pressed");
+  const keyIsPressed = [...activeDirectionKeys].some((key) => keyMap[key] === directionName);
+  const pointerIsPressed = [...activeDirectionPointers.values()].includes(directionName);
+  button.classList.toggle("is-pressed", keyIsPressed || pointerIsPressed);
 }
 
 function isWallHit(point) {
@@ -3981,7 +3976,10 @@ document.addEventListener("keydown", (event) => {
     event.preventDefault();
     const directionName = keyMap[event.code];
     queueDirection(directionName);
-    animateDirectionButton(directionName);
+    if (!event.repeat) {
+      activeDirectionKeys.add(event.code);
+      updateDirectionButtonPressed(directionName);
+    }
     return;
   }
 
@@ -3997,6 +3995,12 @@ document.addEventListener("keydown", (event) => {
 });
 
 document.addEventListener("keyup", (event) => {
+  if (keyMap[event.code]) {
+    activeDirectionKeys.delete(event.code);
+    const directionName = keyMap[event.code];
+    updateDirectionButtonPressed(directionName);
+  }
+
   if (gameMode !== "breakout" || !breakout) return;
   if (event.code === "ArrowLeft" || event.code === "KeyA" || event.code === "ArrowRight" || event.code === "KeyD") {
     breakout.paddle.input = 0;
@@ -4004,14 +4008,22 @@ document.addEventListener("keyup", (event) => {
 });
 
 document.querySelectorAll("[data-direction]").forEach((button) => {
-  button.addEventListener("pointerdown", () => {
+  button.addEventListener("pointerdown", (event) => {
     queueDirection(button.dataset.direction);
-    animateDirectionButton(button.dataset.direction);
+    button.setPointerCapture(event.pointerId);
+    activeDirectionPointers.set(event.pointerId, button.dataset.direction);
+    updateDirectionButtonPressed(button.dataset.direction);
   });
-  button.addEventListener("pointerup", () => {
+  button.addEventListener("pointerup", (event) => {
+    activeDirectionPointers.delete(event.pointerId);
+    updateDirectionButtonPressed(button.dataset.direction);
+    if (button.hasPointerCapture(event.pointerId)) button.releasePointerCapture(event.pointerId);
     if (gameMode === "breakout" && breakout) breakout.paddle.input = 0;
   });
-  button.addEventListener("pointercancel", () => {
+  button.addEventListener("pointercancel", (event) => {
+    activeDirectionPointers.delete(event.pointerId);
+    updateDirectionButtonPressed(button.dataset.direction);
+    if (button.hasPointerCapture(event.pointerId)) button.releasePointerCapture(event.pointerId);
     if (gameMode === "breakout" && breakout) breakout.paddle.input = 0;
   });
 });
