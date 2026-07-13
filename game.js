@@ -391,6 +391,7 @@ let foods;
 let direction;
 let nextDirection;
 let directionQueue;
+let pressedDirectionButton;
 let score;
 let state;
 let tickMs;
@@ -2779,15 +2780,18 @@ function queueMazeDirection(next) {
 }
 
 function animateDirectionButton(directionName) {
+  if (pressedDirectionButton === directionName) return;
+
+  if (pressedDirectionButton) {
+    const previousButton = document.querySelector(`[data-direction="${pressedDirectionButton}"]`);
+    if (previousButton) previousButton.classList.remove("is-pressed");
+  }
+
   const button = document.querySelector(`[data-direction="${directionName}"]`);
   if (!button) return;
 
-  button.classList.remove("is-pressed");
-  void button.offsetWidth;
+  pressedDirectionButton = directionName;
   button.classList.add("is-pressed");
-  window.setTimeout(() => {
-    button.classList.remove("is-pressed");
-  }, 115);
 }
 
 function isWallHit(point) {
