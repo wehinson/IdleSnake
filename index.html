@@ -1,0 +1,274 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>IdleSnake · McVey's Folly</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <div class="app-layout">
+      <aside class="menu-panel" aria-label="Menu">
+        <h1>Menu</h1>
+        <div class="menu-stat">
+          <span>Seeds</span>
+          <strong id="seedsTotal">000000</strong>
+        </div>
+
+        <nav class="menu-tabs" aria-label="Menu areas">
+          <button class="menu-tab is-active" type="button" data-menu-tab="upgrades" aria-selected="true">Upgrades</button>
+          <button class="menu-tab" type="button" data-menu-tab="nursery" aria-selected="false">Nursery</button>
+          <button class="menu-tab" type="button" data-menu-tab="colony" aria-selected="false">Colony</button>
+        </nav>
+
+        <section class="upgrade-list menu-panel-content" data-menu-panel="upgrades" aria-label="Upgrades">
+          <div class="menu-section-heading">
+            <span>Upgrade shop</span>
+            <span class="menu-section-mark">BUY</span>
+          </div>
+
+          <article class="upgrade-card" data-upgrade-card="board">
+            <div class="upgrade-card-heading">
+              <div>
+                <span class="upgrade-label">Board size</span>
+                <strong id="boardUpgradeName">5x7</strong>
+              </div>
+              <span class="upgrade-level" id="boardUpgradeLevel">LV 1</span>
+            </div>
+            <select class="upgrade-select" id="boardSizeSelect" aria-label="Active board size" hidden></select>
+            <p class="upgrade-current" id="boardUpgradeCurrent">5x7 board</p>
+            <p class="upgrade-next" id="boardUpgradeNext">Next: 5x9</p>
+            <button class="upgrade-button" id="boardUpgradeButton" type="button">Buy</button>
+          </article>
+
+          <article class="upgrade-card" data-upgrade-card="foodType">
+            <div class="upgrade-card-heading">
+              <div>
+                <span class="upgrade-label">Food type</span>
+                <strong id="foodTypeName">Seed</strong>
+              </div>
+              <span class="upgrade-level" id="foodTypeLevel">LV 1</span>
+            </div>
+            <p class="upgrade-current" id="foodTypeCurrent">+1 seed per snack</p>
+            <p class="upgrade-next" id="foodTypeNext">Next: Pod I, +2 seeds</p>
+            <button class="upgrade-button" id="foodTypeButton" type="button">Buy</button>
+          </article>
+
+          <article class="upgrade-card" data-upgrade-card="foodCount">
+            <div class="upgrade-card-heading">
+              <div>
+                <span class="upgrade-label">Food count</span>
+                <strong id="foodCountName">1 snack</strong>
+              </div>
+              <span class="upgrade-level" id="foodCountLevel">LV 1</span>
+            </div>
+            <p class="upgrade-current" id="foodCountCurrent">1 snack on board</p>
+            <p class="upgrade-next" id="foodCountNext">Next: 2 snacks on board</p>
+            <button class="upgrade-button" id="foodCountButton" type="button">Buy</button>
+          </article>
+
+          <article class="upgrade-card" data-upgrade-card="shield">
+            <div class="upgrade-card-heading">
+              <div>
+                <span class="upgrade-label">Shields</span>
+                <strong id="shieldName">0 held</strong>
+              </div>
+              <span class="upgrade-level" id="shieldLevel">LV 1</span>
+            </div>
+            <p class="upgrade-current" id="shieldCurrent">0 collision saves</p>
+            <p class="upgrade-next" id="shieldNext">Next: 1 shield</p>
+            <button class="upgrade-button" id="shieldButton" type="button">Buy</button>
+          </article>
+
+          <article class="upgrade-card" data-upgrade-card="minigames">
+            <div class="upgrade-card-heading">
+              <div>
+                <span class="upgrade-label">Minigames</span>
+                <strong id="minigamesName">None unlocked</strong>
+              </div>
+              <span class="upgrade-level" id="minigamesLevel">LV 0</span>
+            </div>
+            <p class="upgrade-current" id="minigamesCurrent">Unlock phone game 1</p>
+            <p class="upgrade-next" id="minigamesNext">Next: phone game 1</p>
+            <button class="upgrade-button" id="minigamesButton" type="button">Buy</button>
+          </article>
+        </section>
+
+        <section class="nursery-panel menu-panel-content" data-menu-panel="nursery" aria-label="Nursery" hidden>
+          <div class="menu-section-heading">
+            <span>Breeding program</span>
+            <span class="menu-section-mark">2 SLOTS</span>
+          </div>
+
+          <article class="nursery-goal-card">
+            <span class="upgrade-label">Next milestone</span>
+            <strong>Collect 500 seeds to lay an egg.</strong>
+            <p id="nurserySeedStatus">500 seeds banked</p>
+            <button class="upgrade-button" id="layEggButton" type="button">Lay egg · 500</button>
+          </article>
+
+          <article class="nest-card">
+            <div class="nursery-card-heading">
+              <div>
+                <span class="upgrade-label">Incubation box</span>
+                <strong>Nest</strong>
+              </div>
+              <span class="upgrade-level" id="nestState">EMPTY</span>
+            </div>
+            <div class="nest-visual" id="nestVisual" aria-hidden="true"><span>+</span></div>
+            <p class="nursery-timer" id="nestTimer">Ready for an egg</p>
+          </article>
+
+          <article class="nursery-yard-card">
+            <div class="nursery-card-heading">
+              <div>
+                <span class="upgrade-label">Hatchling yard</span>
+                <strong>Nursery</strong>
+              </div>
+              <span class="upgrade-level" id="nurseryCapacity">0 / 2</span>
+            </div>
+            <div class="nursery-grid" id="nurseryGrid" aria-label="12 by 15 Nursery grid"></div>
+            <div class="nursery-meta">
+              <span>12 × 15 grid</span>
+              <span id="nurseryGrowthStatus">Waiting for a hatchling</span>
+            </div>
+            <div class="hatchling-list" id="hatchlingList"></div>
+          </article>
+        </section>
+
+        <section class="colony-panel menu-panel-content" data-menu-panel="colony" aria-label="Colony" hidden>
+          <div class="menu-section-heading">
+            <span>Long-term record</span>
+            <span class="menu-section-mark">LOG</span>
+          </div>
+
+          <article class="colony-placeholder">
+            <span class="upgrade-label">Snakes available</span>
+            <strong id="colonyCount">000</strong>
+            <p>snakes ready to place in a habitat.</p>
+          </article>
+          <div class="colony-income-summary">
+            <span>Placed <strong id="colonyPlacedCount">000</strong></span>
+            <span>Income <strong id="colonyIncomeRate">0 seed/sec</strong></span>
+          </div>
+          <p class="colony-note">Place a snake for steady income. Food upgrades increase habitat rates too.</p>
+          <div class="habitat-list" id="habitatList" aria-label="Habitats"></div>
+        </section>
+      </aside>
+
+      <main class="phone-shell" aria-label="IdleSnake">
+        <div class="phone-top" aria-hidden="true">
+          <span class="speaker-slot"></span>
+          <span class="phone-brand">IDLESNAKE</span>
+        </div>
+
+        <section class="screen-frame" aria-label="Game display">
+          <div class="status-strip" aria-label="Game stats">
+            <div>
+              <span class="stat-label" id="scoreLabel">Score</span>
+              <strong id="score">000</strong>
+            </div>
+            <div>
+              <span class="stat-label">Time</span>
+              <strong id="timer">00:00</strong>
+            </div>
+            <div>
+              <span class="stat-label">Grid</span>
+              <strong id="gridLabel">5x7</strong>
+              <select class="grid-select" id="duelGridSelect" aria-label="VS Snake grid size" hidden>
+                <option value="10">10x10</option>
+                <option value="15">15x15</option>
+                <option value="20">20x20</option>
+                <option value="30">30x30</option>
+                <option value="40">40x40</option>
+              </select>
+            </div>
+            <div>
+              <span class="stat-label" id="bestLabel">Best</span>
+              <strong id="best">000</strong>
+            </div>
+          </div>
+
+          <div class="screen-bezel">
+            <canvas id="game" width="504" height="504" aria-label="McVey's Folly Nibbler play field"></canvas>
+            <div class="screen-overlay" id="overlay">
+              <p id="stateText">Ready</p>
+            </div>
+            <section class="personalization-screen" id="personalizationScreen" hidden aria-label="Snake personalization">
+              <div class="personalization-heading">
+                <span>PHONE 0</span>
+                <strong>PERSONALIZE</strong>
+              </div>
+              <p class="personalization-copy">Choose your snake colors.</p>
+              <div class="color-choice-group">
+                <span class="color-choice-label">BODY</span>
+                <div class="color-swatches" id="bodyColorChoices" role="group" aria-label="Snake body color"></div>
+              </div>
+              <div class="color-choice-group">
+                <span class="color-choice-label">HEAD</span>
+                <div class="color-swatches" id="headColorChoices" role="group" aria-label="Snake head color"></div>
+              </div>
+              <button class="personalization-back" id="personalizationBackButton" type="button">Back to game</button>
+            </section>
+            <section class="snakebird-screen" id="snakebirdScreen" hidden aria-label="Snakebird levels">
+              <div class="personalization-heading">
+                <span>PHONE 5</span>
+                <strong>SNAKEBIRD</strong>
+              </div>
+              <p class="personalization-copy">Choose a level. Collect every fruit, then reach the exit.</p>
+              <div class="snakebird-levels" id="snakebirdLevels" role="group" aria-label="Snakebird levels">
+                <button class="snakebird-level-button" type="button" data-snakebird-level="1">1</button>
+                <button class="snakebird-level-button" type="button" data-snakebird-level="2">2</button>
+                <button class="snakebird-level-button" type="button" data-snakebird-level="3">3</button>
+                <button class="snakebird-level-button" type="button" data-snakebird-level="4">4</button>
+                <button class="snakebird-level-button" type="button" data-snakebird-level="5">5</button>
+              </div>
+              <p class="snakebird-picker-status" id="snakebirdPickerStatus" aria-live="polite"></p>
+            </section>
+            <section class="broodline-screen" id="broodlineScreen" hidden aria-label="Broodline formation">
+              <div class="personalization-heading"><span>PHONE 7</span><strong>BROODLINE</strong></div>
+              <p class="personalization-copy" id="broodlineFormationStatus">Round clear. Arrange your chain.</p>
+              <div class="broodline-chain" id="broodlineChain" role="list" aria-label="Chain formation"></div>
+              <div class="broodline-formation-actions">
+                <button class="personalization-back" id="broodlineMoveUp" type="button">Move up</button>
+                <button class="personalization-back" id="broodlineMoveDown" type="button">Move down</button>
+              </div>
+              <button class="personalization-back" id="broodlineContinue" type="button">Begin next round</button>
+              <button class="personalization-back" id="broodlineEnd" type="button">End run · collect seeds</button>
+            </section>
+          </div>
+          <p class="screen-hint" id="screenHint" aria-live="polite"></p>
+        </section>
+
+        <section class="controls" aria-label="Game controls">
+          <div class="phone-nav" aria-label="Directional controls">
+            <button class="nav-key nav-up" type="button" data-direction="up" aria-label="Up">▲</button>
+            <button class="nav-key nav-left" type="button" data-direction="left" aria-label="Left">◀</button>
+            <button class="nav-key nav-right" type="button" data-direction="right" aria-label="Right">▶</button>
+            <button class="nav-key nav-down" type="button" data-direction="down" aria-label="Down">▼</button>
+          </div>
+
+          <div class="keypad" aria-label="Phone keypad controls">
+            <div class="minigame-keypad" aria-label="Minigame keypad">
+              <button class="phone-key minigame-key" type="button" data-minigame="1" aria-label="Minigame 1">1</button>
+              <button class="phone-key minigame-key" type="button" data-minigame="2" aria-label="McVey's Folly" title="McVey's Folly">2</button>
+              <button class="phone-key minigame-key" type="button" data-minigame="3" aria-label="Minigame 3">3</button>
+              <button class="phone-key minigame-key" type="button" data-minigame="4" aria-label="Minigame 4">4</button>
+              <button class="phone-key minigame-key" type="button" data-minigame="5" aria-label="Minigame 5">5</button>
+              <button class="phone-key minigame-key" type="button" data-minigame="6" aria-label="Minigame 6">6</button>
+              <button class="phone-key minigame-key" type="button" data-minigame="7" aria-label="Minigame 7">7</button>
+              <button class="phone-key minigame-key" type="button" data-minigame="8" aria-label="Minigame 8">8</button>
+              <button class="phone-key minigame-key" type="button" data-minigame="9" aria-label="Minigame 9">9</button>
+              <button class="phone-key minigame-key personalization-key" type="button" data-minigame="0" aria-label="Personalization">0</button>
+            </div>
+            <button id="startButton" class="action-key" type="button">Start</button>
+            <button id="pauseButton" class="action-key" type="button">Pause</button>
+            <button id="resetButton" class="action-key" type="button">Reset</button>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="game.js"></script>
+  </body>
+</html>
