@@ -392,7 +392,6 @@ let direction;
 let nextDirection;
 let directionQueue;
 const activeDirectionKeys = new Set();
-const activeDirectionPointers = new Map();
 let score;
 let state;
 let tickMs;
@@ -2785,8 +2784,7 @@ function updateDirectionButtonPressed(directionName) {
   if (!button) return;
 
   const keyIsPressed = [...activeDirectionKeys].some((key) => keyMap[key] === directionName);
-  const pointerIsPressed = [...activeDirectionPointers.values()].includes(directionName);
-  button.classList.toggle("is-pressed", keyIsPressed || pointerIsPressed);
+  button.classList.toggle("is-pressed", keyIsPressed);
 }
 
 function isWallHit(point) {
@@ -3996,6 +3994,7 @@ document.addEventListener("keydown", (event) => {
 
 document.addEventListener("keyup", (event) => {
   if (keyMap[event.code]) {
+    event.preventDefault();
     activeDirectionKeys.delete(event.code);
     const directionName = keyMap[event.code];
     updateDirectionButtonPressed(directionName);
@@ -4007,23 +4006,21 @@ document.addEventListener("keyup", (event) => {
   }
 });
 
-document.querySelectorAll("[data-direction]").forEach((button) => {
-  button.addEventListener("pointerdown", (event) => {
-    queueDirection(button.dataset.direction);
-    button.setPointerCapture(event.pointerId);
-    activeDirectionPointers.set(event.pointerId, button.dataset.direction);
-    updateDirectionButtonPressed(button.dataset.direction);
+window.addEventListener("blur", () => {
+  activeDirectionKeys.clear();
+  document.querySelectorAll("[data-direction]").forEach((button) => {
+    button.classList.remove("is-pressed");
   });
-  button.addEventListener("pointerup", (event) => {
-    activeDirectionPointers.delete(event.pointerId);
-    updateDirectionButtonPressed(button.dataset.direction);
-    if (button.hasPointerCapture(event.pointerId)) button.releasePointerCapture(event.pointerId);
+});
+
+document.querySelectorAll("[data-direction]").forEach((button) => {
+  button.addEventListener("pointerdown", () => {
+    queueDirection(button.dataset.direction);
+  });
+  button.addEventListener("pointerup", () => {
     if (gameMode === "breakout" && breakout) breakout.paddle.input = 0;
   });
-  button.addEventListener("pointercancel", (event) => {
-    activeDirectionPointers.delete(event.pointerId);
-    updateDirectionButtonPressed(button.dataset.direction);
-    if (button.hasPointerCapture(event.pointerId)) button.releasePointerCapture(event.pointerId);
+  button.addEventListener("pointercancel", () => {
     if (gameMode === "breakout" && breakout) breakout.paddle.input = 0;
   });
 });
