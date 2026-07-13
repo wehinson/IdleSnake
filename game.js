@@ -1,5 +1,42 @@
 const canvas = document.querySelector("#game");
 const ctx = canvas.getContext("2d");
+const savePrefix = "snake-forever-";
+const legacySavePrefix = "idlesnake-";
+const saveKeys = [
+  "best",
+  "breakout-best",
+  "colors",
+  "crossing-best",
+  "duel-grid-size",
+  "habitats",
+  "maze-best",
+  "nursery",
+  "seeds",
+  "snakebird",
+  "sokoban-best",
+  "upgrades"
+];
+
+saveKeys.forEach((key) => {
+  const currentKey = `${savePrefix}${key}`;
+  const legacyKey = `${legacySavePrefix}${key}`;
+  if (localStorage.getItem(currentKey) === null && localStorage.getItem(legacyKey) !== null) {
+    localStorage.setItem(currentKey, localStorage.getItem(legacyKey));
+  }
+});
+
+function saveKey(key) {
+  return `${savePrefix}${key}`;
+}
+
+function getSaveItem(key) {
+  return localStorage.getItem(saveKey(key));
+}
+
+function setSaveItem(key, value) {
+  localStorage.setItem(saveKey(key), value);
+}
+
 const snakebirdEngine = window.SnakebirdEngine || (() => {
   const key = (point) => `${point.x},${point.y}`;
   const vectors = {
@@ -341,10 +378,10 @@ const snakeColorChoices = {
 const savedUpgrades = readUpgrades();
 let grid = parseGridSize(upgradeConfig.board.levels[savedUpgrades.boardLevel]);
 let selectedBoardLevel = savedUpgrades.boardLevel;
-let best = Number(localStorage.getItem("idlesnake-best") || 0);
-let crossingBest = Number(localStorage.getItem("idlesnake-crossing-best") || 0);
+let best = Number(getSaveItem("best") || 0);
+let crossingBest = Number(getSaveItem("crossing-best") || 0);
 if (!Number.isFinite(crossingBest)) crossingBest = 0;
-let seedsTotal = Number(localStorage.getItem("idlesnake-seeds") || 0);
+let seedsTotal = Number(getSaveItem("seeds") || 0);
 let upgrades = savedUpgrades;
 let snakeColors = readSnakeColors();
 let snake;
@@ -386,7 +423,7 @@ let maze;
 let mazePath;
 let mazeDirection;
 let mazeScore;
-let mazeBest = Number(localStorage.getItem("idlesnake-maze-best") || 0);
+let mazeBest = Number(getSaveItem("maze-best") || 0);
 let mazeLayoutIndex;
 let mazeTravelDirection;
 let mazeChoiceDirections;
@@ -406,9 +443,9 @@ let crossingTransitionUntil;
 const mazeStart = { x: 10, y: 15 };
 const mazeExit = { x: 10, y: 0 };
 let breakout;
-let breakoutBest = Number(localStorage.getItem("idlesnake-breakout-best") || 0);
+let breakoutBest = Number(getSaveItem("breakout-best") || 0);
 let sokoban;
-let sokobanBest = Number(localStorage.getItem("idlesnake-sokoban-best") || 0);
+let sokobanBest = Number(getSaveItem("sokoban-best") || 0);
 let broodline;
 const broodlineGrid = { columns: 30, rows: 30 };
 const broodlineTickMs = 220;
@@ -654,7 +691,7 @@ function readSnakeColors() {
     head: snakeColorChoices.head[0].value
   };
   try {
-    const saved = JSON.parse(localStorage.getItem("idlesnake-colors") || "{}");
+    const saved = JSON.parse(getSaveItem("colors") || "{}");
     return {
       body: snakeColorChoices.body.some((choice) => choice.value === saved.body) ? saved.body : fallback.body,
       head: snakeColorChoices.head.some((choice) => choice.value === saved.head) ? saved.head : fallback.head
@@ -665,7 +702,7 @@ function readSnakeColors() {
 }
 
 function saveSnakeColors() {
-  localStorage.setItem("idlesnake-colors", JSON.stringify(snakeColors));
+  setSaveItem("colors", JSON.stringify(snakeColors));
 }
 
 function buildColorChoices(container, type) {
@@ -714,7 +751,7 @@ function readSnakebirdProgress() {
   };
 
   try {
-    const saved = JSON.parse(localStorage.getItem("idlesnake-snakebird") || "{}");
+    const saved = JSON.parse(getSaveItem("snakebird") || "{}");
     return snakebirdEngine.normalizeProgress(saved, snakebirdLevels.length);
   } catch {
     return fallback;
@@ -722,7 +759,7 @@ function readSnakebirdProgress() {
 }
 
 function saveSnakebirdProgress() {
-  localStorage.setItem("idlesnake-snakebird", JSON.stringify(snakebirdProgress));
+  setSaveItem("snakebird", JSON.stringify(snakebirdProgress));
 }
 
 function snakebirdKey(point) {
@@ -868,7 +905,7 @@ function endSnakebird(won, failureReason = "") {
     snakebirdProgress = completion.progress;
     const reward = completion.reward;
     seedsTotal += reward;
-    localStorage.setItem("idlesnake-seeds", String(seedsTotal));
+    setSaveItem("seeds", String(seedsTotal));
     saveSnakebirdProgress();
     snakebird.nextLevelIndex = index < snakebirdLevels.length - 1 ? index + 1 : 0;
     if (index < snakebirdLevels.length - 1) {
@@ -1054,8 +1091,8 @@ function endSokoban(won) {
   const reward = sokobanLevels[sokoban.stageIndex].reward;
   sokobanBest = Math.max(sokobanBest, sokoban.score);
   seedsTotal += reward;
-  localStorage.setItem("idlesnake-seeds", String(seedsTotal));
-  localStorage.setItem("idlesnake-sokoban-best", String(sokobanBest));
+  setSaveItem("seeds", String(seedsTotal));
+  setSaveItem("sokoban-best", String(sokobanBest));
   syncHud();
   showOverlay(`Stage ${sokoban.stageIndex + 1} Clear · +${formatNumber(reward)} Seeds`);
   setScreenHint(sokoban.stageIndex < sokobanLevels.length - 1
@@ -1134,8 +1171,8 @@ function launchMaze() {
   syncHud();
   render();
   hideOverlay();
-  setScreenHint("McVey's Folly · steer with arrows");
-  showOverlay("McVey's Folly · Ready");
+  setScreenHint("Snake Forever · steer with arrows");
+  showOverlay("Snake Forever · Ready");
 }
 
 function launchCrossing() {
@@ -1389,7 +1426,7 @@ function squareGrid(size) {
 }
 
 function readDuelGridSize() {
-  const saved = Number(localStorage.getItem("idlesnake-duel-grid-size"));
+  const saved = Number(getSaveItem("duel-grid-size"));
   return duelGridSizes.includes(saved) ? saved : 30;
 }
 
@@ -1398,7 +1435,7 @@ function setDuelGridSize(size) {
   if (!duelGridSizes.includes(nextSize)) return;
   selectedDuelGridSize = nextSize;
   duelGrid = squareGrid(selectedDuelGridSize);
-  localStorage.setItem("idlesnake-duel-grid-size", String(selectedDuelGridSize));
+  setSaveItem("duel-grid-size", String(selectedDuelGridSize));
   if (duelGridSelect) duelGridSelect.value = String(selectedDuelGridSize);
   if (gameMode === "duel") {
     state = "gameover";
@@ -1584,7 +1621,7 @@ function broodlineTakeDamage(target = "head") {
   broodline.chain.splice(targetIndex, 1);
   broodline.effects.push({ pos: { ...broodline.head }, text: target === "head" ? "HEAD HIT" : "SEGMENT HIT", ttl: 800 });
 }
-function broodlineEndRun(message) { broodline.phase = "ended"; state = "gameover"; seedsTotal += broodline.pendingSeeds; localStorage.setItem("idlesnake-seeds", String(seedsTotal)); syncHud(); showOverlay(`${message} · +${formatNumber(broodline.pendingSeeds)} Seeds`); hideBroodlineFormation(); }
+function broodlineEndRun(message) { broodline.phase = "ended"; state = "gameover"; seedsTotal += broodline.pendingSeeds; setSaveItem("seeds", String(seedsTotal)); syncHud(); showOverlay(`${message} · +${formatNumber(broodline.pendingSeeds)} Seeds`); hideBroodlineFormation(); }
 function showBroodlineFormation() { syncBroodlineFormation(); broodlineScreen.hidden = false; broodlineFormationStatusEl.textContent = `Round ${broodline.round} clear · ${broodline.pendingSeeds} Seeds pending`; setScreenHint("Arrange the chain, then continue"); }
 function hideBroodlineFormation() { if (broodlineScreen) broodlineScreen.hidden = true; }
 function syncBroodlineFormation() { if (!broodlineChainEl || !broodline) return; broodlineChainEl.replaceChildren(...broodline.chain.map((part, index) => { const button = document.createElement("button"); button.className = `broodline-card${index === broodline.selected ? " is-selected" : ""}`; button.type = "button"; button.innerHTML = `<span>${broodlineSpeciesLabel(part.kind).toUpperCase()}</span><small>${part.kind === "egg" ? `${Math.ceil(part.hatchAt / 1000)}s` : "slot " + (index + 1)}</small>`; button.addEventListener("click", () => { broodline.selected = index; syncBroodlineFormation(); }); return button; })); }
@@ -1726,7 +1763,7 @@ function readNursery() {
   };
 
   try {
-    const saved = JSON.parse(localStorage.getItem("idlesnake-nursery") || "{}");
+    const saved = JSON.parse(getSaveItem("nursery") || "{}");
     const hatchlings = Array.isArray(saved.hatchlings)
       ? saved.hatchlings.slice(0, nurseryConfig.capacity).map((hatchling, index) => ({
         id: String(hatchling.id || `hatchling-${index + 1}`),
@@ -1762,7 +1799,7 @@ function readHabitats() {
   };
 
   try {
-    const saved = JSON.parse(localStorage.getItem("idlesnake-habitats") || "{}");
+    const saved = JSON.parse(getSaveItem("habitats") || "{}");
     const savedCounts = Array.isArray(saved.counts) ? saved.counts : [];
     return {
       counts: habitatConfig.habitats.map((_, index) => Math.floor(clampNumber(
@@ -1787,11 +1824,11 @@ function clampNumber(value, min, max, fallback) {
 }
 
 function saveNursery() {
-  localStorage.setItem("idlesnake-nursery", JSON.stringify(nursery));
+  setSaveItem("nursery", JSON.stringify(nursery));
 }
 
 function saveHabitats() {
-  localStorage.setItem("idlesnake-habitats", JSON.stringify(habitats));
+  setSaveItem("habitats", JSON.stringify(habitats));
 }
 
 function updateNursery(now) {
@@ -1824,7 +1861,7 @@ function updateNursery(now) {
 
   nursery.lastUpdatedAt = now;
   if (changed) {
-    localStorage.setItem("idlesnake-seeds", String(seedsTotal));
+    setSaveItem("seeds", String(seedsTotal));
     saveNursery();
   }
 
@@ -2040,7 +2077,7 @@ function updateHabitatIncome(now) {
   habitats.lastUpdatedAt = now;
   if (income > 0) {
     seedsTotal = Math.round((seedsTotal + income) * 10000) / 10000;
-    localStorage.setItem("idlesnake-seeds", String(seedsTotal));
+    setSaveItem("seeds", String(seedsTotal));
   }
   saveHabitats();
   return income > 0;
@@ -2161,7 +2198,7 @@ function layEgg() {
   nursery.lastUpdatedAt = now;
   nursery.seedTickAccumulatorMs = 0;
   nursery.movementAccumulatorMs = 0;
-  localStorage.setItem("idlesnake-seeds", String(seedsTotal));
+  setSaveItem("seeds", String(seedsTotal));
   saveNursery();
   syncHud();
 }
@@ -2299,8 +2336,8 @@ function stepCrossing(now) {
     crossingScore += crossingStage * 100;
     crossingBest = Math.max(crossingBest, crossingScore);
     seedsTotal += reward;
-    localStorage.setItem("idlesnake-seeds", String(seedsTotal));
-    localStorage.setItem("idlesnake-crossing-best", String(crossingBest));
+    setSaveItem("seeds", String(seedsTotal));
+    setSaveItem("crossing-best", String(crossingBest));
     crossingPhase = "clearing";
     crossingTransitionUntil = now + 500;
     syncHud();
@@ -2333,7 +2370,7 @@ function endCrossing() {
   crossingPhase = "gameover";
   directionQueue = [];
   crossingBest = Math.max(crossingBest, crossingScore);
-  localStorage.setItem("idlesnake-crossing-best", String(crossingBest));
+  setSaveItem("crossing-best", String(crossingBest));
   setScreenHint("");
   syncHud();
   showOverlay(`Roadkill · Stage ${crossingStage}`);
@@ -2458,10 +2495,10 @@ function stepBreakout(deltaMs) {
 function endBreakout(won) {
   state = "gameover";
   breakoutBest = Math.max(breakoutBest, breakout.score);
-  localStorage.setItem("idlesnake-breakout-best", String(breakoutBest));
+  setSaveItem("breakout-best", String(breakoutBest));
   if (won) {
     seedsTotal += 500;
-    localStorage.setItem("idlesnake-seeds", String(seedsTotal));
+    setSaveItem("seeds", String(seedsTotal));
   }
   syncHud();
   showOverlay(won ? "Level Clear · +500 Seeds" : "Game Over");
@@ -2507,7 +2544,7 @@ function step() {
   if (willEat) {
     score += 1;
     seedsTotal += currentFoodType().value;
-    localStorage.setItem("idlesnake-seeds", String(seedsTotal));
+    setSaveItem("seeds", String(seedsTotal));
     tickMs = Math.max(minTickMs, startTickMs - score * 2.8);
     foods.splice(eatenFoodIndex, 1);
     startDigestionAnimation();
@@ -2531,7 +2568,7 @@ function endGame() {
   state = "gameover";
   if (score > best) {
     best = score;
-    localStorage.setItem("idlesnake-best", String(best));
+    setSaveItem("best", String(best));
   }
   syncHud();
   showOverlay("Game Over");
@@ -2540,7 +2577,7 @@ function endGame() {
 function winGame() {
   state = "gameover";
   best = Math.max(best, score);
-  localStorage.setItem("idlesnake-best", String(best));
+  setSaveItem("best", String(best));
   syncHud();
   showOverlay("Maxed");
 }
@@ -2855,7 +2892,7 @@ function endVsSnake(winner) {
   const reward = winner === "player" ? Math.max(5, best * 5) : 0;
   if (reward) {
     seedsTotal += reward;
-    localStorage.setItem("idlesnake-seeds", String(seedsTotal));
+    setSaveItem("seeds", String(seedsTotal));
   }
   syncHud();
   showOverlay(winner === "player" ? `You Win · +${formatNumber(reward)} Seeds` : winner === "opponent" ? "White Snake Wins" : "Draw");
@@ -2964,13 +3001,13 @@ function endMaze(won) {
   setScreenHint("");
   const reward = won ? Math.max(10, mazeScore) : Math.floor(mazeScore / 4);
   mazeBest = Math.max(mazeBest, mazeScore);
-  localStorage.setItem("idlesnake-maze-best", String(mazeBest));
+  setSaveItem("maze-best", String(mazeBest));
   if (reward) {
     seedsTotal += reward;
-    localStorage.setItem("idlesnake-seeds", String(seedsTotal));
+    setSaveItem("seeds", String(seedsTotal));
   }
   syncHud();
-  showOverlay(won ? `McVey's Folly Clear · +${formatNumber(reward)} Seeds` : `Nibbled the wall · +${formatNumber(reward)} Seeds`);
+  showOverlay(won ? `Snake Forever Clear · +${formatNumber(reward)} Seeds` : `Nibbled the wall · +${formatNumber(reward)} Seeds`);
 }
 
 function drawBroodlinePickup(drop, x, y, cell) {
@@ -3708,7 +3745,7 @@ function readUpgrades() {
   };
 
   try {
-    const saved = JSON.parse(localStorage.getItem("idlesnake-upgrades") || "{}");
+    const saved = JSON.parse(getSaveItem("upgrades") || "{}");
     return {
       boardLevel: clampLevel(saved.boardLevel, upgradeConfig.board.levels.length - 1),
       foodTypeLevel: clampLevel(saved.foodTypeLevel, upgradeConfig.foodType.levels.length - 1),
@@ -3727,7 +3764,7 @@ function clampLevel(value, max) {
 }
 
 function saveUpgrades() {
-  localStorage.setItem("idlesnake-upgrades", JSON.stringify(upgrades));
+  setSaveItem("upgrades", JSON.stringify(upgrades));
 }
 
 function parseGridSize(size) {
@@ -3845,7 +3882,7 @@ function grantMinigameFunds() {
     0
   );
   seedsTotal += grant;
-  localStorage.setItem("idlesnake-seeds", String(seedsTotal));
+  setSaveItem("seeds", String(seedsTotal));
   syncHud();
   setScreenHint(`+${formatNumber(grant)} seeds granted for minigame upgrades`);
 }
@@ -3862,7 +3899,7 @@ function purchaseUpgrade(type) {
 
   seedsTotal -= cost;
   upgrades[levelKey] += 1;
-  localStorage.setItem("idlesnake-seeds", String(seedsTotal));
+  setSaveItem("seeds", String(seedsTotal));
   saveUpgrades();
 
   if (type === "board") {
