@@ -208,7 +208,21 @@
                 <span class="color-choice-label">HEAD</span>
                 <div class="color-swatches" id="headColorChoices" role="group" aria-label="Snake head color"></div>
               </div>
+              <button class="personalization-back" id="openSaveDataButton" type="button">Save data</button>
               <button class="personalization-back" id="personalizationBackButton" type="button">Back to game</button>
+            </section>
+            <section class="personalization-screen" id="saveDataScreen" hidden aria-label="Save data export and import">
+              <div class="personalization-heading">
+                <span>PHONE 0</span>
+                <strong>SAVE DATA</strong>
+              </div>
+              <p class="personalization-copy">Copy your save, or paste one to restore it.</p>
+              <textarea class="save-data-area" id="saveDataExportArea" readonly rows="6" aria-label="Save data export"></textarea>
+              <button class="personalization-back" id="copySaveDataButton" type="button">Copy to clipboard</button>
+              <textarea class="save-data-area" id="saveDataImportArea" rows="6" placeholder="Paste save data here" aria-label="Save data import"></textarea>
+              <button class="personalization-back" id="importSaveDataButton" type="button">Import</button>
+              <p class="personalization-copy" id="saveDataStatus" aria-live="polite"></p>
+              <button class="personalization-back" id="saveDataBackButton" type="button">Back to personalize</button>
             </section>
             <section class="broodline-screen" id="broodlineScreen" hidden aria-label="Broodline formation">
               <div class="personalization-heading"><span>PHONE 7</span><strong>BROODLINE</strong></div>
@@ -254,6 +268,18 @@
       </main>
     </div>
 
+    <script src="engine/config.js"></script>
+    <script src="engine/economy.js"></script>
+    <script src="engine/snake.js"></script>
+    <script src="engine/sokoban.js"></script>
+    <script src="engine/maze.js"></script>
+    <script src="engine/crossing.js"></script>
+    <script src="engine/broodline.js"></script>
+    <script src="engine/duel.js"></script>
+    <script src="engine/breakout.js"></script>
+    <script src="engine/world.js"></script>
+    <script src="engine/index.js"></script>
+    <script src="engine/save.js"></script>
     <script src="game.js"></script>
   </body>
 </html>

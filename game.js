@@ -2,7 +2,13 @@ const canvas = document.querySelector("#game");
 const ctx = canvas.getContext("2d");
 const savePrefix = "snake-forever-";
 const legacySavePrefix = "idlesnake-";
-const saveKeys = [
+const consolidatedSaveKey = `${savePrefix}save`;
+const SAVE_VERSION = 1;
+
+// Legacy per-key names this game used before the save was consolidated into
+// one versioned object. Kept only so migrateLegacySaveIfNeeded() can read
+// old data out of localStorage; nothing writes to these keys anymore.
+const saveKeysLegacyList = [
   "best",
   "breakout-best",
   "colors",
@@ -17,32 +23,161 @@ const saveKeys = [
   "upgrades"
 ];
 
-saveKeys.forEach((key) => {
-  const currentKey = `${savePrefix}${key}`;
-  const legacyKey = `${legacySavePrefix}${key}`;
-  if (localStorage.getItem(currentKey) === null && localStorage.getItem(legacyKey) !== null) {
-    localStorage.setItem(currentKey, localStorage.getItem(legacyKey));
-  }
-});
+// Maps each legacy per-key name to its path inside the consolidated save
+// object, so getSaveItem/setSaveItem can stay a drop-in seam for all the
+// existing readX()/saveX() functions below.
+const legacyKeyPaths = {
+  "best": ["records", "best"],
+  "breakout-best": ["records", "breakoutBest"],
+  "colors": ["settings", "snakeColors"],
+  "crossing-best": ["records", "crossingBest"],
+  "duel-grid-size": ["board", "selectedDuelGridSize"],
+  "habitats": ["habitats"],
+  "maze-best": ["records", "mazeBest"],
+  "nursery": ["nursery"],
+  "seeds": ["currencies", "seeds"],
+  "snakebird": ["snakebird"],
+  "sokoban-best": ["records", "sokobanBest"],
+  "upgrades": ["upgrades"]
+};
 
-function saveKey(key) {
-  return `${savePrefix}${key}`;
+function buildDefaultSaveState() {
+  return {
+    saveVersion: SAVE_VERSION,
+    savedAt: Date.now(),
+    currencies: { seeds: 0 },
+    upgrades: { boardLevel: 0, foodTypeLevel: 0, foodCountLevel: 0, shieldLevel: 0, minigamesLevel: 0 },
+    board: { selectedBoardLevel: 0, selectedDuelGridSize: 30 },
+    records: { best: 0, crossingBest: 0, mazeBest: 0, breakoutBest: 0, sokobanBest: 0 },
+    settings: { snakeColors: { body: null, head: null } },
+    nursery: { nestStartedAt: null, hatchlings: [], colonyCount: 0, lastUpdatedAt: Date.now(), seedTickAccumulatorMs: 0, movementAccumulatorMs: 0 },
+    habitats: { counts: [], lastUpdatedAt: Date.now() },
+    snakebird: { unlockedLevel: 1, clearedLevels: [], bestMoves: [], lastSelectedLevel: 1 },
+    // Reserved placeholders for systems that don't exist yet (routes, world
+    // regions, seasons, migration, prestige, accessibility). Never mutated by
+    // current game logic; they only round-trip through save/load so a future
+    // feature can start using them without a save-breaking migration.
+    routes: [],
+    regions: [],
+    season: null,
+    migration: null,
+    prestigeHistory: [],
+    accessibility: { colorblindMode: false, reducedMotion: false }
+  };
+}
+
+function safeParse(raw, fallback) {
+  if (raw === null || raw === undefined) return fallback;
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed === null || parsed === undefined ? fallback : parsed;
+  } catch {
+    return fallback;
+  }
+}
+
+function normalizeSaveState(saved) {
+  const base = buildDefaultSaveState();
+  if (!saved || typeof saved !== "object") return base;
+  return {
+    ...base,
+    ...saved,
+    saveVersion: SAVE_VERSION,
+    currencies: { ...base.currencies, ...saved.currencies },
+    upgrades: { ...base.upgrades, ...saved.upgrades },
+    board: { ...base.board, ...saved.board },
+    records: { ...base.records, ...saved.records },
+    settings: {
+      ...base.settings,
+      ...saved.settings,
+      snakeColors: { ...base.settings.snakeColors, ...saved.settings?.snakeColors }
+    },
+    nursery: { ...base.nursery, ...saved.nursery },
+    habitats: { ...base.habitats, ...saved.habitats },
+    snakebird: { ...base.snakebird, ...saved.snakebird },
+    accessibility: { ...base.accessibility, ...saved.accessibility }
+  };
+}
+
+function loadConsolidatedSave() {
+  try {
+    const raw = localStorage.getItem(consolidatedSaveKey);
+    if (raw === null) return buildDefaultSaveState();
+    return normalizeSaveState(JSON.parse(raw));
+  } catch {
+    return buildDefaultSaveState();
+  }
+}
+
+// One-time migration from the old per-key localStorage scheme into the
+// consolidated save object. No-ops (and is safe to call unconditionally)
+// once the consolidated key exists. Reads through both the current and
+// legacy key prefixes so a browser that never got migrated under the old
+// idlesnake- -> snake-forever- prefix rename still recovers its data.
+function migrateLegacySaveIfNeeded() {
+  if (localStorage.getItem(consolidatedSaveKey) !== null) return false;
+
+  const legacyRead = (key) => {
+    const current = localStorage.getItem(`${savePrefix}${key}`);
+    if (current !== null) return current;
+    return localStorage.getItem(`${legacySavePrefix}${key}`);
+  };
+
+  const hadAnyLegacyData = saveKeysLegacyList.some((key) => legacyRead(key) !== null);
+  const migrated = buildDefaultSaveState();
+  if (hadAnyLegacyData) {
+    migrated.currencies.seeds = Number(legacyRead("seeds")) || 0;
+    migrated.upgrades = safeParse(legacyRead("upgrades"), migrated.upgrades);
+    migrated.board.selectedDuelGridSize = Number(legacyRead("duel-grid-size")) || migrated.board.selectedDuelGridSize;
+    migrated.records.best = Number(legacyRead("best")) || 0;
+    migrated.records.crossingBest = Number(legacyRead("crossing-best")) || 0;
+    migrated.records.mazeBest = Number(legacyRead("maze-best")) || 0;
+    migrated.records.breakoutBest = Number(legacyRead("breakout-best")) || 0;
+    migrated.records.sokobanBest = Number(legacyRead("sokoban-best")) || 0;
+    migrated.settings.snakeColors = safeParse(legacyRead("colors"), migrated.settings.snakeColors);
+    migrated.nursery = safeParse(legacyRead("nursery"), migrated.nursery);
+    migrated.habitats = safeParse(legacyRead("habitats"), migrated.habitats);
+    migrated.snakebird = safeParse(legacyRead("snakebird"), migrated.snakebird);
+  }
+  consolidatedSave = migrated;
+  localStorage.setItem(consolidatedSaveKey, JSON.stringify(consolidatedSave));
+  return true;
+}
+
+let consolidatedSave = buildDefaultSaveState();
+if (!migrateLegacySaveIfNeeded()) {
+  consolidatedSave = loadConsolidatedSave();
 }
 
 function getSaveItem(key) {
-  return localStorage.getItem(saveKey(key));
+  const path = legacyKeyPaths[key];
+  if (!path) return null;
+  const value = path.reduce((obj, segment) => (obj === undefined || obj === null ? undefined : obj[segment]), consolidatedSave);
+  return value === undefined || value === null ? null : JSON.stringify(value);
 }
 
 function setSaveItem(key, value) {
-  localStorage.setItem(saveKey(key), value);
+  const path = legacyKeyPaths[key];
+  if (!path) return;
+  let parsed;
+  try {
+    parsed = JSON.parse(value);
+  } catch {
+    parsed = value;
+  }
+  let target = consolidatedSave;
+  for (let i = 0; i < path.length - 1; i++) target = target[path[i]];
+  target[path[path.length - 1]] = parsed;
+  persistConsolidatedSave();
 }
 
-// Debounced persistence for the hot, frequently-written keys (seeds, nursery,
-// habitats). These were being written to localStorage several times a second
-// (synchronous JSON.stringify + I/O on the main thread), competing with the
-// game loop. Coalesce them and flush at most every ~1.5s, plus immediately
-// whenever the page is hidden/closed so nothing is lost. Producers are
-// evaluated at flush time so all three keys persist a consistent snapshot.
+// Debounced persistence for the consolidated save. Individual feature writes
+// (seeds, nursery, habitats, upgrades, ...) were previously several separate
+// localStorage keys written up to several times a second (synchronous
+// JSON.stringify + I/O on the main thread), competing with the game loop.
+// Coalesce them into one flush at most every ~1.5s, plus immediately whenever
+// the page is hidden/closed so nothing is lost. The producer is evaluated at
+// flush time so the write always reflects the latest in-memory state.
 const saveFlushIntervalMs = 1500;
 const pendingSaveProducers = new Map();
 let saveFlushTimer = null;
@@ -58,7 +193,7 @@ function flushPendingSaves() {
     clearTimeout(saveFlushTimer);
     saveFlushTimer = null;
   }
-  pendingSaveProducers.forEach((producer, key) => setSaveItem(key, producer()));
+  pendingSaveProducers.forEach((producer, key) => localStorage.setItem(key, producer()));
   pendingSaveProducers.clear();
 }
 
@@ -67,8 +202,17 @@ function queueSave(key, producer) {
   scheduleSaveFlush();
 }
 
+function persistConsolidatedSave() {
+  // Stamp savedAt at flush time so the engine's offline catch-up on next load
+  // measures from the last real persist (see engine/save.js resolveSavedAt).
+  queueSave(consolidatedSaveKey, () => {
+    consolidatedSave.savedAt = Date.now();
+    return JSON.stringify(consolidatedSave);
+  });
+}
+
 function saveSeeds() {
-  queueSave("seeds", () => String(seedsTotal));
+  setSaveItem("seeds", String(seedsTotal));
 }
 
 window.addEventListener("pagehide", flushPendingSaves);
@@ -179,6 +323,14 @@ const boardSizeSelect = document.querySelector("#boardSizeSelect");
 const minigameKeys = document.querySelectorAll("[data-minigame]");
 const personalizationScreen = document.querySelector("#personalizationScreen");
 const personalizationBackButton = document.querySelector("#personalizationBackButton");
+const openSaveDataButton = document.querySelector("#openSaveDataButton");
+const saveDataScreen = document.querySelector("#saveDataScreen");
+const saveDataExportArea = document.querySelector("#saveDataExportArea");
+const saveDataImportArea = document.querySelector("#saveDataImportArea");
+const copySaveDataButton = document.querySelector("#copySaveDataButton");
+const importSaveDataButton = document.querySelector("#importSaveDataButton");
+const saveDataBackButton = document.querySelector("#saveDataBackButton");
+const saveDataStatus = document.querySelector("#saveDataStatus");
 const snakebirdScreen = document.querySelector("#snakebirdScreen");
 const bodyColorChoices = document.querySelector("#bodyColorChoices");
 const headColorChoices = document.querySelector("#headColorChoices");
@@ -441,6 +593,13 @@ let lastFrameAt;
 let timerStarted;
 let animationId;
 let nurseryClockId;
+// Headless idle-economy engine (engine/index.js) — the authority for seeds,
+// eggs, habitats and offline catch-up. The legacy `nursery`/`habitats`/
+// `seedsTotal` globals below are kept as UI mirrors, refreshed from the engine
+// each frame by mirrorEconomyFromWorld(). See the "idle-world bridge" section.
+let idleWorld = null;
+let idleLastWallAt = null;
+let idleLastPersistAt = 0;
 let boardMetrics;
 let nursery = readNursery();
 let habitats = readHabitats();
@@ -756,6 +915,51 @@ const snakebirdLevels = [
 
 snakebirdProgress = readSnakebirdProgress();
 
+// Snapshot of every persisted global, in the consolidated save shape. Used
+// for export and as the source of truth written to localStorage.
+function gatherSaveState() {
+  return {
+    ...consolidatedSave,
+    saveVersion: SAVE_VERSION,
+    savedAt: Date.now(),
+    currencies: { seeds: seedsTotal },
+    upgrades: { ...upgrades },
+    board: { selectedBoardLevel, selectedDuelGridSize },
+    records: { best, crossingBest, mazeBest, breakoutBest, sokobanBest },
+    settings: { snakeColors: { ...snakeColors } },
+    nursery: { ...nursery },
+    habitats: { ...habitats },
+    snakebird: { ...snakebirdProgress }
+  };
+}
+
+// Restores every persisted global from a save object (startup, or after a
+// successful import). Reuses the existing readX() clamp/fallback functions
+// by routing them through the now-populated consolidatedSave.
+function applySaveState(saved) {
+  consolidatedSave = normalizeSaveState(saved);
+  seedsTotal = Number(getSaveItem("seeds") || 0);
+  upgrades = readUpgrades();
+  grid = parseGridSize(upgradeConfig.board.levels[upgrades.boardLevel]);
+  selectedBoardLevel = upgrades.boardLevel;
+  snakeColors = readSnakeColors();
+  nursery = readNursery();
+  habitats = readHabitats();
+  best = Number(getSaveItem("best") || 0);
+  crossingBest = Number(getSaveItem("crossing-best") || 0);
+  mazeBest = Number(getSaveItem("maze-best") || 0);
+  breakoutBest = Number(getSaveItem("breakout-best") || 0);
+  sokobanBest = Number(getSaveItem("sokoban-best") || 0);
+  selectedDuelGridSize = readDuelGridSize();
+  duelGrid = squareGrid(selectedDuelGridSize);
+  snakebirdProgress = readSnakebirdProgress();
+  syncHud();
+  syncColorChoices();
+  buildNurseryGrid();
+  buildHabitatList();
+  render();
+}
+
 function freshGame() {
   hideSnakebirdPicker();
   gameMode = "snake";
@@ -842,6 +1046,50 @@ function showPersonalization() {
 
 function hidePersonalization() {
   personalizationScreen.hidden = true;
+}
+
+function showSaveData() {
+  saveDataExportArea.value = JSON.stringify(gatherSaveState(), null, 2);
+  saveDataImportArea.value = "";
+  saveDataStatus.textContent = "";
+  saveDataScreen.hidden = false;
+  personalizationScreen.hidden = true;
+}
+
+function hideSaveData() {
+  saveDataScreen.hidden = true;
+  personalizationScreen.hidden = false;
+}
+
+async function copySaveData() {
+  try {
+    await navigator.clipboard.writeText(saveDataExportArea.value);
+    saveDataStatus.textContent = "Copied to clipboard.";
+  } catch {
+    saveDataExportArea.select();
+    saveDataStatus.textContent = "Clipboard unavailable — text selected, copy manually.";
+  }
+}
+
+function importSaveData() {
+  let parsed;
+  try {
+    parsed = JSON.parse(saveDataImportArea.value);
+  } catch {
+    saveDataStatus.textContent = "Import failed: invalid save data.";
+    return;
+  }
+  if (!parsed || typeof parsed !== "object" || typeof parsed.saveVersion !== "number") {
+    saveDataStatus.textContent = "Import failed: invalid save data.";
+    return;
+  }
+  applySaveState(parsed);
+  // Rebuild the idle engine from the imported save (with offline catch-up) so
+  // seeds/eggs/habitats resume from the restored state.
+  initIdleWorld();
+  localStorage.setItem(consolidatedSaveKey, JSON.stringify(consolidatedSave));
+  saveDataExportArea.value = JSON.stringify(gatherSaveState(), null, 2);
+  saveDataStatus.textContent = "Import successful.";
 }
 
 function readSnakebirdProgress() {
@@ -995,30 +1243,9 @@ function cloneSokobanPoints(points) {
 }
 
 function parseSokobanLevel(stageIndex) {
-  const definition = sokobanLevels[stageIndex];
-  const walls = new Set();
-  definition.map.forEach((row, y) => {
-    [...row].forEach((cell, x) => {
-      if (cell === "#") walls.add(sokobanKey({ x, y }));
-    });
-  });
-  return {
-    stageIndex,
-    width: sokobanGrid.columns,
-    height: sokobanGrid.rows,
-    walls,
-    snake: cloneSokobanPoints(definition.snake),
-    previousSnake: cloneSokobanPoints(definition.snake),
-    crates: definition.crates.map((crate) => ({ ...crate })),
-    previousCrates: definition.crates.map((crate) => ({ ...crate })),
-    goals: cloneSokobanPoints(definition.goals),
-    plates: definition.plates.map((plate) => ({ ...plate })),
-    gates: definition.gates.map((gate) => ({ ...gate })),
-    pellets: cloneSokobanPoints(definition.pellets),
-    moves: 0,
-    score: 0,
-    result: null
-  };
+  // Delegated to the headless engine (engine/sokoban.js); shape is identical to
+  // the previous inline builder, plus a totalPellets field for scoring.
+  return window.IdleSnakeSokoban.parseLevel(sokobanLevels[stageIndex], sokobanGrid, stageIndex);
 }
 
 function loadSokobanLevel(stageIndex) {
@@ -1098,44 +1325,14 @@ function sokobanIsBraced(directionName) {
 function sokobanMove(directionName) {
   if (!sokoban || state !== "running" || !vectors[directionName]) return false;
 
-  const vector = vectors[directionName];
-  const head = sokoban.snake[0];
-  const nextHead = { x: head.x + vector.x, y: head.y + vector.y };
-  const crate = sokobanCrateAt(nextHead);
-  const snakeWithoutTail = sokoban.snake.slice(0, -1);
-
-  if (!sokobanIsOpen(nextHead)) return false;
-  if (snakeWithoutTail.some((part) => part.x === nextHead.x && part.y === nextHead.y)) return false;
-
-  let nextCratePoint = null;
-  if (crate) {
-    if (crate.kind === "heavy" && (sokoban.snake.length < 5 || !sokobanIsBraced(directionName))) return false;
-    nextCratePoint = { x: crate.x + vector.x, y: crate.y + vector.y };
-    const blockedBySnake = snakeWithoutTail.some((part) => part.x === nextCratePoint.x && part.y === nextCratePoint.y);
-    const blockedByOtherCrate = sokoban.crates.some((candidate) => candidate !== crate && candidate.x === nextCratePoint.x && candidate.y === nextCratePoint.y);
-    if (!sokobanIsOpen(nextCratePoint) || blockedBySnake || blockedByOtherCrate) return false;
-  }
-
-  sokoban.previousSnake = cloneSokobanPoints(sokoban.snake);
-  sokoban.previousCrates = sokoban.crates.map((candidate) => ({ ...candidate }));
-  sokoban.snake.unshift(nextHead);
-  const pelletIndex = sokoban.pellets.findIndex((pellet) => pellet.x === nextHead.x && pellet.y === nextHead.y);
-  const grew = pelletIndex >= 0;
-  if (grew) sokoban.pellets.splice(pelletIndex, 1);
-  else sokoban.snake.pop();
-
-  if (crate && nextCratePoint) {
-    crate.x = nextCratePoint.x;
-    crate.y = nextCratePoint.y;
-  }
+  // Move logic delegated to the headless engine; host keeps direction facing,
+  // win handling, and the HUD/hint/render side-effects the engine omits.
+  const result = window.IdleSnakeSokoban.applyMove(sokoban, directionName);
+  if (!result.accepted) return false;
 
   direction = directionName;
   nextDirection = directionName;
-  sokoban.moves += 1;
-  sokoban.score = sokoban.crates.filter((candidate) => sokobanIsGoal(candidate)).length * 100 +
-    (sokobanLevels[sokoban.stageIndex].pellets.length - sokoban.pellets.length) * 10;
-  const won = sokoban.crates.every((candidate) => sokobanIsGoal(candidate));
-  if (won) {
+  if (result.won) {
     endSokoban(true);
   } else {
     setScreenHint(sokobanStatusHint());
@@ -1377,45 +1574,29 @@ function buildBreakoutLevel(boardWidth) {
   return bricks;
 }
 
+// These helpers delegate to the headless engine (engine/breakout.js) so setup,
+// rendering, and the physics step all share one implementation.
 function breakoutPaddleWidth() {
-  if (!breakout) return 0;
-  return breakout.paddle.length * breakout.segmentSize + (breakout.paddle.length - 1) * breakout.gap;
+  return breakout ? window.IdleSnakeBreakout.paddleWidth(breakout) : 0;
 }
 
 function setBreakoutPaddleLength(length) {
-  const center = breakout.paddle.x + breakoutPaddleWidth() / 2;
-  breakout.paddle.length = length;
-  breakout.paddle.x = Math.max(0, Math.min(boardMetrics.width - breakoutPaddleWidth(), center - breakoutPaddleWidth() / 2));
+  window.IdleSnakeBreakout.setPaddleLength(breakout, length, boardMetrics.width);
 }
 
 function buildBreakoutBall(index = 0) {
-  const sign = index % 2 === 0 ? 1 : -1;
-  return {
-    x: boardMetrics.width / 2 + (index ? sign * 14 : 0),
-    y: breakout.paddle.y - breakout.segmentSize - 34,
-    radius: Math.max(5, Math.floor(breakout.segmentSize * 0.23)),
-    vx: breakoutConfig.ballSpeed * 0.62 * sign,
-    vy: -breakoutConfig.ballSpeed * 0.78
-  };
+  return window.IdleSnakeBreakout.buildBall(breakout, boardMetrics.width, index);
 }
 
 function createBreakoutPowerup(type, x, y) {
-  return {
-    type,
-    x,
-    y,
-    radius: Math.max(6, Math.floor(breakout.segmentSize * 0.2))
-  };
+  return window.IdleSnakeBreakout.createPowerup(breakout, type, x, y);
 }
 
 const breakoutMaxHeartsPerLevel = 2;
 const breakoutSeedBoostMs = 30000;
 
 function randomBreakoutPowerupType(heartsAllowed) {
-  const roll = Math.random();
-  if (roll < 0.55) return "seed";
-  if (heartsAllowed && roll < 0.65) return "heart";
-  return "multiball";
+  return window.IdleSnakeBreakout.randomPowerupType(heartsAllowed, Math.random);
 }
 
 function buildNibblerBoard(layoutIndex = 0) {
@@ -1540,9 +1721,7 @@ function broodlineSpawnWave() {
   }
 }
 function broodlineSpawnRound() {
-  broodline.wave = 1;
-  broodlineSpawnWave();
-  broodline.phase = "combat";
+  window.IdleSnakeBroodline.spawnRound(broodline, Math.random);
   state = "ready";
   hideBroodlineFormation();
   setScreenHint("Steer · attacks are automatic");
@@ -1626,73 +1805,14 @@ function broodlineCollect(growthPos = broodline.chain.at(-1)?.pos || broodline.h
 }
 function broodlineStep() {
   if (!broodline || broodline.phase !== "combat") return;
-  if (broodline.queue.length) broodline.direction = broodline.queue.shift();
-  const vector = vectors[broodline.direction]; const previousHead = { ...broodline.head }; const old = broodline.chain.map((part) => ({ ...part.pos }));
-  const next = { x: broodline.head.x + vector.x, y: broodline.head.y + vector.y };
-  if (next.x <= 0 || next.y <= 0 || next.x >= 29 || next.y >= 29) return broodlineEndRun("Wall death");
-  const collision = broodline.chain.findIndex((part) => part.pos.x === next.x && part.pos.y === next.y);
-  if (collision >= 0) { broodline.chain.splice(collision); broodline.effects.push({ pos: next, text: "TRUNCATED", ttl: 900 }); }
-  const retainedLength = broodline.chain.length;
-  const growthPos = retainedLength ? old[retainedLength - 1] : previousHead;
-  broodline.head = next;
-  broodline.chain.forEach((part, index) => { part.pos = index === 0 ? { ...previousHead } : { ...old[index - 1] }; });
-  broodlineCollect(growthPos);
-  const bite = broodlineNearestEnemy(next, { min: 0, max: 3 });
-  const forward = broodlineNearestEnemy(next, { min: 3, max: 5 }, true);
-  if (bite) broodlineDamage(bite, 2, "FANG BITE"); else if (forward) broodlineDamage(forward, 1, "VENOM");
-  broodline.chain.slice(1).forEach((part) => {
-    if (!["garden", "electric", "lava", "rattle"].includes(part.kind)) return;
-    part.cooldown = Math.max(0, (part.cooldown || 0) - broodlineTickMs);
-    const enemy = broodlineNearestEnemy(part.pos, part.kind === "rattle" || part.kind === "electric" ? 3 : 2);
-    if (enemy && part.cooldown === 0) { broodlineDamage(enemy, part.kind === "rattle" ? 0 : 1, part.kind === "electric" ? "STUN" : part.kind === "lava" ? "BURN" : part.kind === "rattle" ? "POISON" : "GARDEN"); if (part.kind === "electric") enemy.stun = 3; if (part.kind === "lava") enemy.burn = 3; if (part.kind === "rattle") enemy.poison = 5; part.cooldown = part.kind === "garden" ? 500 : 900; }
-  });
-  const reserved = new Set();
-  broodline.enemies.forEach((enemy) => {
-    if (enemy.hp <= 0) return;
-    enemy.cooldown -= 1;
-    enemy.stun = Math.max(0, enemy.stun - 1);
-    if (enemy.burn > 0) { enemy.burn -= 1; broodlineDamage(enemy, 1, "BURN"); }
-    if (enemy.poison > 0) { enemy.poison -= 1; broodlineDamage(enemy, 1, "POISON"); }
-    if (enemy.hp <= 0 || enemy.stun) return;
-
-    if (enemy.type === "melee") {
-      const distance = broodlineManhattan(enemy.pos, broodline.head);
-      enemy.target = "head";
-      if (distance <= 1) {
-        if (enemy.cooldown <= 0) { broodlineTakeDamage("head"); enemy.cooldown = 4; }
-        return;
-      }
-      const attackCell = broodlineMeleeTargetCell(broodline.head, enemy);
-      broodlineStepToward(enemy, attackCell || broodline.head, reserved);
-      return;
-    }
-
-    const target = broodlineClosestBodyTarget(enemy.pos);
-    // The fallback is the head, which is a coordinate rather than a chain part.
-    const targetPos = target.index >= 0 ? target.part.pos : target.part;
-    const distance = broodlineManhattan(enemy.pos, targetPos);
-    enemy.target = target.index >= 0 ? target.index : "head";
-    if (distance <= 5 && enemy.cooldown <= 0) {
-      broodlineTakeDamage(target.index >= 0 ? target.index : "head");
-      enemy.cooldown = 5;
-    }
-    if (distance < 3) broodlineStepAway(enemy, targetPos, reserved);
-    else if (distance > 5) broodlineStepToward(enemy, targetPos, reserved);
-    else reserved.add(broodlineKey(enemy.pos));
-  });
-  broodline.enemies = broodline.enemies.filter((enemy) => enemy.hp > 0); broodline.effects.forEach((effect) => effect.ttl -= broodlineTickMs); broodline.effects = broodline.effects.filter((effect) => effect.ttl > 0);
-  broodline.chain.filter((part) => part.kind === "egg").forEach((egg) => { egg.hatchAt -= broodlineTickMs; if (egg.hatchAt <= 0) { egg.kind = ["garden", "garden", "garden", "cave", "rattle", "electric", "lava"][Math.floor(Math.random() * 7)]; broodline.eggsHatched += 1; broodline.pendingSeeds += 2; broodline.effects.push({ pos: { ...egg.pos }, text: "HATCH!", ttl: 1000 }); } });
-  if (!broodline.enemies.length) {
-    if (broodline.wave < broodlineWavesPerRound) {
-      broodline.wave += 1;
-      broodline.pendingSeeds += 3;
-      broodline.hp = Math.min(broodline.maxHp, broodline.hp + 2);
-      broodlineSpawnWave();
-      broodline.effects.push({ pos: { ...broodline.head }, text: `WAVE ${broodline.wave}/${broodlineWavesPerRound}`, ttl: 1000 });
-      syncHud();
-    } else {
-      broodline.phase = "formation"; broodline.pendingSeeds += 10 + broodline.round; state = "paused"; showBroodlineFormation();
-    }
+  // Combat simulation delegated to the headless engine (engine/broodline.js).
+  // Host interprets the returned events for the run-end reward, wave HUD, and
+  // the round-clear formation screen.
+  const { events } = window.IdleSnakeBroodline.step(broodline, { rng: Math.random });
+  for (const event of events) {
+    if (event.type === "endRun") { broodlineEndRun(event.reason); return; }
+    if (event.type === "wave") { syncHud(); }
+    if (event.type === "roundClear") { state = "paused"; showBroodlineFormation(); }
   }
 }
 function broodlineTakeDamage(target = "head") {
@@ -1914,11 +2034,11 @@ function clampNumber(value, min, max, fallback) {
 }
 
 function saveNursery() {
-  queueSave("nursery", () => JSON.stringify(nursery));
+  setSaveItem("nursery", JSON.stringify(nursery));
 }
 
 function saveHabitats() {
-  queueSave("habitats", () => JSON.stringify(habitats));
+  setSaveItem("habitats", JSON.stringify(habitats));
 }
 
 function updateNursery(now) {
@@ -2238,16 +2358,12 @@ function renderHabitats() {
 
 function placeSnakeInHabitat(index) {
   const habitat = habitatConfig.habitats[index];
-  if (!habitat || !isHabitatUnlocked(habitat) || nursery.colonyCount < 1) return;
+  if (!habitat || !idleWorld || !isHabitatUnlocked(habitat) || idleWorld.state.nursery.colonyCount < 1) return;
 
   const now = Date.now();
-  updateNursery(now);
-  updateHabitatIncome(now);
-  if (nursery.colonyCount < 1) return;
-
-  nursery.colonyCount -= 1;
-  habitats.counts[index] += 1;
-  nursery.lastUpdatedAt = now;
+  idleWorld.state.nursery.colonyCount -= 1;
+  idleWorld.state.habitats.counts[index] += 1;
+  mirrorEconomyFromWorld(now);
   saveNursery();
   saveHabitats();
   syncHud();
@@ -2335,28 +2451,98 @@ function syncHatchlingRows() {
 }
 
 function layEgg() {
+  if (!idleWorld) return;
   const now = Date.now();
-  updateNursery(now);
-  if (nursery.nestStartedAt !== null || nursery.hatchlings.length >= nurseryConfig.capacity || seedsTotal < nurseryConfig.eggCost) return;
-
-  seedsTotal -= nurseryConfig.eggCost;
-  nursery.nestStartedAt = now;
-  nursery.lastUpdatedAt = now;
-  nursery.seedTickAccumulatorMs = 0;
-  nursery.movementAccumulatorMs = 0;
+  idleWorld.state.seeds = seedsTotal;
+  const result = idleWorld.layEgg();
+  if (!result || !result.accepted) return;
+  seedsTotal = idleWorld.state.seeds;
+  mirrorEconomyFromWorld(now);
   saveSeeds();
   saveNursery();
   syncHud();
   syncPanels(now);
 }
 
+// ---- Idle-world bridge -----------------------------------------------------
+// The engine owns the economy simulation; these helpers keep the legacy UI
+// globals (seedsTotal/nursery/habitats) in sync with world.state so all the
+// existing render/panel code keeps working unchanged.
+
+// Copy engine economy state into the legacy globals the UI reads. Converts the
+// engine's relative eggElapsedMs back to the absolute nestStartedAt the nursery
+// panel expects, using `now` (epoch) so the hatch countdown stays correct.
+function mirrorEconomyFromWorld(now) {
+  if (!idleWorld) return;
+  const en = idleWorld.state.nursery;
+  nursery.eggElapsedMs = en.eggElapsedMs;
+  nursery.nestStartedAt = en.eggElapsedMs == null ? null : now - en.eggElapsedMs;
+  nursery.hatchlings = en.hatchlings;
+  nursery.colonyCount = en.colonyCount;
+  nursery.seedTickAccumulatorMs = en.seedTickAccumulatorMs;
+  nursery.movementAccumulatorMs = en.movementAccumulatorMs;
+  nursery.lastUpdatedAt = now;
+  habitats.counts = idleWorld.state.habitats.counts;
+  habitats.lastUpdatedAt = now;
+}
+
+// Advance the idle economy on the unified clock. Called every frame from
+// gameLoop with the real wall-clock delta (so it also catches up after the tab
+// is throttled in the background); offline-across-reload is handled at load by
+// IdleSnakeSave.hydrate. Absorbs gameplay seed changes before ticking and
+// writes the result back, then mirrors to the UI globals.
+function tickIdleWorld() {
+  if (!idleWorld) return [];
+  const now = Date.now();
+  const dt = idleLastWallAt == null ? 0 : now - idleLastWallAt;
+  idleLastWallAt = now;
+  if (dt <= 0) return [];
+  idleWorld.state.seeds = seedsTotal;   // absorb gameplay awards/spends
+  idleWorld.state.upgrades = upgrades;  // share upgrade levels (food value etc.)
+  const events = idleWorld.tick(dt, { offline: true });
+  seedsTotal = idleWorld.state.seeds;
+  mirrorEconomyFromWorld(now);
+  // Persist on the old ~250ms cadence (writes are debounced/coalesced anyway).
+  if (now - idleLastPersistAt >= 250) {
+    idleLastPersistAt = now;
+    saveSeeds();
+    saveNursery();
+    saveHabitats();
+  }
+  return events;
+}
+
+// Rebuild the idle world from the current consolidatedSave (used at boot and
+// after a save import). Runs the offline catch-up tick for time elapsed since
+// the save's savedAt, then mirrors into the UI globals.
+function initIdleWorld() {
+  if (!window.IdleSnakeSave) return;
+  const hydrated = window.IdleSnakeSave.hydrate(consolidatedSave, { now: Date.now() });
+  idleWorld = hydrated.world;
+  idleWorld.state.upgrades = upgrades;
+  idleLastWallAt = Date.now();
+  idleLastPersistAt = idleLastWallAt;
+  seedsTotal = idleWorld.state.seeds;
+  mirrorEconomyFromWorld(idleLastWallAt);
+}
+
+// Interpret events returned by the idle world tick (hatch, seedsChanged, ...).
+// Rendering/persistence are handled by the mirror + throttled panel refresh;
+// this is the seam where hatch toasts / sounds would hook in later.
+function interpretIdleEvents(events) {
+  if (!events || events.length === 0) return;
+  for (const event of events) {
+    if (event.type === "hatch") {
+      // Force an immediate panel refresh so a new hatchling appears at once.
+      idleLastPanelAt = 0;
+    }
+  }
+}
+
 function runNurseryClock() {
   const now = Date.now();
-  updateNursery(now);
-  updateHabitatIncome(now);
+  tickIdleWorld();
   setText(seedsTotalEl, padSeeds(seedsTotal));
-  // Now that these no longer run every frame, refresh both panels on the 250ms
-  // cadence so seed-affordability and idle state stay current regardless of mode.
   syncPanels(now);
 }
 
@@ -2395,7 +2581,20 @@ function resetGame() {
   freshGame();
 }
 
+let idleLastPanelAt = 0;
 function gameLoop(now) {
+  // Idle economy advances on the SAME clock as gameplay, every frame, whatever
+  // the gameplay phase (menu/ready/running/paused/gameover). This replaces the
+  // old separate setInterval(runNurseryClock, 250).
+  const idleEvents = tickIdleWorld();
+  interpretIdleEvents(idleEvents);
+  setText(seedsTotalEl, padSeeds(seedsTotal));
+  const wallNow = Date.now();
+  if (wallNow - idleLastPanelAt >= 200) {
+    idleLastPanelAt = wallNow;
+    syncPanels(wallNow);
+  }
+
   if (state === "running") {
     const deltaMs = Math.min(100, now - lastFrameAt);
     elapsedMs += deltaMs;
@@ -2449,62 +2648,46 @@ function stepCrossing(now) {
     return;
   }
 
-  updateCrossingCars();
-  if (isCrossingCarHit()) {
+  // Active-phase step delegated to the headless engine (engine/crossing.js).
+  // Host keeps the previousCrossingSnake anti-flicker snapshots, death handling,
+  // and the stage-clear rewards/overlay/phase transition.
+  const snapshot = crossingSnake.map((part) => ({ ...part }));
+  const sim = {
+    grid: crossingGrid, snake: crossingSnake, cars: crossingCars, score: crossingScore,
+    stage: crossingStage, snakeLength: crossingSnakeLength, entryColumn: crossingEntryColumn,
+    direction, nextDirection, directionQueue
+  };
+  const { events, alive } = window.IdleSnakeCrossing.stepCrossing(sim);
+
+  crossingSnake = sim.snake;
+  crossingCars = sim.cars;
+  crossingScore = sim.score;
+  crossingSnakeLength = sim.snakeLength;
+  crossingEntryColumn = sim.entryColumn;
+  direction = sim.direction;
+  nextDirection = sim.nextDirection;
+  previousCrossingSnake = snapshot;
+
+  if (!alive) {
     endCrossing();
     return;
   }
 
-  if (directionQueue.length === 0) {
-    // Idle on the bank: keep the previous snapshot in sync so a stationary
-    // snake doesn't re-animate its last hop every tick (the shaking glitch).
-    previousCrossingSnake = crossingSnake.map((part) => ({ ...part }));
-    return;
-  }
-  direction = directionQueue.shift();
-  nextDirection = directionQueue.length > 0
-    ? directionQueue[directionQueue.length - 1]
-    : direction;
-
-  const head = crossingSnake[0];
-  const vector = vectors[direction];
-  const nextHead = { x: head.x + vector.x, y: head.y + vector.y };
-  if (isWallHit(nextHead)) {
-    previousCrossingSnake = crossingSnake.map((part) => ({ ...part }));
-    return;
-  }
-
-  previousCrossingSnake = crossingSnake.map((part) => ({ ...part }));
-  crossingSnake.unshift(nextHead);
-  // Length stays fixed while crossing lanes; growth only happens on a full
-  // stage clear (see the push below when the top bank is reached).
-  crossingSnake.pop();
-
-  // Track the head's column so the next stage re-enters where it left off.
-  crossingEntryColumn = crossingSnake[0].x;
-
-  if (isCrossingCarHit()) {
-    endCrossing();
-    return;
-  }
-
-  if (nextHead.y === 0) {
-    crossingSnakeLength += 1;
-    crossingSnake.push({ ...crossingSnake[crossingSnake.length - 1] });
-    // Snap the previous snapshot to match so the clearing pause doesn't keep
-    // replaying the final hop's interpolation (the end-of-stage flicker).
-    previousCrossingSnake = crossingSnake.map((part) => ({ ...part }));
-    const reward = 10 + crossingStage * 5;
-    crossingScore += crossingStage * 100;
-    crossingBest = Math.max(crossingBest, crossingScore);
-    seedsTotal += reward;
-    saveSeeds();
-    setSaveItem("crossing-best", String(crossingBest));
-    crossingPhase = "clearing";
-    crossingTransitionUntil = now + 500;
-    syncHud();
-    showOverlay(`Stage ${crossingStage} Clear · +${formatNumber(reward)} Seeds`);
-    setScreenHint("Next road loading");
+  for (const event of events) {
+    if (event.type === "stageClear") {
+      crossingBest = Math.max(crossingBest, crossingScore);
+      seedsTotal += event.reward;
+      saveSeeds();
+      setSaveItem("crossing-best", String(crossingBest));
+      // Snap the snapshot to match so the clearing pause doesn't replay the
+      // final hop's interpolation (the end-of-stage flicker).
+      previousCrossingSnake = crossingSnake.map((part) => ({ ...part }));
+      crossingPhase = "clearing";
+      crossingTransitionUntil = now + 500;
+      syncHud();
+      showOverlay(`Stage ${crossingStage} Clear · +${formatNumber(event.reward)} Seeds`);
+      setScreenHint("Next road loading");
+    }
   }
 }
 
@@ -2544,140 +2727,22 @@ function endCrossing() {
 
 function stepBreakout(deltaMs) {
   if (!breakout) return;
-  const dt = Math.min(40, deltaMs) / 1000;
-  const boardWidth = boardMetrics.width;
-  const boardHeight = boardMetrics.height;
-  const paddle = breakout.paddle;
-  const paddleWidth = breakoutPaddleWidth();
-
-  paddle.x = Math.max(0, Math.min(boardWidth - paddleWidth, paddle.x + paddle.input * breakoutConfig.paddleSpeed * dt));
-
-  const remainingPowerups = [];
-  const pendingMultiballs = [];
-  breakout.powerups.forEach((powerup) => {
-    powerup.y += breakoutConfig.powerupFallSpeed * dt;
-    const caught = powerup.y + powerup.radius >= paddle.y &&
-      powerup.y - powerup.radius <= paddle.y + breakout.segmentSize &&
-      powerup.x >= paddle.x - powerup.radius &&
-      powerup.x <= paddle.x + paddleWidth + powerup.radius;
-    if (caught) {
-      if (powerup.type === "seed") {
-        if (paddle.length < 10) {
-          setBreakoutPaddleLength(paddle.length + 1);
-          breakout.seedBoosts.push(elapsedMs + breakoutSeedBoostMs);
-        }
-      } else if (powerup.type === "heart") {
-        breakout.lives += 1;
-        breakout.heartsCollected += 1;
-      } else if (powerup.type === "multiball") {
-        pendingMultiballs.push(powerup);
-      }
-    } else if (powerup.y - powerup.radius <= boardHeight) {
-      remainingPowerups.push(powerup);
-    }
+  // Physics simulation delegated to the headless engine (engine/breakout.js).
+  // Host passes the canvas-derived board dimensions and interprets win/loss/
+  // ball-lost events.
+  const { events } = window.IdleSnakeBreakout.step(breakout, {
+    deltaMs, boardWidth: boardMetrics.width, boardHeight: boardMetrics.height,
+    elapsedMs, rng: Math.random
   });
-  breakout.powerups = remainingPowerups;
-
-  if (breakout.seedBoosts.length > 0) {
-    const stillActive = [];
-    let expiredCount = 0;
-    breakout.seedBoosts.forEach((expiresAt) => {
-      if (elapsedMs >= expiresAt) expiredCount += 1;
-      else stillActive.push(expiresAt);
-    });
-    if (expiredCount > 0) {
-      setBreakoutPaddleLength(Math.max(breakoutConfig.basePaddleLength, paddle.length - expiredCount));
+  for (const event of events) {
+    if (event.type === "win") { endBreakout(true); return; }
+    if (event.type === "gameOver") { endBreakout(false); return; }
+    if (event.type === "ballLost") {
+      state = "ready";
+      syncHud();
+      showOverlay(`Ball Lost · ${event.lives} ${event.lives === 1 ? "life" : "lives"} left`);
+      setScreenHint("Left / right to move · catch seeds to grow");
     }
-    breakout.seedBoosts = stillActive;
-  }
-
-  const remainingBalls = [];
-  for (const ball of breakout.balls) {
-    const previousY = ball.y;
-    ball.x += ball.vx * dt;
-    ball.y += ball.vy * dt;
-
-    if (ball.x - ball.radius <= 0) {
-      ball.x = ball.radius;
-      ball.vx = Math.abs(ball.vx);
-    } else if (ball.x + ball.radius >= boardWidth) {
-      ball.x = boardWidth - ball.radius;
-      ball.vx = -Math.abs(ball.vx);
-    }
-    if (ball.y - ball.radius <= 0) {
-      ball.y = ball.radius;
-      ball.vy = Math.abs(ball.vy);
-    }
-
-    const paddleTop = paddle.y;
-    const hitPaddle = ball.vy > 0 &&
-      previousY + ball.radius <= paddleTop + Math.max(2, breakout.segmentSize * 0.25) &&
-      ball.y + ball.radius >= paddleTop &&
-      ball.x + ball.radius >= paddle.x &&
-      ball.x - ball.radius <= paddle.x + paddleWidth;
-    if (hitPaddle) {
-      ball.y = paddleTop - ball.radius;
-      const hit = Math.max(-1, Math.min(1, (ball.x - (paddle.x + paddleWidth / 2)) / (paddleWidth / 2)));
-      const speed = Math.max(breakoutConfig.ballSpeed, Math.hypot(ball.vx, ball.vy));
-      const horizontal = Math.max(-0.86, Math.min(0.86, hit * 0.92 || (ball.vx < 0 ? -0.16 : 0.16)));
-      ball.vx = speed * horizontal;
-      ball.vy = -Math.sqrt(Math.max(1, speed * speed - ball.vx * ball.vx));
-    }
-
-    if (ball.y - ball.radius > boardHeight) continue;
-
-    const brickIndex = breakout.bricks.findIndex((brick) =>
-      ball.x + ball.radius >= brick.x &&
-      ball.x - ball.radius <= brick.x + brick.width &&
-      ball.y + ball.radius >= brick.y &&
-      ball.y - ball.radius <= brick.y + brick.height
-    );
-    if (brickIndex >= 0) {
-      const brick = breakout.bricks[brickIndex];
-      breakout.bricks.splice(brickIndex, 1);
-      breakout.score += 10;
-      const cameFromAbove = previousY + ball.radius <= brick.y;
-      const cameFromBelow = previousY - ball.radius >= brick.y + brick.height;
-      if (cameFromAbove || cameFromBelow) ball.vy *= -1;
-      else ball.vx *= -1;
-      if (Math.random() < breakoutConfig.powerupDropChance) {
-        const heartsAllowed = breakout.heartsCollected < breakoutMaxHeartsPerLevel;
-        breakout.powerups.push(createBreakoutPowerup(
-          randomBreakoutPowerupType(heartsAllowed),
-          brick.x + brick.width / 2,
-          brick.y + brick.height / 2
-        ));
-      }
-      if (breakout.bricks.length === 0) {
-        endBreakout(true);
-        return;
-      }
-    }
-
-    remainingBalls.push(ball);
-  }
-
-  pendingMultiballs.forEach((_powerup, index) => {
-    const ball = buildBreakoutBall(remainingBalls.length + index);
-    ball.x = paddle.x + paddleWidth / 2;
-    ball.y = paddle.y - ball.radius - 4;
-    remainingBalls.push(ball);
-  });
-
-  if (remainingBalls.length === 0) {
-    breakout.lives -= 1;
-    if (breakout.lives <= 0) {
-      endBreakout(false);
-      return;
-    }
-    breakout.balls = [buildBreakoutBall(0)];
-    breakout.paddle.input = 0;
-    state = "ready";
-    syncHud();
-    showOverlay(`Ball Lost · ${breakout.lives} ${breakout.lives === 1 ? "life" : "lives"} left`);
-    setScreenHint("Left / right to move · catch seeds to grow");
-  } else {
-    breakout.balls = remainingBalls;
   }
 }
 
@@ -2693,63 +2758,42 @@ function endBreakout(won) {
   showOverlay(won ? "Level Clear · +500 Seeds" : "Game Over");
 }
 
+// Core snake step, delegated to the headless engine (engine/snake.js). The host
+// keeps the purely-visual concerns — the previousSnake snapshot for smooth
+// interpolation and the digestion animation — and turns the engine's returned
+// events into the HUD/save/overlay side-effects the engine deliberately omits.
 function step() {
   previousSnake = snake.map((part) => ({ ...part }));
-  if (directionQueue.length > 0) {
-    direction = directionQueue.shift();
-    nextDirection = directionQueue.length > 0
-      ? directionQueue[directionQueue.length - 1]
-      : direction;
-  }
-  const head = snake[0];
-  const vector = vectors[direction];
-  let nextHead = {
-    x: head.x + vector.x,
-    y: head.y + vector.y
+  const SnakeEngine = window.IdleSnakeSnake;
+
+  // A state view over the live globals. Arrays (snake/foods/directionQueue) are
+  // mutated in place by the engine; scalars are read back afterwards.
+  const sim = {
+    grid, snake, foods, direction, nextDirection, directionQueue,
+    score, tickMs, upgrades, seeds: seedsTotal, best
   };
-  let shieldRedirected = false;
-  const collision = isWallHit(nextHead) || isSnakeHit(nextHead, false);
+  const { events } = SnakeEngine.stepSnake(sim, { rng: Math.random });
 
-  if (collision) {
-    const redirect = findShieldRedirect();
-    if (redirect) {
-      upgrades.shieldLevel -= 1;
-      saveUpgrades();
-      direction = redirect.direction;
-      nextDirection = redirect.direction;
-      directionQueue = [];
-      nextHead = redirect.point;
-      shieldRedirected = true;
-    } else {
-      endGame();
-      return;
+  snake = sim.snake;
+  foods = sim.foods;
+  direction = sim.direction;
+  nextDirection = sim.nextDirection;
+  directionQueue = sim.directionQueue;
+  score = sim.score;
+  tickMs = sim.tickMs;
+  seedsTotal = sim.seeds;
+  best = sim.best;
+
+  for (const event of events) {
+    switch (event.type) {
+      case "eat": startDigestionAnimation(); break;
+      case "seedsChanged": saveSeeds(); break;
+      case "shield": saveUpgrades(); break;
+      case "bestScore": setSaveItem("best", String(best)); break;
+      case "hudDirty": syncHud(); break;
+      case "gameOver": state = "gameover"; syncHud(); showOverlay("Game Over"); break;
+      case "win": state = "gameover"; syncHud(); showOverlay("Maxed"); break;
     }
-  }
-
-  const eatenFoodIndex = foods.findIndex((snack) => snack.x === nextHead.x && snack.y === nextHead.y);
-  const willEat = eatenFoodIndex >= 0;
-  snake.unshift(nextHead);
-
-  if (willEat) {
-    score += 1;
-    seedsTotal += currentFoodType().value;
-    saveSeeds();
-    tickMs = Math.max(minTickMs, startTickMs - score * 2.8);
-    foods.splice(eatenFoodIndex, 1);
-    startDigestionAnimation();
-    const replacement = placeFood();
-    if (replacement) {
-      foods.push(replacement);
-    }
-    if (foods.length < foodCount()) {
-      winGame();
-    }
-  } else {
-    snake.pop();
-  }
-
-  if (shieldRedirected) {
-    syncHud();
   }
 }
 
@@ -3040,61 +3084,25 @@ function chooseOpponentDirection() {
 function stepVsSnake() {
   previousDuelPlayerBody = duelPlayer.body.map((part) => ({ ...part }));
   previousDuelOpponentBody = duelOpponent.body.map((part) => ({ ...part }));
-  if (directionQueue.length > 0) {
-    duelPlayer.direction = directionQueue.shift();
-    direction = duelPlayer.direction;
-    nextDirection = directionQueue.length > 0
-      ? directionQueue[directionQueue.length - 1]
-      : direction;
-  }
-  chooseOpponentDirection();
-  const playerHead = duelNextHead(duelPlayer);
-  const opponentHead = duelNextHead(duelOpponent);
-  const playerFood = duelFoods.findIndex((food) => food.x === playerHead.x && food.y === playerHead.y);
-  const opponentFood = duelFoods.findIndex((food) => food.x === opponentHead.x && food.y === opponentHead.y);
-  // Resolve movement simultaneously. The opponent's head and tail may leave
-  // their current squares on this tick, so they should not block a cutoff
-  // unless both heads actually move into the same square.
-  const playerBodyAfterMove = (playerFood >= 0 ? duelPlayer.body : duelPlayer.body.slice(0, -1)).slice(1);
-  const opponentBodyAfterMove = (opponentFood >= 0 ? duelOpponent.body : duelOpponent.body.slice(0, -1)).slice(1);
-  const playerCollision = isWallHit(playerHead) ||
-    duelContains(playerBodyAfterMove, playerHead) ||
-    duelContains(opponentBodyAfterMove, playerHead);
-  const opponentCollision = isWallHit(opponentHead) ||
-    duelContains(opponentBodyAfterMove, opponentHead) ||
-    duelContains(playerBodyAfterMove, opponentHead);
-  const headOn = playerHead.x === opponentHead.x && playerHead.y === opponentHead.y;
 
-  if (playerCollision || opponentCollision || headOn) {
-    if (headOn && !playerCollision && !opponentCollision) {
-      duelWinner = duelPlayer.body.length > duelOpponent.body.length
-        ? "player"
-        : duelOpponent.body.length > duelPlayer.body.length ? "opponent" : null;
-    } else {
-      duelWinner = playerCollision && !opponentCollision ? "opponent" : opponentCollision && !playerCollision ? "player" : null;
-    }
-    endVsSnake(duelWinner);
-    return;
-  }
+  // Duel simulation (movement, simultaneous collision, opponent AI, food)
+  // delegated to the headless engine (engine/duel.js). Host keeps the
+  // previous-body snapshots and the win reward/overlay via endVsSnake.
+  const sim = {
+    grid: duelGrid, player: duelPlayer, opponent: duelOpponent, foods: duelFoods,
+    score: duelScore, directionQueue, direction, nextDirection
+  };
+  const { alive, winner } = window.IdleSnakeDuel.stepVsSnake(sim, { rng: Math.random });
 
-  duelPlayer.body.unshift(playerHead);
-  duelOpponent.body.unshift(opponentHead);
-  const eatenFoods = new Set();
-  if (playerFood >= 0) {
-    duelScore += 1;
-    eatenFoods.add(`${playerHead.x},${playerHead.y}`);
-  } else {
-    duelPlayer.body.pop();
+  duelFoods = sim.foods;
+  duelScore = sim.score;
+  direction = sim.direction;
+  nextDirection = sim.nextDirection;
+
+  if (!alive) {
+    duelWinner = winner;
+    endVsSnake(winner);
   }
-  if (opponentFood >= 0) {
-    eatenFoods.add(`${opponentHead.x},${opponentHead.y}`);
-  } else {
-    duelOpponent.body.pop();
-  }
-  if (eatenFoods.size) {
-    duelFoods = duelFoods.filter((food) => !eatenFoods.has(`${food.x},${food.y}`));
-  }
-  while (duelFoods.length < 5) duelFoods.push(...spawnDuelFoods(1));
 }
 
 function endVsSnake(winner) {
@@ -3172,33 +3180,39 @@ function moveThroughMaze(startDirection) {
 
 function stepMaze() {
   if (!maze || state !== "running") return false;
-  if (directionQueue.length) direction = directionQueue.shift();
-  const vector = vectors[direction];
-  const head = mazePath[0];
-  const next = { x: head.x + vector.x, y: head.y + vector.y };
-  const ateFood = maze.food && next.x === maze.food.x && next.y === maze.food.y;
-  const bodyToCheck = ateFood ? mazePath : mazePath.slice(0, -1);
-  if (!isMazeOpen(next) || bodyToCheck.some((part) => part.x === next.x && part.y === next.y)) {
+
+  // Step logic delegated to the headless engine (engine/maze.js). Host keeps the
+  // previousSnake snapshot (only on a surviving move, as before), the round-clear
+  // overlay/timeout, and death handling.
+  const snapshot = mazePath.map((part) => ({ ...part }));
+  const sim = {
+    grid: mazeGrid, open: maze.open, path: mazePath, food: maze.food,
+    foodsEaten: maze.foodsEaten, level: maze.level, score: mazeScore,
+    tickMs, direction, directionQueue
+  };
+  const { events, alive } = window.IdleSnakeMaze.stepMaze(sim, { rng: Math.random });
+
+  mazePath = sim.path;
+  maze.food = sim.food;
+  maze.foodsEaten = sim.foodsEaten;
+  maze.level = sim.level;
+  mazeScore = sim.score;
+  tickMs = sim.tickMs;
+  direction = sim.direction;
+
+  if (!alive) {
     endMaze(false);
     return true;
   }
-  previousSnake = mazePath.map((part) => ({ ...part }));
-  mazePath.unshift(next);
-  if (!ateFood) mazePath.pop();
-  if (ateFood) {
-    maze.foodsEaten += 1;
-    mazeScore += 10 * maze.level;
-    if (maze.foodsEaten >= 10 + maze.level * 2) {
-      maze.level += 1;
-      maze.foodsEaten = 0;
-      tickMs = Math.max(62, mazeTickMs - (maze.level - 1) * 7);
-      mazeScore += 100 * maze.level;
-      showOverlay(`Round ${maze.level - 1} Clear · +${formatNumber(100 * maze.level)} Seeds`);
+
+  previousSnake = snapshot;
+  snake = mazePath;
+  for (const event of events) {
+    if (event.type === "levelUp") {
+      showOverlay(`Round ${event.level - 1} Clear · +${formatNumber(event.reward)} Seeds`);
       window.setTimeout(() => { if (state === "running") hideOverlay(); }, 700);
     }
-    spawnMazeFood();
   }
-  snake = mazePath;
   return true;
 }
 
@@ -4334,6 +4348,10 @@ startButton.addEventListener("click", startGame);
 pauseButton.addEventListener("click", togglePause);
 resetButton.addEventListener("click", resetGame);
 personalizationBackButton.addEventListener("click", hidePersonalization);
+openSaveDataButton.addEventListener("click", showSaveData);
+saveDataBackButton.addEventListener("click", hideSaveData);
+copySaveDataButton.addEventListener("click", copySaveData);
+importSaveDataButton.addEventListener("click", importSaveData);
 buildColorChoices(bodyColorChoices, "body");
 buildColorChoices(headColorChoices, "head");
 syncColorChoices();
@@ -4383,9 +4401,11 @@ minigameKeys.forEach((key) => {
 buildNurseryGrid();
 buildHabitatList();
 freshGame();
-clearInterval(nurseryClockId);
-runNurseryClock();
-nurseryClockId = setInterval(runNurseryClock, 250);
+// Idle economy now runs on the unified clock inside gameLoop (no separate
+// setInterval). Build the engine world (with offline catch-up) before the
+// first frame, then let gameLoop drive both gameplay and the economy.
+initIdleWorld();
+syncPanels(Date.now());
 cancelAnimationFrame(animationId);
 animationId = requestAnimationFrame((now) => {
   lastFrameAt = now;
