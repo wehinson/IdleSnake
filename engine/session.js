@@ -27,18 +27,9 @@
   const directions = new Set(["up", "down", "left", "right"]);
   const modeNames = new Set(["snake", "duel", "maze", "breakout", "crossing", "snakebird", "sokoban", "broodline"]);
 
-  // xorshift32 is small, reproducible, serializable, and never consults host
-  // randomness. Zero is not a valid xorshift state.
-  function seedState(seed) {
-    const value = Number(seed) >>> 0;
-    return value || 0x6d2b79f5;
-  }
-  function nextRandom(state) {
-    let x = state.rngState >>> 0;
-    x ^= x << 13; x ^= x >>> 17; x ^= x << 5;
-    state.rngState = x >>> 0 || 0x6d2b79f5;
-    return (state.rngState >>> 0) / 0x100000000;
-  }
+  // Randomness is injected (default Math.random) so the browser host and the sim
+  // share identical behavior. state.rng is a function returning [0, 1); it is a
+  // function so JSON serialization drops it and it never lands in a save.
   function clone(value) {
     return value === undefined ? undefined : JSON.parse(JSON.stringify(value));
   }
@@ -59,7 +50,6 @@
       saveVersion: SAVE_VERSION,
       savedAt: Number.isFinite(Number(save.savedAt)) ? Number(save.savedAt) : now,
       session: {
-        rngState: seedState(save.rngState),
         mode: "snake", phase: "ready", elapsedMs: 0, modeAccumulatorMs: 0,
         seeds: Number(legacy.currencies?.seeds ?? legacy.seeds) || 0,
         best: Number(legacy.records?.best ?? legacy.best) || 0,
@@ -77,11 +67,10 @@
     const index = Math.max(0, Math.min(levels.length - 1, state.selectedBoardLevel));
     return snake.parseGridSize(levels[index]);
   }
-  function createState(save, seed, now) {
+  function createState(save, now) {
     const migrated = migrateLegacy(save, now);
     const raw = migrated.session;
     const state = {
-      rngState: seed === undefined ? seedState(raw.rngState) : seedState(seed),
       mode: modeNames.has(raw.mode) ? raw.mode : "snake",
       phase: ["ready", "running", "paused", "gameover"].includes(raw.phase) ? raw.phase : "ready",
       elapsedMs: Math.max(0, Number(raw.elapsedMs) || 0), modeAccumulatorMs: Math.max(0, Number(raw.modeAccumulatorMs) || 0),
@@ -94,8 +83,8 @@
     return state;
   }
   function startSnake(state) {
-    const active = snake.createSnakeMode(boardFor(state), { rng: () => nextRandom(state), upgrades: state.upgrades, seeds: state.seeds, best: state.best });
-    state.active = active; state.mode = "snake"; state.phase = "running"; state.modeAccumulatorMs = 0; state.elapsedMs = 0;
+    const active = snake.createSnakeMode(boardFor(state), { rng: () => state.rng(), upgrades: state.upgrades, seeds: state.seeds, best: state.best });
+    state.active = active; state.mode = "snake"; state.phase = "ready"; state.modeAccumulatorMs = 0; state.elapsedMs = 0;
   }
   function buildCrossingCars(stage, grid) {
     const cars = []; const carCount = stage >= 5 ? 3 : stage >= 3 ? 2 : 1;
@@ -121,40 +110,50 @@
     [[8, 15], [9, 15], [10, 15], [10, 14]].forEach(([x, y]) => open.add(key(x, y)));
     return open;
   }
-  function startMode(state, mode) {
-    state.mode = mode; state.phase = "running"; state.modeAccumulatorMs = 0; state.elapsedMs = 0;
+  // `setup` is optional host-supplied data (board dims, grid size, level
+  // definition, starting level index). Defaults reproduce the original built-in
+  // configuration so existing callers/tests are unaffected; the browser host
+  // injects the real level content/board metrics for full gameplay parity.
+  function startMode(state, mode, setup) {
+    setup = setup || {};
+    state.mode = mode; state.phase = "ready"; state.modeAccumulatorMs = 0; state.elapsedMs = 0;
     if (mode === "snake") return startSnake(state);
     if (mode === "duel") {
-      const grid = { columns: 30, rows: 30 }; const x = 14;
-      const active = { grid, player: { body: [{ x, y: 27 }, { x, y: 28 }, { x, y: 29 }], direction: "up" }, opponent: { body: [{ x: 15, y: 2 }, { x: 15, y: 1 }, { x: 15, y: 0 }], direction: "down" }, foods: [], score: 0, direction: "up", nextDirection: "up", directionQueue: [], tickMs: 125 };
-      active.foods = duel.spawnFoods(active, 5, () => nextRandom(state)); state.active = active; return;
+      const grid = setup.grid || { columns: 30, rows: 30 };
+      const px = Math.floor(grid.columns / 2) - 1; const ox = Math.floor(grid.columns / 2);
+      const active = { grid, player: { body: [{ x: px, y: grid.rows - 3 }, { x: px, y: grid.rows - 2 }, { x: px, y: grid.rows - 1 }], direction: "up" }, opponent: { body: [{ x: ox, y: 2 }, { x: ox, y: 1 }, { x: ox, y: 0 }], direction: "down" }, foods: [], score: 0, direction: "up", nextDirection: "up", directionQueue: [], tickMs: setup.tickMs || 125 };
+      active.foods = duel.spawnFoods(active, setup.foodCount || 5, () => state.rng()); state.active = active; return;
     }
     if (mode === "crossing") {
-      const grid = { columns: 15, rows: 13 }; const entryColumn = 7; const snakeBody = [{ x: entryColumn, y: 12 }, { x: entryColumn, y: 13 }, { x: entryColumn, y: 14 }];
-      state.active = { grid, snake: snakeBody, cars: buildCrossingCars(1, grid), score: 0, stage: 1, snakeLength: 3, entryColumn, direction: "up", nextDirection: "up", directionQueue: [], tickMs: 82 }; return;
+      const grid = setup.grid || { columns: 15, rows: 13 }; const entryColumn = setup.entryColumn ?? Math.floor(grid.columns / 2); const snakeBody = [{ x: entryColumn, y: grid.rows - 1 }, { x: entryColumn, y: grid.rows }, { x: entryColumn, y: grid.rows + 1 }];
+      state.active = { grid, snake: snakeBody, cars: buildCrossingCars(1, grid), score: 0, stage: 1, snakeLength: 3, entryColumn, direction: "up", nextDirection: "up", directionQueue: [], tickMs: setup.tickMs || 82 }; return;
     }
     if (mode === "broodline") {
-      const active = { round: 1, wave: 1, pendingSeeds: 0, kills: 0, hatchlingsCollected: 0, eggsHatched: 0, armor: 0, maxArmor: 0, hp: 16, maxHp: 16, phase: "combat", selected: 0, head: { x: 15, y: 15 }, chain: [], enemies: [], pickups: [], effects: [], direction: "right", queue: [], tickMs: broodline.TICK_MS };
-      broodline.spawnRound(active, () => nextRandom(state)); state.active = active; return;
+      const grid = setup.grid || { columns: 30, rows: 30 };
+      const active = { grid, round: 1, wave: 1, pendingSeeds: 0, kills: 0, hatchlingsCollected: 0, eggsHatched: 0, armor: 0, maxArmor: 0, hp: 16, maxHp: 16, phase: "combat", selected: 0, head: { x: Math.floor(grid.columns / 2), y: Math.floor(grid.rows / 2) }, chain: [], enemies: [], pickups: [], effects: [], direction: "right", queue: [], tickMs: broodline.TICK_MS };
+      broodline.spawnRound(active, () => state.rng()); state.active = active; return;
     }
     if (mode === "breakout") {
-      const width = 720; const height = 720; const segmentSize = 45; const gap = 4; const brickWidth = (width - 28 - gap * 9) / 10;
+      const width = setup.width || 720; const height = setup.height || 720; const segmentSize = setup.segmentSize || 45; const gap = setup.gap || 4; const brickWidth = (width - 28 - gap * 9) / 10;
       const active = { board: { width, height }, score: 0, lives: 2, segmentSize, gap, paddle: { x: 0, y: height - segmentSize - 10, length: 3, input: 0 }, balls: [], powerups: [], seedBoosts: [], heartsCollected: 0, bricks: [] };
       active.paddle.x = (width - breakout.paddleWidth(active)) / 2;
-      for (let row = 0; row < 5; row += 1) for (let column = 0; column < 10; column += 1) active.bricks.push({ x: 14 + column * (brickWidth + gap), y: 58 + row * 20, width: brickWidth, height: 16, hp: 1 });
-      active.balls = [breakout.buildBall(active, width)]; state.active = active;
+      if (Array.isArray(setup.bricks)) active.bricks = setup.bricks.map((brick) => ({ ...brick }));
+      else for (let row = 0; row < 5; row += 1) for (let column = 0; column < 10; column += 1) active.bricks.push({ x: 14 + column * (brickWidth + gap), y: 58 + row * 20, width: brickWidth, height: 16, hp: 1 });
+      active.balls = [breakout.buildBall(active, width)]; state.active = active; return;
     }
     if (mode === "maze") {
-      const active = { grid: { columns: 21, rows: 21 }, open: buildMaze(Math.floor(nextRandom(state) * 4)), path: [{ x: 10, y: 15 }, { x: 9, y: 15 }, { x: 8, y: 15 }], food: null, foodsEaten: 0, level: 1, score: 0, tickMs: maze.TICK_MS, direction: "up", directionQueue: [] };
-      maze.spawnFood(active, () => nextRandom(state)); state.active = active;
+      const grid = setup.grid || { columns: 21, rows: 21 };
+      const active = { grid, open: buildMaze(setup.layoutIndex ?? Math.floor(state.rng() * 4)), path: [{ x: 10, y: 15 }, { x: 9, y: 15 }, { x: 8, y: 15 }], food: null, foodsEaten: 0, level: 1, score: 0, tickMs: maze.TICK_MS, direction: "up", directionQueue: [] };
+      maze.spawnFood(active, () => state.rng()); state.active = active; return;
     }
     if (mode === "snakebird") {
-      const definition = { firstClearReward: 20, replayReward: 5, map: [".........", ".........", "...F.....", ".........", "..###....", "..Hoo.F.G", "#########"] };
-      state.active = { ...snakebird.parseLevel(definition.map), levelIndex: 0, definition, tickMs: 1000 };
+      const definition = setup.definition || { firstClearReward: 20, replayReward: 5, map: [".........", ".........", "...F.....", ".........", "..###....", "..Hoo.F.G", "#########"] };
+      state.active = { ...snakebird.parseLevel(definition.map), levelIndex: setup.levelIndex || 0, definition, tickMs: 1000 }; return;
     }
     if (mode === "sokoban") {
-      const definition = { reward: 20, map: ["#####", "#...#", "#...#", "#...#", "#####"], snake: [{ x: 1, y: 2 }, { x: 1, y: 1 }], crates: [{ x: 2, y: 2, kind: "light" }], goals: [{ x: 3, y: 2 }], pellets: [{ x: 1, y: 3 }], plates: [], gates: [] };
-      state.active = sokoban.parseLevel(definition, { columns: 5, rows: 5 }, 0); state.active.definition = definition; state.active.tickMs = 1000;
+      const definition = setup.definition || { reward: 20, map: ["#####", "#...#", "#...#", "#...#", "#####"], snake: [{ x: 1, y: 2 }, { x: 1, y: 1 }], crates: [{ x: 2, y: 2, kind: "light" }], goals: [{ x: 3, y: 2 }], pellets: [{ x: 1, y: 3 }], plates: [], gates: [] };
+      const grid = setup.grid || { columns: 5, rows: 5 }; const levelIndex = setup.levelIndex || 0;
+      state.active = sokoban.parseLevel(definition, grid, levelIndex); state.active.definition = definition; state.active.tickMs = 1000;
     }
   }
   function event(type, detail) { return { type, ...(detail || {}) }; }
@@ -180,7 +179,10 @@
   }
   function createGameSession(options) {
     options = options || {};
-    let state = createState(options.save, options.seed, Number(options.now) || 0);
+    let state = createState(options.save, Number(options.now) || 0);
+    // Injected randomness (default Math.random). A function, so it is dropped by
+    // JSON serialization and never persisted into a save.
+    state.rng = typeof options.rng === "function" ? options.rng : Math.random;
     let savedAt = Number(options.now) || 0;
     function dispatch(action) {
       action = action && typeof action === "object" ? action : {};
@@ -190,7 +192,7 @@
         case "start":
         case "restart":
           if (!modeNames.has(state.mode)) return reject("modeNotImplemented");
-          startMode(state, state.mode); events.push(event("runStarted", { mode: state.mode })); break;
+          startMode(state, state.mode, action.setup); events.push(event("runReady", { mode: state.mode })); break;
         case "pause":
           if (state.phase !== "running") return reject("notRunning");
           state.phase = "paused"; events.push(event("paused")); break;
@@ -199,15 +201,18 @@
           state.phase = "running"; events.push(event("resumed")); break;
         case "selectMode":
           if (!modeNames.has(action.mode)) return reject("invalidMode");
-          state.mode = action.mode; state.phase = "ready"; state.active = null; state.modeAccumulatorMs = 0;
-          events.push(event("modeSelected", { mode: state.mode })); break;
+          // Build the ready board immediately (matches the host's launchX, which
+          // shows a ready board before the first input). First direction runs it.
+          startMode(state, action.mode, action.setup);
+          events.push(event("modeSelected", { mode: state.mode }), event("runReady", { mode: state.mode })); break;
         case "selectBoard": {
           const level = Math.floor(Number(action.level));
           if (!Number.isInteger(level) || level < 0 || level > state.upgrades.boardLevel) return reject("boardLocked");
-          state.selectedBoardLevel = level; state.phase = "ready"; state.active = null; events.push(event("boardSelected", { level })); break;
+          state.selectedBoardLevel = level; startMode(state, state.mode, action.setup); events.push(event("boardSelected", { level }), event("runReady", { mode: state.mode })); break;
         }
         case "direction":
-          if (!state.active || state.phase !== "running" || !directions.has(action.direction)) return reject("notRunning");
+          if (!state.active || (state.phase !== "running" && state.phase !== "ready") || !directions.has(action.direction)) return reject("notRunning");
+          if (state.phase === "ready") { state.phase = "running"; events.push(event("runStarted", { mode: state.mode })); }
           if (state.mode === "snake" && !snake.queueDirection(state.active, action.direction)) return reject("invalidDirection");
           if (state.mode === "duel" || state.mode === "crossing" || state.mode === "maze") state.active.directionQueue.push(action.direction);
           if (state.mode === "broodline") state.active.queue.push(action.direction);
@@ -252,12 +257,12 @@
       let dt = Math.max(0, Math.min(MAX_LIVE_DT, Number(dtMs) || 0));
       const events = [];
       if (!dt) return result(state, events);
-      state.elapsedMs += dt;
-      events.push(...economy.tickEconomy(state, dt, { rng: () => nextRandom(state) }).events);
+      events.push(...economy.tickEconomy(state, dt, { rng: () => state.rng() }).events);
+      if (state.phase === "running") state.elapsedMs += dt;
       if (state.mode === "snake" && state.phase === "running" && state.active) {
         state.modeAccumulatorMs += dt;
         while (state.modeAccumulatorMs >= state.active.tickMs && state.phase === "running") {
-          const stepped = snake.stepSnake(state.active, { rng: () => nextRandom(state) });
+          const stepped = snake.stepSnake(state.active, { rng: () => state.rng() });
           state.seeds = state.active.seeds; state.best = state.active.best;
           state.modeAccumulatorMs -= state.active.tickMs;
           events.push(...stepped.events);
@@ -267,14 +272,14 @@
       if (state.phase === "running" && state.active && state.mode === "duel") {
         state.modeAccumulatorMs += dt;
         while (state.modeAccumulatorMs >= state.active.tickMs && state.phase === "running") {
-          const stepped = duel.stepVsSnake(state.active, { rng: () => nextRandom(state) }); state.modeAccumulatorMs -= state.active.tickMs; events.push(...stepped.events);
+          const stepped = duel.stepVsSnake(state.active, { rng: () => state.rng() }); state.modeAccumulatorMs -= state.active.tickMs; events.push(...stepped.events);
           if (!stepped.alive) { state.phase = "gameover"; const reward = stepped.winner === "player" ? Math.max(5, state.best * 5) : 0; state.seeds += reward; events.push(event("runEnded", { mode: "duel", winner: stepped.winner, reward })); }
         }
       }
       if (state.phase === "running" && state.active && state.mode === "maze") {
         state.modeAccumulatorMs += dt;
         while (state.modeAccumulatorMs >= state.active.tickMs && state.phase === "running") {
-          const stepped = maze.stepMaze(state.active, { rng: () => nextRandom(state) }); state.modeAccumulatorMs -= state.active.tickMs; events.push(...stepped.events);
+          const stepped = maze.stepMaze(state.active, { rng: () => state.rng() }); state.modeAccumulatorMs -= state.active.tickMs; events.push(...stepped.events);
           const levelUp = stepped.events.find((item) => item.type === "levelUp"); if (levelUp) { state.seeds += levelUp.reward; events.push(event("reward", { amount: levelUp.reward })); }
           if (!stepped.alive) { state.phase = "gameover"; const reward = Math.floor(state.active.score / 4); state.seeds += reward; state.best = Math.max(state.best, state.active.score); events.push(event("runEnded", { mode: "maze", reward })); }
         }
@@ -289,13 +294,13 @@
         }
       }
       if (state.phase === "running" && state.active && state.mode === "breakout") {
-        const stepped = breakout.step(state.active, { deltaMs: dt, boardWidth: state.active.board.width, boardHeight: state.active.board.height, elapsedMs: state.elapsedMs, rng: () => nextRandom(state) }); events.push(...stepped.events);
+        const stepped = breakout.step(state.active, { deltaMs: dt, boardWidth: state.active.board.width, boardHeight: state.active.board.height, elapsedMs: state.elapsedMs, rng: () => state.rng() }); events.push(...stepped.events);
         if (!stepped.alive || stepped.events.some((item) => item.type === "win")) { state.phase = "gameover"; const won = stepped.events.some((item) => item.type === "win"); const reward = won ? 500 : 0; state.seeds += reward; state.best = Math.max(state.best, state.active.score); events.push(event("runEnded", { mode: "breakout", reward })); }
       }
       if (state.phase === "running" && state.active && state.mode === "broodline") {
         state.modeAccumulatorMs += dt;
         while (state.modeAccumulatorMs >= state.active.tickMs && state.phase === "running") {
-          const stepped = broodline.step(state.active, { rng: () => nextRandom(state) }); state.modeAccumulatorMs -= state.active.tickMs; events.push(...stepped.events);
+          const stepped = broodline.step(state.active, { rng: () => state.rng() }); state.modeAccumulatorMs -= state.active.tickMs; events.push(...stepped.events);
           if (!stepped.alive) { state.phase = "gameover"; state.seeds += state.active.pendingSeeds; events.push(event("runEnded", { mode: "broodline", reward: state.active.pendingSeeds })); }
         }
       }
@@ -304,7 +309,7 @@
     function advanceOffline(now) {
       const target = Math.max(savedAt, Number(now) || savedAt);
       const dt = target - savedAt; savedAt = target;
-      const events = economy.tickEconomy(state, dt, { rng: () => nextRandom(state) }).events;
+      const events = economy.tickEconomy(state, dt, { rng: () => state.rng() }).events;
       return result(state, events);
     }
     return { snapshot: () => makeSnapshot(state), dispatch, tick, advanceOffline,

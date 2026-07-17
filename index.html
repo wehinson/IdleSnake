@@ -92,6 +92,13 @@
             <p class="upgrade-next" id="minigamesNext">Next: phone game 1</p>
             <button class="upgrade-button" id="minigamesButton" type="button">Buy</button>
           </article>
+
+          <div class="reset-progress">
+            <button class="reset-progress-button" id="resetProgressButton" type="button" aria-label="Hold to reset all progress">
+              <span class="reset-progress-fill" id="resetProgressFill"></span>
+              <span class="reset-progress-label">Hold to reset progress</span>
+            </button>
+          </div>
         </section>
 
         <section class="nursery-panel menu-panel-content" data-menu-panel="nursery" aria-label="Nursery" hidden>
@@ -282,6 +289,7 @@
     <script src="engine/index.js"></script>
     <script src="engine/save.js"></script>
     <script src="engine/session.js"></script>
+    <script src="engine/simulate.js"></script>
     <script src="game.js"></script>
   </body>
 </html>
