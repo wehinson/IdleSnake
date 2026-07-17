@@ -121,19 +121,25 @@
     const rng = opts.rng || Math.random;
     const startX = Math.floor(grid.columns / 2);
     const startY = Math.floor(grid.rows / 2);
+    // The host may inject its exact starting layout/direction/tickMs for parity;
+    // otherwise use the engine's default (centered, facing up).
+    const body = Array.isArray(opts.snake) && opts.snake.length
+      ? opts.snake.map((part) => ({ x: part.x, y: part.y }))
+      : [
+          { x: startX, y: startY },
+          { x: startX, y: startY + 1 },
+          { x: startX, y: startY + 2 }
+        ];
+    const direction = opts.direction && vectors[opts.direction] ? opts.direction : "up";
     const state = {
       grid,
-      snake: [
-        { x: startX, y: startY },
-        { x: startX, y: startY + 1 },
-        { x: startX, y: startY + 2 }
-      ],
+      snake: body,
       foods: [],
-      direction: "up",
-      nextDirection: "up",
+      direction,
+      nextDirection: direction,
       directionQueue: [],
       score: 0,
-      tickMs: startTickMs,
+      tickMs: opts.tickMs || startTickMs,
       upgrades: opts.upgrades || { foodTypeLevel: 0, foodCountLevel: 0, shieldLevel: 0 },
       seeds: opts.seeds || 0,
       best: opts.best || 0

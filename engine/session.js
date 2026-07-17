@@ -81,8 +81,10 @@
     };
     return state;
   }
-  function startSnake(state) {
-    const active = snake.createSnakeMode(boardFor(state), { rng: () => state.rng(), upgrades: state.upgrades, seeds: state.seeds, best: state.best });
+  function startSnake(state, setup) {
+    setup = setup || {};
+    const grid = setup.grid || boardFor(state);
+    const active = snake.createSnakeMode(grid, { rng: () => state.rng(), upgrades: state.upgrades, seeds: state.seeds, best: state.best, snake: setup.snake, direction: setup.direction, tickMs: setup.tickMs });
     state.active = active; state.mode = "snake"; state.phase = "ready"; state.modeAccumulatorMs = 0; state.elapsedMs = 0;
   }
   function buildCrossingCars(stage, grid) {
@@ -116,7 +118,7 @@
   function startMode(state, mode, setup) {
     setup = setup || {};
     state.mode = mode; state.phase = "ready"; state.modeAccumulatorMs = 0; state.elapsedMs = 0;
-    if (mode === "snake") return startSnake(state);
+    if (mode === "snake") return startSnake(state, setup);
     if (mode === "duel") {
       const grid = setup.grid || { columns: 30, rows: 30 };
       const px = Math.floor(grid.columns / 2) - 1; const ox = Math.floor(grid.columns / 2);
@@ -163,7 +165,7 @@
     if (state.active && state.mode === "sokoban") active.walls = [...state.active.walls];
     if (state.active && state.mode === "maze") active.open = [...state.active.open];
     const snapshot = {
-      saveVersion: SAVE_VERSION, mode: state.mode, phase: state.phase, elapsedMs: state.elapsedMs,
+      saveVersion: SAVE_VERSION, mode: state.mode, phase: state.phase, elapsedMs: state.elapsedMs, modeAccumulatorMs: state.modeAccumulatorMs,
       seeds: state.seeds, best: state.best, upgrades: clone(state.upgrades), selectedBoardLevel: state.selectedBoardLevel,
       cosmetics: clone(state.cosmetics), snakebirdProgress: clone(state.snakebirdProgress), nursery: clone(state.nursery), habitats: clone(state.habitats), active,
       hud: { score: active && Number(active.score) || 0, best: state.best, seeds: state.seeds, elapsedMs: state.elapsedMs },
@@ -196,6 +198,11 @@
         case "restart":
           if (!modeNames.has(state.mode)) return reject("modeNotImplemented");
           startMode(state, state.mode, action.setup); events.push(event("runReady", { mode: state.mode })); break;
+        case "begin":
+          // Start a ready run without a turn (the host's Start button); the
+          // snake keeps its current heading.
+          if (!state.active || state.phase !== "ready") return reject("notReady");
+          state.phase = "running"; events.push(event("runStarted", { mode: state.mode })); break;
         case "pause":
           if (state.phase !== "running") return reject("notRunning");
           state.phase = "paused"; events.push(event("paused")); break;

@@ -606,6 +606,9 @@ let idleWorld = null;
 // globals below remain as UI mirrors, refreshed each frame from the snapshot.
 let session = null;
 let sessionLastSeeds = 0;
+let sessionLastBest = 0;
+let sessionLastUpgradesJson = "";
+let latestSnapshot = null;
 let idleLastWallAt = null;
 let idleLastPersistAt = 0;
 let boardMetrics;
@@ -975,25 +978,26 @@ function freshGame() {
   grid = parseGridSize(upgradeConfig.board.levels[selectedBoardLevel]);
   const centerX = Math.floor(grid.columns / 2);
   const centerY = Math.floor(grid.rows / 2);
-  snake = [
+  const startBody = [
     { x: centerX, y: centerY },
     { x: centerX - 1, y: centerY },
     { x: centerX - 2, y: centerY }
   ];
-  previousSnake = snake.map((part) => ({ ...part }));
   digestionAnimations = [];
-  direction = "right";
-  nextDirection = "right";
-  directionQueue = [];
-  score = 0;
+  // Build the ready snake run inside the session using the host's exact starting
+  // layout/heading so gameplay is identical, then mirror it into render globals.
+  const { snapshot } = session.dispatch({
+    type: "selectMode",
+    mode: "snake",
+    setup: { grid: { ...grid }, snake: startBody, direction: "right", tickMs: startTickMs }
+  });
+  latestSnapshot = snapshot;
+  mirrorSnakeFromSnapshot(snapshot);
+  previousSnake = snake.map((part) => ({ ...part }));
   state = "ready";
-  tickMs = startTickMs;
-  elapsedMs = 0;
   lastFrameAt = 0;
-  stepAccumulatorMs = 0;
   timerStarted = false;
   boardMetrics = getBoardMetrics();
-  foods = spawnFoods();
   syncHud();
   render();
   showOverlay("Ready");
@@ -1092,9 +1096,11 @@ function importSaveData() {
     return;
   }
   applySaveState(parsed);
-  // Rebuild the idle engine from the imported save (with offline catch-up) so
-  // seeds/eggs/habitats resume from the restored state.
+  // Rebuild the session from the imported save (with offline catch-up) so
+  // seeds/eggs/habitats resume from the restored state, then reset to a fresh
+  // snake run (rebuilds the session's active run from the restored upgrades).
   initIdleWorld();
+  freshGame();
   localStorage.setItem(consolidatedSaveKey, JSON.stringify(consolidatedSave));
   saveDataExportArea.value = JSON.stringify(gatherSaveState(), null, 2);
   saveDataStatus.textContent = "Import successful.";
@@ -1961,6 +1967,7 @@ function startGame() {
     freshGame();
   }
   if (state !== "running") {
+    session.dispatch({ type: "begin" });
     state = "running";
     timerStarted = true;
     lastFrameAt = performance.now();
@@ -2507,15 +2514,24 @@ function tickIdleWorld() {
   const dt = idleLastWallAt == null ? 0 : now - idleLastWallAt;
   idleLastWallAt = now;
   if (dt <= 0) return [];
-  // Reconcile host-owned shared state into the session before ticking: seeds are
-  // still awarded/spent by not-yet-migrated gameplay, and upgrades are still
-  // purchased host-side (economy food value depends on them).
+  // Reconcile host-owned shared state into the session before ticking, but only
+  // when it actually changed (each dispatch clones a snapshot). Seeds are still
+  // awarded/spent by not-yet-migrated gameplay; upgrades are still purchased
+  // host-side (economy food value depends on them); best comes from gameplay.
+  // While a still-host-driven minigame is active, keep the session's snake run
+  // from stepping in the background (economy still ticks). Removed in Phase 1.4
+  // once every mode runs in the session.
+  if (gameMode !== "snake" && latestSnapshot && latestSnapshot.phase === "running") session.dispatch({ type: "pause" });
   if (seedsTotal !== sessionLastSeeds) session.dispatch({ type: "syncSeeds", seeds: seedsTotal });
-  session.dispatch({ type: "syncBest", best });
-  session.dispatch({ type: "setUpgrades", upgrades });
+  if (best !== sessionLastBest) { session.dispatch({ type: "syncBest", best }); sessionLastBest = best; }
+  const upgradesJson = JSON.stringify(upgrades);
+  if (upgradesJson !== sessionLastUpgradesJson) { session.dispatch({ type: "setUpgrades", upgrades }); sessionLastUpgradesJson = upgradesJson; }
   const { snapshot, events } = session.tick(dt);
+  latestSnapshot = snapshot;
   seedsTotal = snapshot.seeds;
   sessionLastSeeds = seedsTotal;
+  best = Math.max(best, snapshot.best);
+  sessionLastBest = best;
   mirrorEconomyFromWorld(now, snapshot);
   // Persist on the old ~250ms cadence (writes are debounced/coalesced anyway).
   if (now - idleLastPersistAt >= 250) {
@@ -2535,23 +2551,51 @@ function initIdleWorld() {
   if (!window.IdleSnakeSession) return;
   session = window.IdleSnakeSession.createGameSession({ save: consolidatedSave, now: Date.now(), rng: Math.random });
   session.dispatch({ type: "setUpgrades", upgrades });
+  sessionLastUpgradesJson = JSON.stringify(upgrades);
   const { snapshot } = session.advanceOffline(Date.now());
+  latestSnapshot = snapshot;
   idleLastWallAt = Date.now();
   idleLastPersistAt = idleLastWallAt;
   seedsTotal = snapshot.seeds;
   sessionLastSeeds = seedsTotal;
+  best = Math.max(best, snapshot.best);
+  sessionLastBest = best;
   mirrorEconomyFromWorld(idleLastWallAt, snapshot);
 }
 
-// Interpret events returned by the idle world tick (hatch, seedsChanged, ...).
-// Rendering/persistence are handled by the mirror + throttled panel refresh;
-// this is the seam where hatch toasts / sounds would hook in later.
-function interpretIdleEvents(events) {
+// Copy the session's snake run into the legacy globals the renderer reads.
+// modeAccumulatorMs/elapsedMs come straight from the snapshot so the existing
+// interpolation (interpolatedPoint) and HUD timer keep working unchanged.
+function mirrorSnakeFromSnapshot(snap) {
+  if (!snap || snap.mode !== "snake" || !snap.active) return;
+  const a = snap.active;
+  snake = a.snake.map((part) => ({ x: part.x, y: part.y }));
+  foods = a.foods.map((food) => ({ ...food }));
+  direction = a.direction;
+  nextDirection = a.nextDirection;
+  directionQueue = a.directionQueue.slice();
+  score = a.score;
+  tickMs = a.tickMs;
+  grid = a.grid;
+  stepAccumulatorMs = snap.modeAccumulatorMs;
+  elapsedMs = snap.elapsedMs;
+}
+
+// Interpret events returned by a session tick. Economy events (hatch) refresh
+// the panels; snake events reproduce the HUD/save/overlay/animation side-effects
+// the engine deliberately omits (mirrors the old host step() event loop).
+// Persistence of seeds is handled by tickIdleWorld's throttled cadence, so
+// seedsChanged is intentionally not persisted here (economy emits it constantly).
+function interpretSessionEvents(events) {
   if (!events || events.length === 0) return;
   for (const event of events) {
-    if (event.type === "hatch") {
-      // Force an immediate panel refresh so a new hatchling appears at once.
-      idleLastPanelAt = 0;
+    switch (event.type) {
+      case "hatch": idleLastPanelAt = 0; break;
+      case "eat": if (gameMode === "snake") startDigestionAnimation(); break;
+      case "shield": if (gameMode === "snake") saveUpgrades(); break;
+      case "bestScore": if (gameMode === "snake") setSaveItem("best", String(best)); break;
+      case "gameOver": if (gameMode === "snake") { state = "gameover"; syncHud(); showOverlay("Game Over"); } break;
+      case "win": if (gameMode === "snake") { state = "gameover"; syncHud(); showOverlay("Maxed"); } break;
     }
   }
 }
@@ -2603,8 +2647,12 @@ function gameLoop(now) {
   // Idle economy advances on the SAME clock as gameplay, every frame, whatever
   // the gameplay phase (menu/ready/running/paused/gameover). This replaces the
   // old separate setInterval(runNurseryClock, 250).
-  const idleEvents = tickIdleWorld();
-  interpretIdleEvents(idleEvents);
+  // Core snake now runs inside the session (stepped by tickIdleWorld). Capture
+  // the pre-step body first so the smooth interpolation has a "from" position.
+  if (gameMode === "snake" && state === "running") previousSnake = snake.map((part) => ({ ...part }));
+
+  const sessionEvents = tickIdleWorld();
+  interpretSessionEvents(sessionEvents);
   setText(seedsTotalEl, padSeeds(seedsTotal));
   const wallNow = Date.now();
   if (wallNow - idleLastPanelAt >= 200) {
@@ -2612,7 +2660,11 @@ function gameLoop(now) {
     syncPanels(wallNow);
   }
 
-  if (state === "running") {
+  if (gameMode === "snake") {
+    // The session advanced (or held) the snake; mirror it into the render globals.
+    if (latestSnapshot) mirrorSnakeFromSnapshot(latestSnapshot);
+    if (state === "running") syncHud();
+  } else if (state === "running") {
     const deltaMs = Math.min(100, now - lastFrameAt);
     elapsedMs += deltaMs;
     stepAccumulatorMs += deltaMs;
@@ -2634,7 +2686,7 @@ function gameLoop(now) {
           stepAccumulatorMs = 0;
           break;
         }
-      } else step();
+      }
       stepAccumulatorMs -= tickMs;
     }
     if (gameMode === "broodline") {
@@ -2939,26 +2991,9 @@ function queueDirection(next) {
     return;
   }
   if (state === "ready") startGame();
-
-  const queuedFrom = directionQueue.length > 0
-    ? directionQueue[directionQueue.length - 1]
-    : direction;
-  if (next === queuedFrom) return;
-
-  const currentVector = vectors[queuedFrom];
-  const nextVector = vectors[next];
-  const reversing =
-    currentVector.x + nextVector.x === 0 &&
-    currentVector.y + nextVector.y === 0;
-
-  if (reversing) return;
-
-  if (directionQueue.length >= maxQueuedDirections) {
-    directionQueue.shift();
-  }
-
-  directionQueue.push(next);
-  nextDirection = next;
+  // The session owns the snake run: it validates the turn (reversal/dedup/queue
+  // cap) and, from a ready run, begins running. Globals are mirrored next frame.
+  session.dispatch({ type: "direction", direction: next });
 }
 
 function queueSnakebirdDirection(next) {
@@ -4448,11 +4483,10 @@ minigameKeys.forEach((key) => {
 
 buildNurseryGrid();
 buildHabitatList();
-freshGame();
-// Idle economy now runs on the unified clock inside gameLoop (no separate
-// setInterval). Build the engine world (with offline catch-up) before the
-// first frame, then let gameLoop drive both gameplay and the economy.
+// Build the session (economy + offline catch-up) FIRST, since freshGame() now
+// creates the snake run inside it. Then let gameLoop drive both on one clock.
 initIdleWorld();
+freshGame();
 syncPanels(Date.now());
 cancelAnimationFrame(animationId);
 animationId = requestAnimationFrame((now) => {
