@@ -97,6 +97,26 @@ test("host-supplied setup overrides board dimensions and grid without new rules"
   assert.deepEqual(duel.active.grid, { columns: 15, rows: 15 });
 });
 
+test("offline catch-up credits idle income from the save's savedAt, not boot time", () => {
+  const oneHourLater = 60 * 60 * 1000;
+  const game = createGameSession({ save: { savedAt: 0, currencies: { seeds: 0 }, habitats: { counts: [1] } }, now: oneHourLater });
+  const before = game.snapshot().seeds;
+  game.advanceOffline(oneHourLater);
+  assert.ok(game.snapshot().seeds > before, "an hour of offline habitat income should be credited");
+});
+
+test("syncSeeds/addSeeds/setUpgrades host-bridge actions reconcile shared state", () => {
+  const game = createGameSession({ save: { currencies: { seeds: 100 } }, now: 0 });
+  game.dispatch({ type: "syncSeeds", seeds: 250 });
+  assert.equal(game.snapshot().seeds, 250);
+  game.dispatch({ type: "addSeeds", amount: -50 });
+  assert.equal(game.snapshot().seeds, 200);
+  game.dispatch({ type: "addSeeds", amount: -1000 }); // clamps at 0
+  assert.equal(game.snapshot().seeds, 0);
+  game.dispatch({ type: "setUpgrades", upgrades: { foodTypeLevel: 3 } });
+  assert.equal(game.snapshot().upgrades.foodTypeLevel, 3);
+});
+
 test("buying an upgrade deducts seeds and rejects when unaffordable", () => {
   const game = createGameSession({ save: { currencies: { seeds: 1000 } }, now: 0, rng: lcg(1) });
   const before = game.snapshot().seeds;

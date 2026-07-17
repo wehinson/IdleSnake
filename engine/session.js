@@ -67,8 +67,7 @@
     const index = Math.max(0, Math.min(levels.length - 1, state.selectedBoardLevel));
     return snake.parseGridSize(levels[index]);
   }
-  function createState(save, now) {
-    const migrated = migrateLegacy(save, now);
+  function createState(migrated, now) {
     const raw = migrated.session;
     const state = {
       mode: modeNames.has(raw.mode) ? raw.mode : "snake",
@@ -179,11 +178,15 @@
   }
   function createGameSession(options) {
     options = options || {};
-    let state = createState(options.save, Number(options.now) || 0);
+    const now = Number(options.now) || 0;
+    const migrated = migrateLegacy(options.save, now);
+    let state = createState(migrated, now);
     // Injected randomness (default Math.random). A function, so it is dropped by
     // JSON serialization and never persisted into a save.
     state.rng = typeof options.rng === "function" ? options.rng : Math.random;
-    let savedAt = Number(options.now) || 0;
+    // Anchor the offline clock to when the save was written (not now), so
+    // advanceOffline(now) credits the real elapsed idle time.
+    let savedAt = Number.isFinite(Number(migrated.savedAt)) ? Number(migrated.savedAt) : now;
     function dispatch(action) {
       action = action && typeof action === "object" ? action : {};
       const events = [];
@@ -249,15 +252,32 @@
         }
         case "setCosmetics":
           state.cosmetics = { ...state.cosmetics, ...(action.cosmetics || {}) }; events.push(event("cosmeticsChanged")); break;
+        // Host-bridge actions used during the incremental migration (and beyond):
+        // syncSeeds reconciles the shared seed balance from a host system that
+        // still owns some gameplay; addSeeds applies a delta (rewards, dev grant);
+        // setUpgrades pushes host-owned upgrade levels so economy food value is
+        // correct before that system is itself migrated.
+        case "syncSeeds":
+          state.seeds = Math.max(0, Number(action.seeds) || 0); break;
+        case "syncBest":
+          state.best = Math.max(state.best, Math.max(0, Number(action.best) || 0)); break;
+        case "addSeeds":
+          state.seeds = Math.max(0, state.seeds + (Number(action.amount) || 0)); events.push(event("seedsChanged")); break;
+        case "setUpgrades":
+          state.upgrades = normalUpgrades(action.upgrades); break;
         default: return reject("unknownAction");
       }
       return result(state, events);
     }
     function tick(dtMs) {
-      let dt = Math.max(0, Math.min(MAX_LIVE_DT, Number(dtMs) || 0));
+      // Economy advances by the FULL delta so idle income catches up after the
+      // tab is throttled/backgrounded; gameplay uses a clamped delta so a lag
+      // spike never teleports the snake through several cells at once.
+      const rawDt = Math.max(0, Number(dtMs) || 0);
+      const dt = Math.min(MAX_LIVE_DT, rawDt);
       const events = [];
-      if (!dt) return result(state, events);
-      events.push(...economy.tickEconomy(state, dt, { rng: () => state.rng() }).events);
+      if (!rawDt) return result(state, events);
+      events.push(...economy.tickEconomy(state, rawDt, { rng: () => state.rng() }).events);
       if (state.phase === "running") state.elapsedMs += dt;
       if (state.mode === "snake" && state.phase === "running" && state.active) {
         state.modeAccumulatorMs += dt;

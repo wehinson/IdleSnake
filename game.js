@@ -600,6 +600,12 @@ let nurseryClockId;
 // `seedsTotal` globals below are kept as UI mirrors, refreshed from the engine
 // each frame by mirrorEconomyFromWorld(). See the "idle-world bridge" section.
 let idleWorld = null;
+// Headless session engine (engine/session.js) — the single source of truth the
+// browser game runs on. During the incremental migration it starts by owning the
+// idle economy; gameplay modes are routed through it one at a time. The legacy
+// globals below remain as UI mirrors, refreshed each frame from the snapshot.
+let session = null;
+let sessionLastSeeds = 0;
 let idleLastWallAt = null;
 let idleLastPersistAt = 0;
 let boardMetrics;
@@ -2360,12 +2366,12 @@ function renderHabitats() {
 
 function placeSnakeInHabitat(index) {
   const habitat = habitatConfig.habitats[index];
-  if (!habitat || !idleWorld || !isHabitatUnlocked(habitat) || idleWorld.state.nursery.colonyCount < 1) return;
+  if (!habitat || !session || !isHabitatUnlocked(habitat) || nursery.colonyCount < 1) return;
 
   const now = Date.now();
-  idleWorld.state.nursery.colonyCount -= 1;
-  idleWorld.state.habitats.counts[index] += 1;
-  mirrorEconomyFromWorld(now);
+  const { snapshot, events } = session.dispatch({ type: "placeHabitat", index });
+  if (events.some((e) => e.type === "actionRejected")) return;
+  mirrorEconomyFromWorld(now, snapshot);
   saveNursery();
   saveHabitats();
   syncHud();
@@ -2453,13 +2459,14 @@ function syncHatchlingRows() {
 }
 
 function layEgg() {
-  if (!idleWorld) return;
+  if (!session) return;
   const now = Date.now();
-  idleWorld.state.seeds = seedsTotal;
-  const result = idleWorld.layEgg();
-  if (!result || !result.accepted) return;
-  seedsTotal = idleWorld.state.seeds;
-  mirrorEconomyFromWorld(now);
+  if (seedsTotal !== sessionLastSeeds) session.dispatch({ type: "syncSeeds", seeds: seedsTotal });
+  const { snapshot, events } = session.dispatch({ type: "layEgg" });
+  if (events.some((e) => e.type === "actionRejected")) return;
+  seedsTotal = snapshot.seeds;
+  sessionLastSeeds = seedsTotal;
+  mirrorEconomyFromWorld(now, snapshot);
   saveSeeds();
   saveNursery();
   syncHud();
@@ -2474,9 +2481,10 @@ function layEgg() {
 // Copy engine economy state into the legacy globals the UI reads. Converts the
 // engine's relative eggElapsedMs back to the absolute nestStartedAt the nursery
 // panel expects, using `now` (epoch) so the hatch countdown stays correct.
-function mirrorEconomyFromWorld(now) {
-  if (!idleWorld) return;
-  const en = idleWorld.state.nursery;
+function mirrorEconomyFromWorld(now, snapshot) {
+  if (!session) return;
+  const snap = snapshot || session.snapshot();
+  const en = snap.nursery;
   nursery.eggElapsedMs = en.eggElapsedMs;
   nursery.nestStartedAt = en.eggElapsedMs == null ? null : now - en.eggElapsedMs;
   nursery.hatchlings = en.hatchlings;
@@ -2484,7 +2492,7 @@ function mirrorEconomyFromWorld(now) {
   nursery.seedTickAccumulatorMs = en.seedTickAccumulatorMs;
   nursery.movementAccumulatorMs = en.movementAccumulatorMs;
   nursery.lastUpdatedAt = now;
-  habitats.counts = idleWorld.state.habitats.counts;
+  habitats.counts = snap.habitats.counts.slice();
   habitats.lastUpdatedAt = now;
 }
 
@@ -2494,16 +2502,21 @@ function mirrorEconomyFromWorld(now) {
 // IdleSnakeSave.hydrate. Absorbs gameplay seed changes before ticking and
 // writes the result back, then mirrors to the UI globals.
 function tickIdleWorld() {
-  if (!idleWorld) return [];
+  if (!session) return [];
   const now = Date.now();
   const dt = idleLastWallAt == null ? 0 : now - idleLastWallAt;
   idleLastWallAt = now;
   if (dt <= 0) return [];
-  idleWorld.state.seeds = seedsTotal;   // absorb gameplay awards/spends
-  idleWorld.state.upgrades = upgrades;  // share upgrade levels (food value etc.)
-  const events = idleWorld.tick(dt, { offline: true });
-  seedsTotal = idleWorld.state.seeds;
-  mirrorEconomyFromWorld(now);
+  // Reconcile host-owned shared state into the session before ticking: seeds are
+  // still awarded/spent by not-yet-migrated gameplay, and upgrades are still
+  // purchased host-side (economy food value depends on them).
+  if (seedsTotal !== sessionLastSeeds) session.dispatch({ type: "syncSeeds", seeds: seedsTotal });
+  session.dispatch({ type: "syncBest", best });
+  session.dispatch({ type: "setUpgrades", upgrades });
+  const { snapshot, events } = session.tick(dt);
+  seedsTotal = snapshot.seeds;
+  sessionLastSeeds = seedsTotal;
+  mirrorEconomyFromWorld(now, snapshot);
   // Persist on the old ~250ms cadence (writes are debounced/coalesced anyway).
   if (now - idleLastPersistAt >= 250) {
     idleLastPersistAt = now;
@@ -2514,18 +2527,20 @@ function tickIdleWorld() {
   return events;
 }
 
-// Rebuild the idle world from the current consolidatedSave (used at boot and
-// after a save import). Runs the offline catch-up tick for time elapsed since
-// the save's savedAt, then mirrors into the UI globals.
+// Rebuild the session from the current consolidatedSave (used at boot and after a
+// save import). createGameSession anchors the offline clock to the save's
+// savedAt; advanceOffline then credits idle income for the time the app was
+// closed. Finally mirror the economy into the UI globals.
 function initIdleWorld() {
-  if (!window.IdleSnakeSave) return;
-  const hydrated = window.IdleSnakeSave.hydrate(consolidatedSave, { now: Date.now() });
-  idleWorld = hydrated.world;
-  idleWorld.state.upgrades = upgrades;
+  if (!window.IdleSnakeSession) return;
+  session = window.IdleSnakeSession.createGameSession({ save: consolidatedSave, now: Date.now(), rng: Math.random });
+  session.dispatch({ type: "setUpgrades", upgrades });
+  const { snapshot } = session.advanceOffline(Date.now());
   idleLastWallAt = Date.now();
   idleLastPersistAt = idleLastWallAt;
-  seedsTotal = idleWorld.state.seeds;
-  mirrorEconomyFromWorld(idleLastWallAt);
+  seedsTotal = snapshot.seeds;
+  sessionLastSeeds = seedsTotal;
+  mirrorEconomyFromWorld(idleLastWallAt, snapshot);
 }
 
 // Interpret events returned by the idle world tick (hatch, seedsChanged, ...).
