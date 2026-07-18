@@ -181,8 +181,13 @@ function setSaveItem(key, value) {
 const saveFlushIntervalMs = 1500;
 const pendingSaveProducers = new Map();
 let saveFlushTimer = null;
+// Set true only by the "hold to reset" flow. Once set, every persistence path
+// (queued writes, the debounced flush, the pagehide/visibilitychange flush) is a
+// no-op, so nothing re-writes the save between clearing it and the reload.
+let resettingProgress = false;
 
 function scheduleSaveFlush() {
+  if (resettingProgress) return;
   if (saveFlushTimer === null) {
     saveFlushTimer = setTimeout(flushPendingSaves, saveFlushIntervalMs);
   }
@@ -193,11 +198,13 @@ function flushPendingSaves() {
     clearTimeout(saveFlushTimer);
     saveFlushTimer = null;
   }
+  if (resettingProgress) { pendingSaveProducers.clear(); return; }
   pendingSaveProducers.forEach((producer, key) => localStorage.setItem(key, producer()));
   pendingSaveProducers.clear();
 }
 
 function queueSave(key, producer) {
+  if (resettingProgress) return;
   pendingSaveProducers.set(key, producer);
   scheduleSaveFlush();
 }
@@ -4429,6 +4436,13 @@ function startResetHold() {
   resetHoldTimer = setTimeout(() => {
     resetHoldTimer = null;
     resetProgressButton?.classList.remove("is-holding");
+    // Fully wipe progress. Shut down every persistence path first, otherwise the
+    // running game loop (or the pagehide flush that fires during reload) would
+    // re-write the current in-memory seeds/upgrades right after we clear them.
+    resettingProgress = true;
+    if (animationId) cancelAnimationFrame(animationId);
+    if (saveFlushTimer !== null) { clearTimeout(saveFlushTimer); saveFlushTimer = null; }
+    pendingSaveProducers.clear();
     localStorage.removeItem(consolidatedSaveKey);
     saveKeysLegacyList.forEach((key) => {
       localStorage.removeItem(`${savePrefix}${key}`);
