@@ -13,8 +13,8 @@
   };
   const key = (point) => `${point.x},${point.y}`;
 
-  const TICK_MS = 105;   // matches game.js mazeTickMs
-  const MIN_TICK_MS = 62;
+  const TICK_MS = 150;   // 30% slower; matches game.js mazeTickMs
+  const MIN_TICK_MS = 89;
 
   function isOpen(state, point) {
     return point.x >= 0 && point.x < state.grid.columns &&

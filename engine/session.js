@@ -7,7 +7,11 @@
   const req = typeof require === "function" ? require : null;
   const deps = {
     config: req ? req("./config.js") : root.IdleSnakeConfig,
+    notables: req ? req("./notables.js") : root.IdleSnakeNotables,
     economy: req ? req("./economy.js") : root.IdleSnakeEconomy,
+    migration: req ? req("./migration.js") : root.IdleSnakeMigration,
+    tradeRoutes: req ? req("./trade-routes.js") : root.IdleSnakeTradeRoutes,
+    resupply: req ? req("./resupply.js") : root.IdleSnakeResupply,
     snake: req ? req("./snake.js") : root.IdleSnakeSnake,
     duel: req ? req("./duel.js") : root.IdleSnakeDuel,
     crossing: req ? req("./crossing.js") : root.IdleSnakeCrossing,
@@ -21,9 +25,11 @@
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   if (typeof window !== "undefined") window.IdleSnakeSession = api;
   else root.IdleSnakeSession = api;
-})(typeof window !== "undefined" ? window : globalThis, ({ config, economy, snake, duel, crossing, breakout, broodline, maze, sokoban, snakebird }) => {
-  const SAVE_VERSION = 2;
+})(typeof window !== "undefined" ? window : globalThis, ({ config, notables, economy, migration, tradeRoutes, resupply, snake, duel, crossing, breakout, broodline, maze, sokoban, snakebird }) => {
+  const SAVE_VERSION = 5;
   const MAX_LIVE_DT = 100;
+  const GAMEPLAY_SPEED = 1;
+  const slowedTick = (milliseconds) => Math.round(milliseconds / GAMEPLAY_SPEED);
   const directions = new Set(["up", "down", "left", "right"]);
   const modeNames = new Set(["snake", "duel", "maze", "breakout", "crossing", "snakebird", "sokoban", "broodline"]);
 
@@ -46,18 +52,31 @@
     save = save && typeof save === "object" ? save : {};
     if (save.saveVersion === SAVE_VERSION && save.session) return clone(save);
     const legacy = save.session || save;
+    const masteryRewardsClaimed = { ...(legacy.notables?.masteryRewardsClaimed || {}) };
+    config.boardMasteryConfig.forEach((entry) => {
+      if (legacy.board?.mastery?.[entry.boardSize]) masteryRewardsClaimed[entry.masteryId] = true;
+    });
     return {
       saveVersion: SAVE_VERSION,
       savedAt: Number.isFinite(Number(save.savedAt)) ? Number(save.savedAt) : now,
       session: {
         mode: "snake", phase: "ready", elapsedMs: 0, modeAccumulatorMs: 0,
         seeds: Number(legacy.currencies?.seeds ?? legacy.seeds) || 0,
+        provisions: Number(legacy.currencies?.provisions ?? legacy.provisions) || 0,
+        branches: Number(legacy.currencies?.branches ?? legacy.branches) || 0,
         best: Number(legacy.records?.best ?? legacy.best) || 0,
         upgrades: normalUpgrades(legacy.upgrades),
         selectedBoardLevel: Number(legacy.board?.selectedBoardLevel) || 0,
         cosmetics: clone(legacy.settings?.snakeColors || legacy.cosmetics || { body: null, head: null }),
         snakebirdProgress: clone(legacy.snakebird || legacy.snakebirdProgress || { unlockedLevel: 1, clearedLevels: [], bestMoves: [], lastSelectedLevel: 1 }),
         nursery: clone(legacy.nursery || {}), habitats: clone(legacy.habitats || {}),
+        notables: clone({ ...(legacy.notables || save.notables || {}), masteryRewardsClaimed }),
+        migration: clone(legacy.migration || save.migration || {}),
+        tradeRoutes: clone(legacy.tradeRoutes || legacy.routes || save.tradeRoutes || save.routes || []),
+        activeResupplyMissions: clone(legacy.activeResupplyMissions || save.activeResupplyMissions || []),
+        completedResupplyMissions: clone(legacy.completedResupplyMissions || save.completedResupplyMissions || []),
+        nextResupplyMissionId: Number(legacy.nextResupplyMissionId || save.nextResupplyMissionId) || 1,
+        eggBoardCountdown: Number.isFinite(Number(legacy.eggBoardCountdown)) ? Number(legacy.eggBoardCountdown) : null,
         active: null
       }
     };
@@ -73,18 +92,62 @@
       mode: modeNames.has(raw.mode) ? raw.mode : "snake",
       phase: ["ready", "running", "paused", "gameover"].includes(raw.phase) ? raw.phase : "ready",
       elapsedMs: Math.max(0, Number(raw.elapsedMs) || 0), modeAccumulatorMs: Math.max(0, Number(raw.modeAccumulatorMs) || 0),
-      seeds: Math.max(0, Number(raw.seeds) || 0), best: Math.max(0, Number(raw.best) || 0),
+      seeds: Math.max(0, Number(raw.seeds) || 0), provisions: Math.max(0, Number(raw.provisions) || 0), branches: Math.max(0, Number(raw.branches) || 0), best: Math.max(0, Number(raw.best) || 0),
       upgrades: normalUpgrades(raw.upgrades), selectedBoardLevel: Math.max(0, Number(raw.selectedBoardLevel) || 0),
       cosmetics: raw.cosmetics && typeof raw.cosmetics === "object" ? clone(raw.cosmetics) : { body: null, head: null },
       snakebirdProgress: raw.snakebirdProgress && typeof raw.snakebirdProgress === "object" ? clone(raw.snakebirdProgress) : { unlockedLevel: 1, clearedLevels: [], bestMoves: [], lastSelectedLevel: 1 },
-      nursery: economy.createNursery(raw.nursery, now), habitats: economy.createHabitats(raw.habitats), active: null
+      nursery: economy.createNursery(raw.nursery, now), habitats: economy.createHabitats(raw.habitats),
+      notables: notables.createState(raw.notables),
+      eggBoardCountdown: Number.isFinite(Number(raw.eggBoardCountdown)) && Number(raw.eggBoardCountdown) > 0 ? Math.floor(Number(raw.eggBoardCountdown)) : null,
+      active: null
     };
+    state.migration = migration.createState(raw.migration, now);
+    // v4 and older saves kept upgrades at the session root. Move that state
+    // into the active settlement once, while every other existing settlement
+    // starts with its own clean upgrade track.
+    for (const settlement of state.migration.settlements) {
+      if (!settlement.economy) continue;
+      if (settlement.economy.upgrades === undefined) {
+        settlement.economy.upgrades = settlement.id === state.migration.activeSettlementId
+          ? clone(state.upgrades)
+          : normalUpgrades({});
+      }
+      if (settlement.economy.selectedBoardLevel === undefined) {
+        settlement.economy.selectedBoardLevel = settlement.id === state.migration.activeSettlementId
+          ? state.selectedBoardLevel
+          : 0;
+      }
+    }
+    const activeSettlement = state.migration.settlements.find((item) => item.id === state.migration.activeSettlementId);
+    if (!activeSettlement?.economy) migration.storeActiveSettlement(state);
+    else migration.loadActiveSettlement(state);
+    const routeState = tradeRoutes.createState(raw.tradeRoutes || raw.routes);
+    state.tradeRoutes = routeState.tradeRoutes; state.nextTradeRouteId = Math.max(routeState.nextTradeRouteId, Math.floor(Number(raw.nextTradeRouteId)) || 1);
+    const resupplyState = resupply.createState(raw, state);
+    state.activeResupplyMissions = resupplyState.activeResupplyMissions; state.completedResupplyMissions = resupplyState.completedResupplyMissions; state.nextResupplyMissionId = resupplyState.nextResupplyMissionId;
+    const activeSettlementForStats = state.migration.settlements.find((item) => item.id === state.migration.activeSettlementId);
+    if (activeSettlementForStats) activeSettlementForStats.stats.maxSnakeScore = Math.max(Number(activeSettlementForStats.stats.maxSnakeScore) || 0, state.best);
+    state.migrationChallenge = null;
     return state;
+  }
+
+  function normalizeLocalState(state, now) {
+    state.nursery = economy.createNursery(state.nursery, now);
+    state.habitats = economy.createHabitats(state.habitats);
+    state.notables = notables.createState(state.notables);
+  }
+  function rollEggBoardCountdown(rng) {
+    const { eggBoardMinRuns, eggBoardMaxRuns } = config.snakeConfig;
+    return eggBoardMinRuns + Math.floor(rng() * (eggBoardMaxRuns - eggBoardMinRuns + 1));
   }
   function startSnake(state, setup) {
     setup = setup || {};
     const grid = setup.grid || boardFor(state);
-    const active = snake.createSnakeMode(grid, { rng: () => state.rng(), upgrades: state.upgrades, seeds: state.seeds, best: state.best, snake: setup.snake, direction: setup.direction, tickMs: setup.tickMs });
+    if (state.eggBoardCountdown === null) state.eggBoardCountdown = rollEggBoardCountdown(state.rng);
+    state.eggBoardCountdown -= 1;
+    const eggBoard = state.eggBoardCountdown <= 0;
+    if (eggBoard) state.eggBoardCountdown = rollEggBoardCountdown(state.rng);
+    const active = snake.createSnakeMode(grid, { rng: () => state.rng(), upgrades: state.upgrades, seeds: state.seeds, best: state.best, snake: setup.snake, direction: setup.direction, tickMs: setup.tickMs, eggBoard });
     state.active = active; state.mode = "snake"; state.phase = "ready"; state.modeAccumulatorMs = 0; state.elapsedMs = 0;
   }
   function buildCrossingCars(stage, grid) {
@@ -122,12 +185,12 @@
     if (mode === "duel") {
       const grid = setup.grid || { columns: 30, rows: 30 };
       const px = Math.floor(grid.columns / 2) - 1; const ox = Math.floor(grid.columns / 2);
-      const active = { grid, player: { body: [{ x: px, y: grid.rows - 3 }, { x: px, y: grid.rows - 2 }, { x: px, y: grid.rows - 1 }], direction: "up" }, opponent: { body: [{ x: ox, y: 2 }, { x: ox, y: 1 }, { x: ox, y: 0 }], direction: "down" }, foods: [], score: 0, direction: "up", nextDirection: "up", directionQueue: [], tickMs: setup.tickMs || 125 };
+      const active = { grid, player: { body: [{ x: px, y: grid.rows - 3 }, { x: px, y: grid.rows - 2 }, { x: px, y: grid.rows - 1 }], direction: "up" }, opponent: { body: [{ x: ox, y: 2 }, { x: ox, y: 1 }, { x: ox, y: 0 }], direction: "down" }, foods: [], score: 0, direction: "up", nextDirection: "up", directionQueue: [], tickMs: setup.tickMs || slowedTick(125) };
       active.foods = duel.spawnFoods(active, setup.foodCount || 5, () => state.rng()); state.active = active; return;
     }
     if (mode === "crossing") {
       const grid = setup.grid || { columns: 15, rows: 13 }; const entryColumn = setup.entryColumn ?? Math.floor(grid.columns / 2); const snakeBody = [{ x: entryColumn, y: grid.rows - 1 }, { x: entryColumn, y: grid.rows }, { x: entryColumn, y: grid.rows + 1 }];
-      state.active = { grid, snake: snakeBody, cars: buildCrossingCars(1, grid), score: 0, stage: 1, snakeLength: 3, entryColumn, direction: "up", nextDirection: "up", directionQueue: [], tickMs: setup.tickMs || 82 }; return;
+      state.active = { grid, snake: snakeBody, cars: buildCrossingCars(1, grid), score: 0, stage: 1, snakeLength: 3, entryColumn, direction: "up", nextDirection: "up", directionQueue: [], tickMs: setup.tickMs || slowedTick(82) }; return;
     }
     if (mode === "broodline") {
       const grid = setup.grid || { columns: 30, rows: 30 };
@@ -164,11 +227,18 @@
     if (state.active && state.mode === "snakebird") { active.fruits = [...state.active.fruits]; active.solids = [...state.active.solids]; }
     if (state.active && state.mode === "sokoban") active.walls = [...state.active.walls];
     if (state.active && state.mode === "maze") active.open = [...state.active.open];
+    const habitatHardCapacities = config.habitatConfig.habitats.map((habitat, index) =>
+      economy.habitatMaxCapacity(habitat, state.habitats.upgradeLevels[index], notables.assignedTo(state.notables, index)));
     const snapshot = {
       saveVersion: SAVE_VERSION, mode: state.mode, phase: state.phase, elapsedMs: state.elapsedMs, modeAccumulatorMs: state.modeAccumulatorMs,
-      seeds: state.seeds, best: state.best, upgrades: clone(state.upgrades), selectedBoardLevel: state.selectedBoardLevel,
-      cosmetics: clone(state.cosmetics), snakebirdProgress: clone(state.snakebirdProgress), nursery: clone(state.nursery), habitats: clone(state.habitats), active,
-      hud: { score: active && Number(active.score) || 0, best: state.best, seeds: state.seeds, elapsedMs: state.elapsedMs },
+      seeds: state.seeds, provisions: state.provisions, branches: state.branches, best: state.best, upgrades: clone(state.upgrades), selectedBoardLevel: state.selectedBoardLevel,
+      cosmetics: clone(state.cosmetics), snakebirdProgress: clone(state.snakebirdProgress), nursery: clone(state.nursery), habitats: clone(state.habitats), notables: clone(state.notables), eggBoardCountdown: state.eggBoardCountdown, active,
+      migration: clone(state.migration), migrationChallenge: clone(state.migrationChallenge), tradeRoutes: clone(state.tradeRoutes),
+      activeResupplyMissions: clone(state.activeResupplyMissions), completedResupplyMissions: clone(state.completedResupplyMissions),
+      nextResupplyMissionId: state.nextResupplyMissionId,
+      notableCapacity: notables.capacity(state.notables, state.habitats.counts), notableRosterOverCapacity: notables.rosterOverCapacity(state.notables, state.habitats.counts),
+      habitatHardCapacities, habitatOverCapacity: state.habitats.counts.map((count, index) => count > habitatHardCapacities[index]),
+      hud: { score: active && Number(active.score) || 0, best: state.best, seeds: state.seeds, provisions: state.provisions, branches: state.branches, elapsedMs: state.elapsedMs },
       availableModes: [...modeNames], supportedModes: ["snake", "duel", "maze", "crossing", "breakout", "snakebird", "sokoban", "broodline"],
       prompt: state.phase === "ready" ? "Ready" : state.phase === "paused" ? "Paused" : state.phase === "gameover" ? "Game Over" : ""
     };
@@ -189,9 +259,59 @@
     // Anchor the offline clock to when the save was written (not now), so
     // advanceOffline(now) credits the real elapsed idle time.
     let savedAt = Number.isFinite(Number(migrated.savedAt)) ? Number(migrated.savedAt) : now;
+    let simulationNow = savedAt;
+    function syncActiveSettlementFromCanonical() {
+      migration.loadActiveSettlement(state); normalizeLocalState(state, simulationNow);
+    }
+    function finishCrossSettlementMutation() {
+      syncActiveSettlementFromCanonical(); migration.creditActiveSettlement(state); migration.storeActiveSettlement(state);
+    }
+    function normalizeSettlementEconomy(settlement) {
+      if (!settlement?.economy) return;
+      const local = settlement.economy;
+      settlement.economy = {
+        ...local,
+        seeds: Math.max(0, Number(local.seeds) || 0), branches: Math.max(0, Number(local.branches) || 0), provisions: Math.max(0, Number(local.provisions) || 0),
+        upgrades: normalUpgrades(local.upgrades), selectedBoardLevel: Math.min(normalUpgrades(local.upgrades).boardLevel, Math.max(0, Math.floor(Number(local.selectedBoardLevel) || 0))),
+        nursery: economy.createNursery(local.nursery, simulationNow), habitats: economy.createHabitats(local.habitats), notables: notables.createState(local.notables)
+      };
+    }
+    function advanceSettlementWorld(dtMs) {
+      const total = Math.max(0, Number(dtMs) || 0); const events = [];
+      if (!total) return events;
+      migration.creditActiveSettlement(state); migration.storeActiveSettlement(state);
+      state.migration.settlements.forEach(normalizeSettlementEconomy);
+      const end = simulationNow + total; let cursor = simulationNow;
+      while (cursor < end) {
+        const routeBoundary = tradeRoutes.nextShipmentTime(state, cursor, end);
+        const resupplyBoundary = resupply.nextArrivalTime(state, cursor, end);
+        const foundingRemaining = state.migration.settlements
+          .filter((item) => item.status === "founding" && item.foundingRemainingMs > 0)
+          .reduce((minimum, item) => Math.min(minimum, item.foundingRemainingMs), Infinity);
+        const foundingBoundary = Number.isFinite(foundingRemaining) ? cursor + foundingRemaining : Infinity;
+        const boundary = Math.min(end, routeBoundary ?? Infinity, resupplyBoundary ?? Infinity, foundingBoundary);
+        const segment = Math.max(0, boundary - cursor);
+        if (segment > 0) {
+          for (const settlement of state.migration.settlements) {
+            if (settlement.status !== "established" || !settlement.economy) continue;
+            const ticked = economy.tickEconomy(settlement.economy, segment, { rng: () => state.rng(), foodValue: economy.foodValueFromUpgrades(settlement.economy.upgrades) });
+            events.push(...ticked.events.map((item) => ({ ...item, settlementId: settlement.id })));
+          }
+          events.push(...migration.tick(state, segment, boundary, () => state.rng(), { deferEconomySync: true }).events);
+          cursor = boundary;
+        }
+        const arrived = resupply.resolveDue(state, cursor); events.push(...arrived.events);
+        const resolved = tradeRoutes.resolveDue(state, cursor); events.push(...resolved.events);
+        if (segment === 0 && arrived.events.length === 0 && resolved.events.length === 0) cursor = end;
+      }
+      simulationNow = end; syncActiveSettlementFromCanonical();
+      const awarded = migration.creditActiveSettlement(state); if (awarded) events.push(event("migrationPointsEarned", { amount: awarded }));
+      migration.storeActiveSettlement(state); return events;
+    }
     function dispatch(action) {
       action = action && typeof action === "object" ? action : {};
       const events = [];
+      const seedsBefore = state.seeds;
       const reject = (reason) => { events.push(event("actionRejected", { action: action.type || null, reason })); return result(state, events); };
       switch (action.type) {
         case "start":
@@ -218,7 +338,7 @@
         case "selectBoard": {
           const level = Math.floor(Number(action.level));
           if (!Number.isInteger(level) || level < 0 || level > state.upgrades.boardLevel) return reject("boardLocked");
-          state.selectedBoardLevel = level; startMode(state, state.mode, action.setup); events.push(event("boardSelected", { level }), event("runReady", { mode: state.mode })); break;
+          state.selectedBoardLevel = level; migration.storeActiveSettlement(state); startMode(state, state.mode, action.setup); events.push(event("boardSelected", { level }), event("runReady", { mode: state.mode })); break;
         }
         case "direction":
           if (!state.active || (state.phase !== "running" && state.phase !== "ready") || !directions.has(action.direction)) return reject("notRunning");
@@ -244,24 +364,166 @@
           if (item.levels && level >= item.levels.length - 1) return reject("maxed");
           const cost = upgradeCost(action.upgrade, level);
           if (state.seeds < cost) return reject("insufficientSeeds");
-          state.seeds -= cost; state.upgrades[key] += 1; events.push(event("upgradePurchased", { upgrade: action.upgrade, cost })); break;
+          state.seeds -= cost; state.upgrades[key] += 1;
+          if (action.upgrade === "board") state.selectedBoardLevel = state.upgrades.boardLevel;
+          migration.storeActiveSettlement(state);
+          events.push(event("upgradePurchased", { upgrade: action.upgrade, cost })); break;
         }
-        case "layEgg": {
-          const outcome = economy.layEgg(state);
-          if (!outcome.accepted) return reject(outcome.reason || "eggUnavailable");
-          events.push(...outcome.events); break;
-        }
+        case "layEgg": return reject("automatic");
         case "placeHabitat": {
           const index = Math.floor(Number(action.index));
           const habitat = config.habitatConfig.habitats[index];
-          if (!habitat || state.nursery.colonyCount < 1 || state.best < habitat.unlockScore) return reject("habitatUnavailable");
-          state.nursery.colonyCount -= 1; state.habitats.counts[index] += 1; events.push(event("habitatPlaced", { index })); break;
+          const count = Math.max(1, Math.floor(Number(action.count) || 1));
+          if (!habitat || state.nursery.colonyCount < count || state.best < habitat.unlockScore) return reject("habitatUnavailable");
+          const leader = notables.assignedTo(state.notables, index);
+          if (state.habitats.counts[index] + count > economy.habitatMaxCapacity(habitat, state.habitats.upgradeLevels[index], leader)) return reject("habitatOverCapacity");
+          state.nursery.colonyCount -= count; state.habitats.counts[index] += count; events.push(event("habitatPlaced", { index, count }));
+          // A colony-store snake receives exactly one lifetime placement roll;
+          // batches can therefore produce several ordered pending candidates.
+          for (let placed = 0; placed < count; placed += 1) {
+            if (state.rng() < config.notableConfig.habitatAssignmentChance) {
+              const generated = notables.generate(state.notables, { type: "HABITAT_ASSIGNMENT", reference: habitat.name }, () => state.rng(), Number(action.now) || savedAt, state.habitats.counts);
+              events.push(...generated.events);
+            }
+          }
+          break;
+        }
+        case "upgradeHabitat": {
+          const index = Math.floor(Number(action.index));
+          const habitat = config.habitatConfig.habitats[index];
+          if (!habitat || state.best < habitat.unlockScore) return reject("habitatUnavailable");
+          const level = state.habitats.upgradeLevels[index];
+          const cost = economy.habitatUpgradeCost(habitat, level);
+          if (state.branches < cost) return reject("insufficientBranches");
+          state.branches -= cost;
+          state.habitats.upgradeLevels[index] += 1;
+          events.push(event("habitatUpgraded", { index, level: level + 1, cost }));
+          break;
+        }
+        case "upgradeNest": {
+          const level = state.nursery.nestLevel;
+          if (economy.nestCapacity(state.nursery) >= config.nurseryConfig.upgrades.nest.maxSlots) return reject("maxed");
+          const cost = economy.nestUpgradeCost(level);
+          if (state.branches < cost) return reject("insufficientBranches");
+          state.branches -= cost;
+          state.nursery.nestLevel += 1;
+          events.push(event("nestUpgraded", { level: level + 1, branchCost: cost }));
+          break;
+        }
+        case "upgradeNursery": {
+          const level = state.nursery.nurseryLevel;
+          const cost = economy.nurseryUpgradeCost(level);
+          if (state.branches < cost) return reject("insufficientBranches");
+          if (state.seeds < cost.seeds) return reject("insufficientSeeds");
+          state.branches -= cost.branches;
+          state.seeds -= cost.seeds;
+          state.nursery.nurseryLevel += 1;
+          events.push(event("nurseryUpgraded", { level: level + 1, branchCost: cost.branches, seedCost: cost.seeds }));
+          break;
+        }
+        case "generateNotable": {
+          const generated = notables.generate(state.notables, { type: action.sourceType || "DEBUG", reference: action.sourceReference || "" }, () => state.rng(), Number(action.now) || savedAt, state.habitats.counts);
+          events.push(...generated.events); break;
+        }
+        case "claimBoardMastery": {
+          const mastery = config.boardMasteryConfig.find((item) => item.masteryId === action.masteryId);
+          if (!mastery) return reject("invalidMastery");
+          if (state.notables.masteryRewardsClaimed[mastery.masteryId]) return reject("masteryAlreadyClaimed");
+          const currentSize = state.active?.grid ? `${state.active.grid.columns}x${state.active.grid.rows}` : "";
+          if (state.mode !== "snake" || currentSize !== mastery.boardSize || Number(state.active?.score) < mastery.masteryScore) return reject("masteryNotAchieved");
+          state.notables.masteryRewardsClaimed[mastery.masteryId] = true;
+          const generated = notables.generate(state.notables, { type: "BOARD_MASTERY", reference: mastery.boardSize }, () => state.rng(), Number(action.now) || savedAt, state.habitats.counts);
+          events.push(event("BOARD_MASTERY_REWARD_CLAIMED", { masteryId: mastery.masteryId }), ...generated.events); break;
+        }
+        case "recruitNotable": {
+          const cost = config.notableConfig.directRecruitmentCost;
+          if (notables.rosterOverCapacity(state.notables, state.habitats.counts)) return reject("notableCapacityFull");
+          if (state.nursery.colonyCount < cost) return reject("insufficientColonySnakes");
+          state.nursery.colonyCount -= cost; state.notables.directRecruitmentsCompleted += 1;
+          const generated = notables.generate(state.notables, { type: "DIRECT_RECRUITMENT", reference: `${cost} colony snakes` }, () => state.rng(), Number(action.now) || savedAt, state.habitats.counts);
+          events.push(event("NOTABLE_RECRUITMENT_COMPLETED", { cost }), ...generated.events); break;
+        }
+        case "assignNotable": {
+          const assigned = notables.assign(state.notables, action.notableId, Math.floor(Number(action.habitatId)), config.habitatConfig.habitats, state.habitats.counts);
+          if (!assigned.accepted) return reject(assigned.reason); events.push(...assigned.events); break;
+        }
+        case "unassignNotable": {
+          const unassigned = notables.unassign(state.notables, action.notableId);
+          if (!unassigned.accepted) return reject(unassigned.reason); events.push(...unassigned.events); break;
+        }
+        case "dismissNotable":
+        case "retireNotable": {
+          const removed = notables.removeRetained(state.notables, action.notableId, Number(action.now) || savedAt);
+          if (!removed) return reject("notableMissing");
+          events.push(event(removed.hasServed ? "NOTABLE_RETIRED" : "NOTABLE_DISMISSED", { notableId: removed.id }));
+          const promoted = notables.promotePendingIfSpace(state.notables, state.habitats.counts);
+          if (promoted) events.push(event("NOTABLE_RETAINED", { notableId: promoted.id, fromPending: true }));
+          break;
+        }
+        case "resolvePendingNotable": {
+          const resolved = notables.resolvePending(state.notables, action.decision, action.replaceNotableId, Number(action.now) || savedAt, state.habitats.counts);
+          if (!resolved.accepted) return reject(resolved.reason); events.push(...resolved.events); break;
+        }
+        case "startMigration": {
+          const started = migration.startExpedition(state, action, Number(action.now) || savedAt, () => state.rng());
+          if (!started.accepted) return reject(started.reason);
+          normalizeLocalState(state, Number(action.now) || savedAt); events.push(event("migrationDeparted", { expeditionId: started.expedition.id, cost: started.cost })); break;
+        }
+        case "resolveMigrationStop": {
+          const resolved = migration.resolveStop(state, action.expeditionId, action.optionId, Number(action.now) || savedAt);
+          if (!resolved.accepted) return reject(resolved.reason); events.push(event("migrationStopResolved", { expeditionId: action.expeditionId })); break;
+        }
+        case "beginMigrationChallenge": {
+          const expedition = state.migration.activeExpeditions.find((item) => item.id === action.expeditionId);
+          if (!expedition || expedition.state !== "waitingChallenge") return reject("challengeUnavailable");
+          const challenge = config.migrationConfig.challenge; const cx = Math.floor(challenge.columns / 2); const cy = Math.floor(challenge.rows / 2);
+          startSnake(state, { grid: { columns: challenge.columns, rows: challenge.rows }, snake: Array.from({ length: challenge.startingLength }, (_, index) => ({ x: cx - index, y: cy })), direction: "right", tickMs: challenge.tickMs });
+          state.phase = "running"; state.migrationChallenge = { expeditionId: expedition.id, requiredSeeds: challenge.requiredSeeds, collectedSeeds: 0, startingBest: state.best };
+          events.push(event("migrationChallengeStarted", { expeditionId: expedition.id })); break;
+        }
+        case "skipMigrationChallenge": {
+          const skipped = migration.skipChallenge(state, action.expeditionId, Number(action.now) || savedAt);
+          if (!skipped.accepted) return reject(skipped.reason); events.push(event("migrationChallengeSkipped", { expeditionId: action.expeditionId })); break;
+        }
+        case "returnMigration": {
+          const returned = migration.returnExpedition(state, action.expeditionId, Number(action.now) || savedAt);
+          if (!returned.accepted) return reject(returned.reason);
+          normalizeLocalState(state, Number(action.now) || savedAt); events.push(event("migrationReturned", { expeditionId: action.expeditionId, refund: returned.refund })); break;
+        }
+        case "selectSettlement": {
+          const selected = migration.selectSettlement(state, action.settlementId);
+          if (!selected.accepted) return reject(selected.reason);
+          normalizeLocalState(state, Number(action.now) || savedAt); state.active = null; state.phase = "ready"; events.push(event("settlementSelected", { settlementId: action.settlementId })); break;
+        }
+        case "createTradeRoute":
+        case "configureTradeDirection":
+        case "setTradeDirectionPaused":
+        case "setTradeRoutePaused":
+        case "setTradeWorkers":
+        case "purchaseTradeUpgrade":
+        case "dismantleTradeRoute": {
+          migration.storeActiveSettlement(state);
+          const routeAction = action.type === "createTradeRoute" ? tradeRoutes.createRoute(state, action, Number(action.now) || simulationNow)
+            : action.type === "configureTradeDirection" ? tradeRoutes.configureDirection(state, action, Number(action.now) || simulationNow)
+            : action.type === "setTradeDirectionPaused" ? tradeRoutes.setDirectionPaused(state, action, Number(action.now) || simulationNow)
+            : action.type === "setTradeRoutePaused" ? tradeRoutes.setRoutePaused(state, action, Number(action.now) || simulationNow)
+            : action.type === "setTradeWorkers" ? tradeRoutes.setWorkers(state, action, Number(action.now) || simulationNow)
+            : action.type === "purchaseTradeUpgrade" ? tradeRoutes.purchaseUpgrade(state, action)
+            : tradeRoutes.dismantleRoute(state, action);
+          if (!routeAction.accepted) return reject(routeAction.reason);
+          events.push(...routeAction.events); finishCrossSettlementMutation(); break;
+        }
+        case "dispatchResupply": {
+          migration.storeActiveSettlement(state);
+          const dispatched = resupply.dispatch(state, action, Number(action.now) || simulationNow);
+          if (!dispatched.accepted) return reject(dispatched.reason);
+          events.push(...dispatched.events); finishCrossSettlementMutation(); break;
         }
         case "setCosmetics":
           state.cosmetics = { ...state.cosmetics, ...(action.cosmetics || {}) }; events.push(event("cosmeticsChanged")); break;
         // Host-bridge actions used during the incremental migration (and beyond):
         // syncSeeds reconciles the shared seed balance from a host system that
-        // still owns some gameplay; addSeeds applies a delta (rewards, dev grant);
+        // still owns some gameplay; addSeeds/addColonySnakes apply dev grants;
         // setUpgrades pushes host-owned upgrade levels so economy food value is
         // correct before that system is itself migrated.
         case "syncSeeds":
@@ -270,10 +532,16 @@
           state.best = Math.max(state.best, Math.max(0, Number(action.best) || 0)); break;
         case "addSeeds":
           state.seeds = Math.max(0, state.seeds + (Number(action.amount) || 0)); events.push(event("seedsChanged")); break;
+        case "addColonySnakes":
+          state.nursery.colonyCount = Math.max(0, state.nursery.colonyCount + (Math.floor(Number(action.amount)) || 0));
+          events.push(event("colonyChanged")); break;
         case "setUpgrades":
-          state.upgrades = normalUpgrades(action.upgrades); break;
+          state.upgrades = normalUpgrades(action.upgrades);
+          state.selectedBoardLevel = Math.min(state.selectedBoardLevel, state.upgrades.boardLevel);
+          migration.storeActiveSettlement(state); break;
         default: return reject("unknownAction");
       }
+      events.push(...economy.reconcileEggProgress(state, seedsBefore));
       return result(state, events);
     }
     function tick(dtMs) {
@@ -284,7 +552,9 @@
       const dt = Math.min(MAX_LIVE_DT, rawDt);
       const events = [];
       if (!rawDt) return result(state, events);
-      events.push(...economy.tickEconomy(state, rawDt, { rng: () => state.rng() }).events);
+      events.push(...advanceSettlementWorld(rawDt));
+      const seedsAfterEconomy = state.seeds;
+      if (state.mode === "snake" && state.active) { state.active.seeds = state.seeds; state.active.best = state.best; }
       if (state.phase === "running") state.elapsedMs += dt;
       if (state.mode === "snake" && state.phase === "running" && state.active) {
         state.modeAccumulatorMs += dt;
@@ -293,7 +563,25 @@
           state.seeds = state.active.seeds; state.best = state.active.best;
           state.modeAccumulatorMs -= state.active.tickMs;
           events.push(...stepped.events);
-          if (!stepped.alive) { state.phase = "gameover"; events.push(event("runEnded", { mode: "snake" })); }
+          stepped.events.filter((item) => item.type === "eggCollected").forEach(() => {
+            events.push(economy.addEggBoardHatchling(state, () => state.rng()));
+          });
+          if (state.migrationChallenge) {
+            state.migrationChallenge.collectedSeeds = state.active.score;
+            state.seeds = seedsAfterEconomy;
+            state.active.seeds = seedsAfterEconomy;
+            state.best = state.migrationChallenge.startingBest;
+            state.active.best = state.migrationChallenge.startingBest;
+            if (state.migrationChallenge.collectedSeeds >= state.migrationChallenge.requiredSeeds) {
+              const expeditionId = state.migrationChallenge.expeditionId;
+              migration.resolveChallenge(state, expeditionId, true, savedAt + state.migration.elapsedMs);
+              state.migrationChallenge = null; state.phase = "gameover"; events.push(event("migrationChallengeCompleted", { expeditionId }));
+            } else if (!stepped.alive) {
+              const expeditionId = state.migrationChallenge.expeditionId;
+              migration.resolveChallenge(state, expeditionId, false, savedAt + state.migration.elapsedMs);
+              state.migrationChallenge = null; state.phase = "gameover"; events.push(event("migrationChallengeFailed", { expeditionId }));
+            }
+          } else if (!stepped.alive) { state.phase = "gameover"; events.push(event("runEnded", { mode: "snake" })); }
         }
       }
       if (state.phase === "running" && state.active && state.mode === "duel") {
@@ -331,16 +619,22 @@
           if (!stepped.alive) { state.phase = "gameover"; state.seeds += state.active.pendingSeeds; events.push(event("runEnded", { mode: "broodline", reward: state.active.pendingSeeds })); }
         }
       }
+      events.push(...economy.reconcileEggProgress(state, seedsAfterEconomy));
+      events.push(...economy.tryStartEgg(state));
+      if (!state.migrationChallenge) migration.recordSnakeSeeds(state, Math.max(0, state.seeds - seedsAfterEconomy));
+      migration.creditActiveSettlement(state); migration.storeActiveSettlement(state);
       return result(state, events);
     }
     function advanceOffline(now) {
       const target = Math.max(savedAt, Number(now) || savedAt);
-      const dt = target - savedAt; savedAt = target;
-      const events = economy.tickEconomy(state, dt, { rng: () => state.rng() }).events;
+      // Offline catch-up is anchored to the last persisted wall-clock time.
+      // In normal host usage this runs once at hydration; retaining that anchor
+      // also preserves deterministic callers that live-tick before catch-up.
+      const dt = target - savedAt; const events = advanceSettlementWorld(dt); savedAt = target;
       return result(state, events);
     }
     return { snapshot: () => makeSnapshot(state), dispatch, tick, advanceOffline,
-      serialize: () => ({ saveVersion: SAVE_VERSION, savedAt, session: clone({ ...state, active: null }) }) };
+      serialize: () => { migration.creditActiveSettlement(state); migration.storeActiveSettlement(state); return { saveVersion: SAVE_VERSION, savedAt: simulationNow, session: clone({ ...state, active: null, migrationChallenge: null }) }; } };
   }
   return { SAVE_VERSION, MAX_LIVE_DT, migrateLegacy, createGameSession };
 });

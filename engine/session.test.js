@@ -1,6 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const { createGameSession, SAVE_VERSION } = require("./session.js");
+const { habitatConfig } = require("./config.js");
 
 // A small deterministic LCG so tests that assert on RNG-driven outcomes are
 // stable. The engine itself defaults to Math.random; tests inject this instead.
@@ -19,8 +20,9 @@ test("start yields a ready run; the first direction begins running and moves the
   const started = game.dispatch({ type: "direction", direction: "up" });
   assert.equal(started.snapshot.phase, "running");
   assert.ok(started.events.some((e) => e.type === "runStarted"));
-  game.tick(100);
-  const after = game.tick(100).snapshot.active.snake[0];
+  const ticksNeeded = Math.ceil(ready.snapshot.active.tickMs / 100);
+  let after;
+  for (let index = 0; index < ticksNeeded; index += 1) after = game.tick(100).snapshot.active.snake[0];
   assert.equal(after.y, before.y - 1);
 });
 
@@ -105,7 +107,14 @@ test("offline catch-up credits idle income from the save's savedAt, not boot tim
   assert.ok(game.snapshot().seeds > before, "an hour of offline habitat income should be credited");
 });
 
-test("syncSeeds/addSeeds/setUpgrades host-bridge actions reconcile shared state", () => {
+test("a save/reload round trip does not resurrect a phantom incubating egg", () => {
+  const game = createGameSession({ now: 0, rng: lcg(4) });
+  assert.equal(game.snapshot().nursery.eggElapsedMs, null); // fresh: nest empty
+  const reloaded = createGameSession({ save: game.serialize(), now: 0, rng: lcg(4) });
+  assert.equal(reloaded.snapshot().nursery.eggElapsedMs, null, "reload must not start a phantom egg");
+});
+
+test("syncSeeds/addSeeds/addColonySnakes/setUpgrades host-bridge actions reconcile shared state", () => {
   const game = createGameSession({ save: { currencies: { seeds: 100 } }, now: 0 });
   game.dispatch({ type: "syncSeeds", seeds: 250 });
   assert.equal(game.snapshot().seeds, 250);
@@ -113,8 +122,17 @@ test("syncSeeds/addSeeds/setUpgrades host-bridge actions reconcile shared state"
   assert.equal(game.snapshot().seeds, 200);
   game.dispatch({ type: "addSeeds", amount: -1000 }); // clamps at 0
   assert.equal(game.snapshot().seeds, 0);
+  game.dispatch({ type: "addColonySnakes", amount: 5 });
+  assert.equal(game.snapshot().nursery.colonyCount, 5);
   game.dispatch({ type: "setUpgrades", upgrades: { foodTypeLevel: 3 } });
   assert.equal(game.snapshot().upgrades.foodTypeLevel, 3);
+});
+
+test("the hidden egg-board counter turns the scheduled classic board into an egg board", () => {
+  const game = createGameSession({ save: { saveVersion: 2, savedAt: 0, session: { mode: "snake", phase: "ready", eggBoardCountdown: 1 } }, now: 0, rng: lcg(1) });
+  const result = game.dispatch({ type: "start" });
+  assert.equal(result.snapshot.active.eggBoard, true);
+  assert.ok(result.snapshot.eggBoardCountdown >= 100 && result.snapshot.eggBoardCountdown <= 200);
 });
 
 test("buying an upgrade deducts seeds and rejects when unaffordable", () => {
@@ -127,4 +145,50 @@ test("buying an upgrade deducts seeds and rejects when unaffordable", () => {
   const broke = createGameSession({ save: { currencies: { seeds: 0 } }, now: 0 });
   const rejected = broke.dispatch({ type: "buyUpgrade", upgrade: "board" });
   assert.ok(rejected.events.some((e) => e.type === "actionRejected" && e.reason === "insufficientSeeds"));
+});
+
+test("settlements keep independent upgrade tracks when selected", () => {
+  const game = createGameSession({ save: {
+    saveVersion: SAVE_VERSION, savedAt: 0, session: {
+      mode: "snake", phase: "ready", seeds: 500, upgrades: { boardLevel: 2, foodTypeLevel: 1 }, selectedBoardLevel: 2,
+      migration: { activeSettlementId: "grasslands", settlements: [
+        { id: "grasslands", name: "Grasslands", status: "established", economy: { seeds: 500, upgrades: { boardLevel: 2, foodTypeLevel: 1 }, selectedBoardLevel: 2 } },
+        { id: "wetlands", name: "Wetlands", status: "established", economy: { seeds: 500, upgrades: { boardLevel: 0, foodTypeLevel: 0 }, selectedBoardLevel: 0 } }
+      ] }
+    }
+  }, now: 0, rng: lcg(1) });
+
+  let snapshot = game.dispatch({ type: "selectSettlement", settlementId: "wetlands" }).snapshot;
+  assert.equal(snapshot.upgrades.boardLevel, 0);
+  assert.equal(snapshot.upgrades.foodTypeLevel, 0);
+  assert.equal(snapshot.selectedBoardLevel, 0);
+
+  game.dispatch({ type: "setUpgrades", upgrades: { boardLevel: 1, foodTypeLevel: 3 } });
+  snapshot = game.dispatch({ type: "selectSettlement", settlementId: "grasslands" }).snapshot;
+  assert.equal(snapshot.upgrades.boardLevel, 2);
+  assert.equal(snapshot.upgrades.foodTypeLevel, 1);
+  assert.equal(snapshot.selectedBoardLevel, 2);
+
+  snapshot = game.dispatch({ type: "selectSettlement", settlementId: "wetlands" }).snapshot;
+  assert.equal(snapshot.upgrades.boardLevel, 1);
+  assert.equal(snapshot.upgrades.foodTypeLevel, 3);
+});
+
+test("habitat upgrades spend Branches and persist a larger maximum capacity", () => {
+  const game = createGameSession({ save: { currencies: { branches: 10 }, records: { best: 0 } }, now: 0, rng: lcg(1) });
+  const before = game.snapshot();
+  assert.deepEqual(before.habitats.upgradeLevels, habitatConfig.habitats.map(() => 0));
+  assert.equal(before.habitatHardCapacities[0], habitatConfig.habitats[0].hardCapacity);
+
+  const bought = game.dispatch({ type: "upgradeHabitat", index: 0 });
+  assert.ok(bought.events.some((event) => event.type === "habitatUpgraded"));
+  assert.equal(bought.snapshot.branches, 0);
+  assert.equal(bought.snapshot.habitats.upgradeLevels[0], 1);
+  assert.equal(bought.snapshot.habitatHardCapacities[0], 75);
+
+  const restored = createGameSession({ save: game.serialize(), now: 0, rng: lcg(1) });
+  assert.equal(restored.snapshot().habitats.upgradeLevels[0], 1);
+  assert.equal(restored.snapshot().habitatHardCapacities[0], 75);
+  assert.ok(restored.dispatch({ type: "upgradeHabitat", index: 0 }).events.some((event) =>
+    event.type === "actionRejected" && event.reason === "insufficientBranches"));
 });

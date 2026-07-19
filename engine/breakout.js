@@ -11,10 +11,10 @@
 })(typeof window !== "undefined" ? window : globalThis, () => {
   const config = {
     basePaddleLength: 3,
-    paddleSpeed: 330,
-    ballSpeed: 258,
+    paddleSpeed: 231,
+    ballSpeed: 180.6,
     powerupDropChance: 0.18,
-    powerupFallSpeed: 92
+    powerupFallSpeed: 64.4
   };
   const MAX_HEARTS_PER_LEVEL = 2;
   const SEED_BOOST_MS = 30000;

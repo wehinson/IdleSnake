@@ -31,9 +31,18 @@
           events.push(...dispatched.events);
         }
       }
-      const ticked = session.tick(stepMs);
-      snapshot = ticked.snapshot;
-      events.push(...ticked.events);
+      // A live session deliberately clamps one tick to 100ms. A headless
+      // simulation step represents the full requested duration, so feed it in
+      // live-sized chunks instead of silently discarding the remainder.
+      let remainingMs = stepMs;
+      let ticked = { snapshot, events: [] };
+      while (remainingMs > 0) {
+        ticked = session.tick(Math.min(100, remainingMs));
+        snapshot = ticked.snapshot;
+        events.push(...ticked.events);
+        remainingMs -= Math.min(100, remainingMs);
+        if (stopOnEnd && ticked.events.some((item) => item.type === "runEnded")) break;
+      }
       steps += 1;
       if (stopOnEnd && ticked.events.some((item) => item.type === "runEnded")) { ended = true; break; }
     }

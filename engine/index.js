@@ -13,6 +13,7 @@
   const req = typeof require === "function" ? require : null;
   const deps = {
     config: req ? req("./config.js") : (root.IdleSnakeConfig || {}),
+    notables: req ? req("./notables.js") : root.IdleSnakeNotables,
     economy: req ? req("./economy.js") : root.IdleSnakeEconomy,
     snake: req ? req("./snake.js") : root.IdleSnakeSnake,
     world: req ? req("./world.js") : root.IdleSnakeWorld
@@ -21,7 +22,7 @@
   if (typeof module !== "undefined" && module.exports) module.exports = engine;
   if (typeof window !== "undefined") window.IdleSnakeWorldEngine = engine;
   else root.IdleSnakeWorldEngine = engine;
-})(typeof window !== "undefined" ? window : globalThis, ({ config, economy, snake, world }) => {
+})(typeof window !== "undefined" ? window : globalThis, ({ config, notables, economy, snake, world }) => {
   // Live frames are clamped so a stutter/tab-away can't fast-forward gameplay.
   // Offline catch-up passes { offline: true } to bypass the clamp for one big dt.
   const MAX_LIVE_DT = 100;
@@ -32,10 +33,13 @@
       phase: "ready",       // ready | running | paused | gameover
       mode: save.mode || "snake",
       seeds: Number(save.seeds) || 0,
+      provisions: Math.max(0, Number(save.provisions) || 0),
+      branches: Math.max(0, Number(save.branches) || 0),
       best: Number(save.best) || 0,
       upgrades: save.upgrades || { foodTypeLevel: 0, foodCountLevel: 0, shieldLevel: 0, boardLevel: 0, minigamesLevel: 0 },
       nursery: economy.createNursery(save.nursery, now),
       habitats: economy.createHabitats(save.habitats),
+      notables: notables.createState(save.notables),
       world: world.createWorldSystems(save.world),
       modeAccumulatorMs: 0,
       // Active real-time mode fields (populated by startSnake).
@@ -63,6 +67,7 @@
         rng,
         upgrades: state.upgrades,
         seeds: state.seeds,
+        provisions: state.provisions,
         best: state.best
       });
       // Fold the snake fields onto the shared state (keep shared seeds/best/upgrades).
@@ -103,6 +108,8 @@
       // 2) Migration + world-event hooks (stubs) — same dt.
       events.push(...world.tickWorld(state, dt).events);
 
+      const seedsBeforeGameplay = state.seeds;
+
       // 3) Active real-time mode — fixed-step accumulator off the SAME dt.
       if (state.phase === "running" && state.mode === "snake" && state.snake) {
         state.modeAccumulatorMs += dt;
@@ -117,6 +124,9 @@
         }
       }
 
+      events.push(...economy.reconcileEggProgress(state, seedsBeforeGameplay));
+      events.push(...economy.tryStartEgg(state));
+
       return events;
     }
 
@@ -124,10 +134,13 @@
       return {
         mode: state.mode,
         seeds: state.seeds,
+        provisions: state.provisions,
+        branches: state.branches,
         best: state.best,
         upgrades: state.upgrades,
         nursery: state.nursery,
         habitats: state.habitats,
+        notables: state.notables,
         world: state.world
       };
     }

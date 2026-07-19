@@ -13,7 +13,7 @@ function consolidated(overrides = {}) {
   return {
     saveVersion: 1,
     savedAt: 1_000_000_000,
-    currencies: { seeds: 0 },
+    currencies: { seeds: 0, provisions: 0 },
     upgrades: { boardLevel: 0, foodTypeLevel: 0, foodCountLevel: 0, shieldLevel: 0, minigamesLevel: 0 },
     board: { selectedBoardLevel: 0, selectedDuelGridSize: 30 },
     records: { best: 0, crossingBest: 0, mazeBest: 0, breakoutBest: 0, sokobanBest: 0 },
@@ -29,11 +29,13 @@ function consolidated(overrides = {}) {
 
 test("toEngineSave maps consolidated fields onto the engine save shape", () => {
   const save0 = save.toEngineSave(consolidated({
-    currencies: { seeds: 777 },
+    currencies: { seeds: 777, provisions: 33, branches: 22 },
     records: { best: 55 },
     upgrades: { boardLevel: 2, foodTypeLevel: 3, foodCountLevel: 1, shieldLevel: 0, minigamesLevel: 0 }
   }));
   assert.equal(save0.seeds, 777);
+  assert.equal(save0.provisions, 33);
+  assert.equal(save0.branches, 22);
   assert.equal(save0.best, 55);
   assert.equal(save0.upgrades.boardLevel, 2);
 });
@@ -42,17 +44,20 @@ test("hydrate loads a consolidated save and preserves seeds/best/upgrades/habita
   const now = 1_000_000_000;
   const world = save.hydrate(consolidated({
     savedAt: now,
-    currencies: { seeds: 1234 },
+    currencies: { seeds: 1234, provisions: 56, branches: 78 },
     records: { best: 42 },
     upgrades: { boardLevel: 2, foodTypeLevel: 3, foodCountLevel: 1, shieldLevel: 2, minigamesLevel: 0 },
     nursery: { nestStartedAt: now - 120_000, lastUpdatedAt: now, hatchlings: [], colonyCount: 5 },
-    habitats: { counts: [3, 1, 0, 0, 0, 0, 0, 0], lastUpdatedAt: now }
+    habitats: { counts: [3, 1, 0, 0, 0, 0, 0, 0], upgradeLevels: [2, 1, 0, 0, 0, 0, 0, 0], lastUpdatedAt: now }
   }), { now, rng: seededRng(1) }).world;
 
   assert.equal(world.state.best, 42);
+  assert.equal(world.state.provisions, 56);
+  assert.equal(world.state.branches, 78);
   assert.equal(world.state.upgrades.boardLevel, 2);
   assert.equal(world.state.nursery.colonyCount, 5);
   assert.deepEqual(world.state.habitats.counts, [3, 1, 0, 0, 0, 0, 0, 0]);
+  assert.deepEqual(world.state.habitats.upgradeLevels, [2, 1, 0, 0, 0, 0, 0, 0]);
   assert.equal(world.state.nursery.eggElapsedMs, 120_000); // anchored to savedAt
 });
 
@@ -84,7 +89,7 @@ test("writeInto -> hydrate round-trips engine state through the consolidated sav
   const t0 = 2_000_000;
   const blob = consolidated({ savedAt: t0, currencies: { seeds: 500 } });
   const first = save.hydrate(blob, { now: t0, rng: seededRng(4) }).world;
-  first.layEgg();
+  first.state.nursery.eggProgress = 500; first.tick(1, { offline: true });
   first.tick(90_000, { offline: true });
   const seedsAfter = first.state.seeds;
   const eggAfter = first.state.nursery.eggElapsedMs;
@@ -115,12 +120,12 @@ test("writeInto emits dual nursery format (engine + legacy readable)", () => {
   const now = 3_333_333;
   const blob = consolidated({ savedAt: now - 1000, currencies: { seeds: 500 } });
   const { world } = save.hydrate(blob, { now: now - 1000, rng: seededRng(6) });
-  world.layEgg();
+  world.state.nursery.eggProgress = 500; world.tick(1, { offline: true });
   world.tick(30_000, { offline: true });
   save.writeInto(blob, world, now);
 
-  assert.equal(blob.nursery.eggElapsedMs, 30_000);           // engine field
-  assert.equal(blob.nursery.nestStartedAt, now - 30_000);    // legacy mirror
+  assert.equal(blob.nursery.eggElapsedMs, 30_001);           // engine field
+  assert.equal(blob.nursery.nestStartedAt, now - 30_001);    // legacy mirror
   assert.equal(blob.nursery.lastUpdatedAt, now);
   assert.equal(blob.savedAt, now);
 });

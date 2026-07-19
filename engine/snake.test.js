@@ -23,6 +23,11 @@ test("createSnakeMode builds a centered snake and spawns the right food count", 
   assert.equal(state.foods.some((f) => occupied.has(`${f.x},${f.y}`)), false);
 });
 
+test("mastery score fills even boards and leaves one tile on odd boards", () => {
+  assert.equal(snake.masteryScore({ columns: 4, rows: 6 }), 21);
+  assert.equal(snake.masteryScore({ columns: 5, rows: 7 }), 31);
+});
+
 test("moving forward shifts the body and keeps its length", () => {
   const state = snake.createSnakeMode({ columns: 9, rows: 9 }, { rng: seededRng(2) });
   const before = state.snake.map((p) => ({ ...p }));
@@ -54,16 +59,68 @@ test("eating food grows the snake, awards seeds, and speeds up", () => {
   const head = state.snake[0];
   state.foods = [{ x: head.x, y: head.y - 1 }];
   const startLen = state.snake.length;
+  const startingTickMs = state.tickMs;
   const { events } = snake.stepSnake(state, { rng: seededRng(4) });
 
   assert.equal(state.snake.length, startLen + 1, "snake grew");
   assert.equal(state.score, 1);
   assert.equal(state.seeds, 3, "food value 3 awarded");
-  assert.ok(state.tickMs < 190, "sped up");
+  assert.ok(state.tickMs < startingTickMs, "sped up");
   const eat = events.find((e) => e.type === "eat");
   assert.ok(eat && eat.value === 3);
   // A replacement food was spawned to keep foodCount satisfied.
   assert.equal(state.foods.length, 1);
+});
+
+test("a crowded board reduces seed slots instead of ending the run", () => {
+  const state = snake.createSnakeMode({ columns: 3, rows: 3 }, {
+    rng: seededRng(8), upgrades: { foodTypeLevel: 0, foodCountLevel: 2, shieldLevel: 0 }
+  });
+  state.snake = [
+    { x: 1, y: 1 }, { x: 0, y: 0 }, { x: 2, y: 0 }, { x: 0, y: 1 },
+    { x: 2, y: 1 }, { x: 0, y: 2 }, { x: 1, y: 2 }
+  ];
+  state.foods = [{ x: 1, y: 0, kind: "seed" }];
+  state.direction = "up";
+
+  const result = snake.stepSnake(state, { rng: seededRng(8) });
+
+  assert.equal(result.alive, true);
+  assert.equal(state.snake.length, 8);
+  assert.equal(snake.seedFoodCount(state), 1);
+});
+
+test("the run ends at the parity-aware mastery score", () => {
+  const state = snake.createSnakeMode({ columns: 3, rows: 3 }, {
+    rng: seededRng(9), upgrades: { foodTypeLevel: 0, foodCountLevel: 2, shieldLevel: 0 }
+  });
+  state.snake = [
+    { x: 1, y: 1 }, { x: 0, y: 0 }, { x: 2, y: 0 }, { x: 0, y: 1 },
+    { x: 2, y: 1 }, { x: 0, y: 2 }, { x: 1, y: 2 }
+  ];
+  state.foods = [{ x: 1, y: 0, kind: "seed" }];
+  state.direction = "up";
+  state.score = snake.masteryScore(state.grid) - 1;
+
+  const result = snake.stepSnake(state, { rng: seededRng(9) });
+
+  assert.equal(result.alive, false);
+  assert.equal(state.score, snake.masteryScore(state.grid));
+  assert.equal(result.events.some((event) => event.type === "win"), true);
+});
+
+test("egg boards can spawn egg pickups alongside seeds, and egg pickups do not award seeds", () => {
+  const state = snake.createSnakeMode({ columns: 9, rows: 9 }, { rng: () => 0, eggBoard: true });
+  assert.equal(state.foods.some((food) => food.kind === "egg"), true);
+
+  const head = state.snake[0];
+  state.foods = [{ x: head.x, y: head.y - 1, kind: "egg" }, { x: 0, y: 0, kind: "seed" }];
+  const seedsBefore = state.seeds;
+  const scoreBefore = state.score;
+  const { events } = snake.stepSnake(state, { rng: () => 0.99 });
+  assert.equal(events.some((item) => item.type === "eggCollected"), true);
+  assert.equal(state.seeds, seedsBefore);
+  assert.equal(state.score, scoreBefore);
 });
 
 test("shield redirects around a fatal wall instead of dying", () => {

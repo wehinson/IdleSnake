@@ -29,6 +29,17 @@
     return { columns, rows };
   }
 
+  // A run starts with three segments. Odd-area boards keep one non-snake tile
+  // so the snake's alternating path remains completable; even-area boards can
+  // be filled completely.
+  function masteryScore(grid, startingLength = 3) {
+    const columns = Math.max(0, Math.floor(Number(grid && grid.columns) || 0));
+    const rows = Math.max(0, Math.floor(Number(grid && grid.rows) || 0));
+    const cells = columns * rows;
+    const fillableCells = cells % 2 === 0 ? cells : cells - 1;
+    return Math.max(0, fillableCells - Math.max(0, Math.floor(Number(startingLength) || 0)));
+  }
+
   function foodValue(upgrades) {
     const level = Math.max(0, Math.min(upgradeConfig.foodType.levels.length - 1, Math.floor(upgrades.foodTypeLevel || 0)));
     return upgradeConfig.foodType.levels[level].value;
@@ -63,15 +74,25 @@
     return open[Math.floor(rng() * open.length)];
   }
 
-  function spawnFoods(state, rng) {
-    const spawned = [];
-    state.foods = spawned;
-    while (spawned.length < foodCount(state.upgrades)) {
-      const snack = placeFood(state, rng);
-      if (!snack) break;
-      spawned.push(snack);
+  function seedFoodCount(state) {
+    return state.foods.filter((snack) => snack.kind !== "egg").length;
+  }
+
+  function spawnSeed(state, rng) {
+    const seed = placeFood(state, rng);
+    if (!seed) return false;
+    state.foods.push({ ...seed, kind: "seed" });
+    if (state.eggBoard && rng() < snakeConfig.eggSpawnChance) {
+      const egg = placeFood(state, rng);
+      if (egg) state.foods.push({ ...egg, kind: "egg" });
     }
-    return spawned;
+    return true;
+  }
+
+  function spawnFoods(state, rng) {
+    state.foods = [];
+    while (seedFoodCount(state) < foodCount(state.upgrades) && spawnSeed(state, rng)) { /* fill seed slots */ }
+    return state.foods;
   }
 
   function obstacleClearance(state, point, vector) {
@@ -142,7 +163,8 @@
       tickMs: opts.tickMs || startTickMs,
       upgrades: opts.upgrades || { foodTypeLevel: 0, foodCountLevel: 0, shieldLevel: 0 },
       seeds: opts.seeds || 0,
-      best: opts.best || 0
+      best: opts.best || 0,
+      eggBoard: Boolean(opts.eggBoard)
     };
     spawnFoods(state, rng);
     return state;
@@ -194,17 +216,24 @@
     state.snake.unshift(nextHead);
 
     if (willEat) {
-      state.score += 1;
-      const gained = foodValue(state.upgrades);
-      state.seeds += gained;
-      state.tickMs = Math.max(minTickMs, startTickMs - state.score * 2.8);
+      const eaten = state.foods[eatenFoodIndex];
       state.foods.splice(eatenFoodIndex, 1);
-      events.push({ type: "eat", value: gained, at: nextHead });
-      events.push({ type: "seedsChanged" });
-      events.push({ type: "speedChanged", tickMs: state.tickMs });
-      const replacement = placeFood(state, rng);
-      if (replacement) state.foods.push(replacement);
-      if (state.foods.length < foodCount(state.upgrades)) {
+      if (eaten.kind === "egg") {
+        events.push({ type: "eggCollected", at: nextHead });
+      } else {
+        state.score += 1;
+        const gained = foodValue(state.upgrades);
+        state.seeds += gained;
+        state.tickMs = Math.max(minTickMs, startTickMs - state.score * 2.8);
+        events.push({ type: "eat", value: gained, at: nextHead });
+        events.push({ type: "seedsChanged" });
+        events.push({ type: "speedChanged", tickMs: state.tickMs });
+        spawnSeed(state, rng);
+      }
+      // Near a full board there may not be enough room to replenish every
+      // unlocked food slot. Keep the seeds that fit, then finish only at the
+      // board's parity-aware mastery score.
+      if (state.score >= masteryScore(state.grid)) {
         state.phase = "gameover";
         state.best = Math.max(state.best, state.score);
         events.push({ type: "bestScore", best: state.best });
@@ -222,11 +251,14 @@
   return {
     vectors,
     parseGridSize,
+    masteryScore,
     foodValue,
     foodCount,
     isWallHit,
     isSnakeHit,
     placeFood,
+    seedFoodCount,
+    spawnSeed,
     spawnFoods,
     findShieldRedirect,
     queueDirection,

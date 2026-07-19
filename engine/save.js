@@ -33,10 +33,13 @@
     return {
       mode: consolidated.mode || "snake",
       seeds: num(consolidated.currencies && consolidated.currencies.seeds, 0),
+      provisions: num(consolidated.currencies && consolidated.currencies.provisions, 0),
+      branches: num(consolidated.currencies && consolidated.currencies.branches, 0),
       best: num(consolidated.records && consolidated.records.best, 0),
       upgrades: consolidated.upgrades || {},
       nursery: consolidated.nursery || {},   // createNursery handles legacy nestStartedAt
       habitats: consolidated.habitats || {},
+      notables: consolidated.notables || {},
       // Reserved migration/season slots feed the (stubbed) world systems.
       world: {
         migration: consolidated.migration || undefined,
@@ -82,13 +85,19 @@
       ? stateOrWorld.getState()
       : stateOrWorld;
 
-    consolidated.currencies = { ...consolidated.currencies, seeds: state.seeds };
+    consolidated.currencies = { ...consolidated.currencies, seeds: state.seeds, provisions: state.provisions, branches: state.branches };
     consolidated.records = { ...consolidated.records, best: state.best };
     consolidated.upgrades = { ...consolidated.upgrades, ...state.upgrades };
 
     const eggElapsedMs = state.nursery.eggElapsedMs;
     consolidated.nursery = {
+      nestLevel: state.nursery.nestLevel,
+      nurseryLevel: state.nursery.nurseryLevel,
+      nestEggs: state.nursery.nestEggs,
       eggElapsedMs,
+      eggHatchDurationMs: state.nursery.eggHatchDurationMs,
+      eggProgress: state.nursery.eggProgress,
+      eggsStarted: state.nursery.eggsStarted,
       nestStartedAt: eggElapsedMs === null || eggElapsedMs === undefined ? null : now - eggElapsedMs,
       hatchlings: state.nursery.hatchlings,
       colonyCount: state.nursery.colonyCount,
@@ -97,7 +106,8 @@
       movementAccumulatorMs: state.nursery.movementAccumulatorMs
     };
 
-    consolidated.habitats = { counts: state.habitats.counts, lastUpdatedAt: now };
+    consolidated.habitats = { counts: state.habitats.counts, upgradeLevels: state.habitats.upgradeLevels, lastUpdatedAt: now };
+    consolidated.notables = JSON.parse(JSON.stringify(state.notables || {}));
 
     // Round-trip the (stubbed) world systems through their reserved slots so no
     // accrued elapsed time is lost across a save/load.

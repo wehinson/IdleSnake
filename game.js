@@ -3,14 +3,16 @@ const ctx = canvas.getContext("2d");
 const savePrefix = "snake-forever-";
 const legacySavePrefix = "idlesnake-";
 const consolidatedSaveKey = `${savePrefix}save`;
-const SAVE_VERSION = 1;
+const SAVE_VERSION = 2;
 
 // Legacy per-key names this game used before the save was consolidated into
 // one versioned object. Kept only so migrateLegacySaveIfNeeded() can read
 // old data out of localStorage; nothing writes to these keys anymore.
 const saveKeysLegacyList = [
   "best",
+  "battleship-best",
   "breakout-best",
+  "runner-best",
   "colors",
   "crossing-best",
   "duel-grid-size",
@@ -28,7 +30,10 @@ const saveKeysLegacyList = [
 // existing readX()/saveX() functions below.
 const legacyKeyPaths = {
   "best": ["records", "best"],
+  "battleship-best": ["records", "battleshipBest"],
   "breakout-best": ["records", "breakoutBest"],
+  "runner-best": ["records", "runnerBest"],
+  "centipede-best": ["records", "centipedeBest"],
   "colors": ["settings", "snakeColors"],
   "crossing-best": ["records", "crossingBest"],
   "duel-grid-size": ["board", "selectedDuelGridSize"],
@@ -45,19 +50,23 @@ function buildDefaultSaveState() {
   return {
     saveVersion: SAVE_VERSION,
     savedAt: Date.now(),
-    currencies: { seeds: 0 },
+    currencies: { seeds: 0, provisions: 0, branches: 0 },
     upgrades: { boardLevel: 0, foodTypeLevel: 0, foodCountLevel: 0, shieldLevel: 0, minigamesLevel: 0 },
-    board: { selectedBoardLevel: 0, selectedDuelGridSize: 30 },
-    records: { best: 0, crossingBest: 0, mazeBest: 0, breakoutBest: 0, sokobanBest: 0 },
+    board: { selectedBoardLevel: 0, selectedDuelGridSize: 30, mastery: {} },
+    records: { best: 0, crossingBest: 0, mazeBest: 0, breakoutBest: 0, runnerBest: 0, sokobanBest: 0, battleshipBest: 0, centipedeBest: 0 },
     settings: { snakeColors: { body: null, head: null } },
     nursery: { nestStartedAt: null, hatchlings: [], colonyCount: 0, lastUpdatedAt: Date.now(), seedTickAccumulatorMs: 0, movementAccumulatorMs: 0 },
-    habitats: { counts: [], lastUpdatedAt: Date.now() },
+    habitats: { counts: [], upgradeLevels: [], lastUpdatedAt: Date.now() },
+    notables: { retained: [], elders: [], pending: [], dismissedCount: 0, directRecruitmentsCompleted: 0, masteryRewardsClaimed: {}, nextId: 1 },
     snakebird: { unlockedLevel: 1, clearedLevels: [], bestMoves: [], lastSelectedLevel: 1 },
     // Reserved placeholders for systems that don't exist yet (routes, world
     // regions, seasons, migration, prestige, accessibility). Never mutated by
     // current game logic; they only round-trip through save/load so a future
     // feature can start using them without a save-breaking migration.
-    routes: [],
+    tradeRoutes: [],
+    activeResupplyMissions: [],
+    completedResupplyMissions: [],
+    nextResupplyMissionId: 1,
     regions: [],
     season: null,
     migration: null,
@@ -85,7 +94,11 @@ function normalizeSaveState(saved) {
     saveVersion: SAVE_VERSION,
     currencies: { ...base.currencies, ...saved.currencies },
     upgrades: { ...base.upgrades, ...saved.upgrades },
-    board: { ...base.board, ...saved.board },
+    board: {
+      ...base.board,
+      ...saved.board,
+      mastery: saved.board?.mastery && typeof saved.board.mastery === "object" ? saved.board.mastery : {}
+    },
     records: { ...base.records, ...saved.records },
     settings: {
       ...base.settings,
@@ -94,8 +107,14 @@ function normalizeSaveState(saved) {
     },
     nursery: { ...base.nursery, ...saved.nursery },
     habitats: { ...base.habitats, ...saved.habitats },
+    notables: { ...base.notables, ...saved.notables },
     snakebird: { ...base.snakebird, ...saved.snakebird },
-    accessibility: { ...base.accessibility, ...saved.accessibility }
+    accessibility: { ...base.accessibility, ...saved.accessibility },
+    tradeRoutes: Array.isArray(saved.tradeRoutes) ? structuredClone(saved.tradeRoutes) : Array.isArray(saved.routes) ? structuredClone(saved.routes) : [],
+    activeResupplyMissions: Array.isArray(saved.activeResupplyMissions) ? structuredClone(saved.activeResupplyMissions) : [],
+    completedResupplyMissions: Array.isArray(saved.completedResupplyMissions) ? structuredClone(saved.completedResupplyMissions) : [],
+    nextResupplyMissionId: Math.max(1, Number(saved.nextResupplyMissionId) || 1),
+    routes: undefined
   };
 }
 
@@ -134,6 +153,7 @@ function migrateLegacySaveIfNeeded() {
     migrated.records.mazeBest = Number(legacyRead("maze-best")) || 0;
     migrated.records.breakoutBest = Number(legacyRead("breakout-best")) || 0;
     migrated.records.sokobanBest = Number(legacyRead("sokoban-best")) || 0;
+    migrated.records.battleshipBest = Number(legacyRead("battleship-best")) || 0;
     migrated.settings.snakeColors = safeParse(legacyRead("colors"), migrated.settings.snakeColors);
     migrated.nursery = safeParse(legacyRead("nursery"), migrated.nursery);
     migrated.habitats = safeParse(legacyRead("habitats"), migrated.habitats);
@@ -220,6 +240,16 @@ function persistConsolidatedSave() {
 
 function saveSeeds() {
   setSaveItem("seeds", String(seedsTotal));
+}
+
+function saveProvisions() {
+  consolidatedSave.currencies.provisions = provisionsTotal;
+  persistConsolidatedSave();
+}
+
+function saveBranches() {
+  consolidatedSave.currencies.branches = branchesTotal;
+  persistConsolidatedSave();
 }
 
 window.addEventListener("pagehide", flushPendingSaves);
@@ -378,21 +408,73 @@ const minigamesCurrentEl = document.querySelector("#minigamesCurrent");
 const minigamesNextEl = document.querySelector("#minigamesNext");
 const menuTabs = document.querySelectorAll("[data-menu-tab]");
 const menuPanels = document.querySelectorAll("[data-menu-panel]");
-const layEggButton = document.querySelector("#layEggButton");
 const resetProgressButton = document.querySelector("#resetProgressButton");
 const resetProgressFill = document.querySelector("#resetProgressFill");
 const nurserySeedStatusEl = document.querySelector("#nurserySeedStatus");
+const nurseryEggProgressTextEl = document.querySelector("#nurseryEggProgressText");
+const eggProgressRateEl = document.querySelector("#eggProgressRate");
+const eggProgressFillEl = document.querySelector("#eggProgressFill");
 const nestStateEl = document.querySelector("#nestState");
 const nestVisualEl = document.querySelector("#nestVisual");
 const nestTimerEl = document.querySelector("#nestTimer");
+const nestUpgradeButtonEl = document.querySelector("#nestUpgradeButton");
+const nurseryBranchTotalEl = document.querySelector("#nurseryBranchTotal");
 const nurseryCapacityEl = document.querySelector("#nurseryCapacity");
+const nurseryUpgradeButtonEl = document.querySelector("#nurseryUpgradeButton");
 const nurseryGrowthStatusEl = document.querySelector("#nurseryGrowthStatus");
 const nurseryGridEl = document.querySelector("#nurseryGrid");
 const hatchlingListEl = document.querySelector("#hatchlingList");
 const colonyCountEl = document.querySelector("#colonyCount");
 const colonyPlacedCountEl = document.querySelector("#colonyPlacedCount");
-const colonyIncomeRateEl = document.querySelector("#colonyIncomeRate");
+const colonyProvisionTotalEl = document.querySelector("#colonyProvisionTotal");
+const colonyBranchTotalEl = document.querySelector("#colonyBranchTotal");
+const colonySeedIncomeRateEl = document.querySelector("#colonySeedIncomeRate");
+const colonyProvisionIncomeRateEl = document.querySelector("#colonyProvisionIncomeRate");
+const colonyBranchIncomeRateEl = document.querySelector("#colonyBranchIncomeRate");
+const colonyProvisionConsumptionRateEl = document.querySelector("#colonyProvisionConsumptionRate");
 const habitatListEl = document.querySelector("#habitatList");
+const colonyOverviewEl = document.querySelector("#colonyOverview");
+const notablesButtonEl = document.querySelector("#notablesButton");
+const notablesPanelEl = document.querySelector("#notablesPanel");
+const notablesSummaryEl = document.querySelector("#notablesSummary");
+const notablesRosterEl = document.querySelector("#notablesRoster");
+const eldersRosterEl = document.querySelector("#eldersRoster");
+const pendingNotableEl = document.querySelector("#pendingNotable");
+const recruitNotableButtonEl = document.querySelector("#recruitNotableButton");
+const closeNotablesButtonEl = document.querySelector("#closeNotablesButton");
+const settleTabNotificationEl = document.querySelector("#settleTabNotification");
+const migrationAvailableEl = document.querySelector("#migrationAvailable");
+const migrationLifetimeEl = document.querySelector("#migrationLifetime");
+const activeSettlementSelectEl = document.querySelector("#activeSettlementSelect");
+const migrationFoundingStatusEl = document.querySelector("#migrationFoundingStatus");
+const settleOverviewEl = document.querySelector("#settleOverview");
+const tradePanelEl = document.querySelector("#tradePanel");
+const tradeButtonEl = document.querySelector("#tradeButton");
+const closeTradeButtonEl = document.querySelector("#closeTradeButton");
+const migrationDestinationEl = document.querySelector("#migrationDestination");
+const migrationNotableEl = document.querySelector("#migrationNotable");
+const migrationAdultsEl = document.querySelector("#migrationAdults");
+const migrationEggsEl = document.querySelector("#migrationEggs");
+const migrationSeedsEl = document.querySelector("#migrationSeeds");
+const migrationBranchesEl = document.querySelector("#migrationBranches");
+const migrationProvisionsEl = document.querySelector("#migrationProvisions");
+const migrationCostEl = document.querySelector("#migrationCost");
+const migrationSuccessEl = document.querySelector("#migrationSuccess");
+const migrationEstimateEl = document.querySelector("#migrationEstimate");
+const migrationDepartEl = document.querySelector("#migrationDepart");
+const migrationErrorEl = document.querySelector("#migrationError");
+const activeExpeditionsEl = document.querySelector("#activeExpeditions");
+const migrationHistoryEl = document.querySelector("#migrationHistory");
+const tradeSettlementAEl = document.querySelector("#tradeSettlementA");
+const tradeSettlementBEl = document.querySelector("#tradeSettlementB");
+const tradeConstructionPreviewEl = document.querySelector("#tradeConstructionPreview");
+const createTradeRouteButtonEl = document.querySelector("#createTradeRouteButton");
+const tradeRouteErrorEl = document.querySelector("#tradeRouteError");
+const tradeRouteNetworkEl = document.querySelector("#tradeRouteNetwork");
+const tradeRouteManagementEl = document.querySelector("#tradeRouteManagement");
+let selectedTradeRouteId = null;
+let tradeNetworkRenderSignature = "";
+let tradeManagementRenderSignature = "";
 
 const defaultGrid = { columns: 5, rows: 7 };
 const upgradeConfig = {
@@ -429,31 +511,44 @@ const upgradeConfig = {
     costRatio: 2.6
   }
 };
-const startTickMs = 190;
-const minTickMs = 82;
+const gameplaySpeed = 1;
+const slowedTick = (milliseconds) => Math.round(milliseconds / gameplaySpeed);
+const startTickMs = slowedTick(190);
+const minTickMs = slowedTick(82);
 const maxQueuedDirections = 2;
 const nurseryConfig = {
   columns: 12,
   rows: 15,
   capacity: 2,
   eggCost: 500,
+  eggCostRatio: 1.01,
   eggHatchMs: 5 * 60 * 1000,
   growthMs: 10 * 60 * 1000,
   twoBlockMs: 2 * 60 * 1000,
   threeBlockMs: 7 * 60 * 1000,
   seedIntervalMs: 1000,
-  moveIntervalMs: 430
+  moveIntervalMs: 430,
+  upgrades: {
+    nest: { branchBaseCost: 50_000, costRatio: 5, slotsPerLevel: 1, maxSlots: 5 },
+    nursery: { branchBaseCost: 100_000, seedBaseCost: 250_000, costRatio: 5, capacityPerLevel: 1 }
+  }
 };
 const habitatConfig = {
   income: {
     basePerSecond: 0.01,
     foodValueMultiplier: true,
-    milestoneMode: "multiply"
+    milestoneMode: "multiply",
+    overCapacityProvisionCost: 0.5
   },
+  upgrades: { costRatio: 1.75 },
   habitats: [
     {
       name: "Field",
       unlockScore: 0,
+      naturalCapacity: 25,
+      hardCapacity: 50,
+      upgradeCost: 10,
+      capacityPerUpgrade: 25,
       incomeMultiplier: 0.5,
       milestones: [
         { score: 10, multiplier: 1.1 },
@@ -464,7 +559,13 @@ const habitatConfig = {
     {
       name: "Lake",
       unlockScore: 10,
+      naturalCapacity: 30,
+      hardCapacity: 60,
+      upgradeCost: 15,
+      capacityPerUpgrade: 30,
       incomeMultiplier: 0.75,
+      producesSeeds: false,
+      eggHatchReductionSeconds: 1,
       milestones: [
         { score: 25, multiplier: 1.12 },
         { score: 75, multiplier: 1.25 },
@@ -474,7 +575,12 @@ const habitatConfig = {
     {
       name: "Forest",
       unlockScore: 25,
+      naturalCapacity: 50,
+      hardCapacity: 100,
+      upgradeCost: 25,
+      capacityPerUpgrade: 50,
       incomeMultiplier: 1,
+      producesBranches: true,
       milestones: [
         { score: 50, multiplier: 1.15 },
         { score: 100, multiplier: 1.3 },
@@ -484,7 +590,12 @@ const habitatConfig = {
     {
       name: "River",
       unlockScore: 50,
+      naturalCapacity: 100,
+      hardCapacity: 200,
+      upgradeCost: 40,
+      capacityPerUpgrade: 100,
       incomeMultiplier: 2,
+      producesProvisions: true,
       milestones: [
         { score: 100, multiplier: 1.18 },
         { score: 250, multiplier: 1.35 },
@@ -494,6 +605,10 @@ const habitatConfig = {
     {
       name: "Cave",
       unlockScore: 100,
+      naturalCapacity: 200,
+      hardCapacity: 400,
+      upgradeCost: 65,
+      capacityPerUpgrade: 200,
       incomeMultiplier: 4,
       milestones: [
         { score: 200, multiplier: 1.2 },
@@ -504,6 +619,10 @@ const habitatConfig = {
     {
       name: "Ocean",
       unlockScore: 200,
+      naturalCapacity: 400,
+      hardCapacity: 800,
+      upgradeCost: 100,
+      capacityPerUpgrade: 400,
       incomeMultiplier: 8,
       milestones: [
         { score: 400, multiplier: 1.22 },
@@ -514,6 +633,10 @@ const habitatConfig = {
     {
       name: "Mountain",
       unlockScore: 400,
+      naturalCapacity: 750,
+      hardCapacity: 1500,
+      upgradeCost: 160,
+      capacityPerUpgrade: 750,
       incomeMultiplier: 16,
       milestones: [
         { score: 750, multiplier: 1.25 },
@@ -524,6 +647,10 @@ const habitatConfig = {
     {
       name: "Blizzard",
       unlockScore: 750,
+      naturalCapacity: 1500,
+      hardCapacity: 3000,
+      upgradeCost: 250,
+      capacityPerUpgrade: 1500,
       incomeMultiplier: 32,
       milestones: [
         { score: 1500, multiplier: 1.3 },
@@ -576,10 +703,13 @@ const snakeColorChoices = {
 const savedUpgrades = readUpgrades();
 let grid = parseGridSize(upgradeConfig.board.levels[savedUpgrades.boardLevel]);
 let selectedBoardLevel = savedUpgrades.boardLevel;
+let boardMastery = { ...(consolidatedSave.board?.mastery || {}) };
 let best = Number(getSaveItem("best") || 0);
 let crossingBest = Number(getSaveItem("crossing-best") || 0);
 if (!Number.isFinite(crossingBest)) crossingBest = 0;
 let seedsTotal = Number(getSaveItem("seeds") || 0);
+let provisionsTotal = Math.max(0, Number(consolidatedSave.currencies.provisions) || 0);
+let branchesTotal = Math.max(0, Number(consolidatedSave.currencies.branches) || 0);
 let upgrades = savedUpgrades;
 let snakeColors = readSnakeColors();
 let snake;
@@ -621,6 +751,7 @@ let idleLastPersistAt = 0;
 let boardMetrics;
 let nursery = readNursery();
 let habitats = readHabitats();
+let notablesState = window.IdleSnakeNotables.createState(consolidatedSave.notables);
 let nurseryCells = [];
 let habitatCardRefs = [];
 let gameMode = "snake";
@@ -638,7 +769,7 @@ let stepAccumulatorMs = 0;
 const duelGridSizes = [10, 15, 20, 30, 40];
 let selectedDuelGridSize = readDuelGridSize();
 let duelGrid = squareGrid(selectedDuelGridSize);
-const duelTickMs = 125;
+const duelTickMs = slowedTick(125);
 let maze;
 let mazePath;
 let mazeDirection;
@@ -650,9 +781,9 @@ let mazeChoiceDirections;
 let mazePendingChoices;
 let mazePendingEnd;
 const mazeGrid = { columns: 21, rows: 21 };
-const mazeTickMs = 105;
+const mazeTickMs = slowedTick(105);
 const crossingGrid = { columns: 15, rows: 13 };
-const crossingTickMs = 82;
+const crossingTickMs = slowedTick(82);
 let crossingStage;
 let crossingScore;
 let crossingSnake;
@@ -666,11 +797,24 @@ const mazeStart = { x: 10, y: 15 };
 const mazeExit = { x: 10, y: 0 };
 let breakout;
 let breakoutBest = Number(getSaveItem("breakout-best") || 0);
+let runner;
+let runnerBest = Number(getSaveItem("runner-best") || 0);
+if (!Number.isFinite(runnerBest)) runnerBest = 0;
+let centipede;
+let centipedeBest = Number(getSaveItem("centipede-best") || 0);
+if (!Number.isFinite(centipedeBest)) centipedeBest = 0;
+const centipedeGrid = { columns: 24, rows: 28 };
 let sokoban;
 let sokobanBest = Number(getSaveItem("sokoban-best") || 0);
+let battleship = null;
+let battleshipBest = Number(getSaveItem("battleship-best") || 0);
+if (!Number.isFinite(battleshipBest)) battleshipBest = 0;
+const battleshipGrid = { columns: 10, rows: 10 };
+const battleshipReward = 300;
+const battleshipAiDelayMs = 650;
 let broodline;
 const broodlineGrid = { columns: 30, rows: 30 };
-const broodlineTickMs = 220;
+const broodlineTickMs = slowedTick(220);
 const broodlineView = 10;          // visible cells across the (30x30) world
 const broodlineWavesPerRound = 5;  // each round clears 5 waves -> ~5x longer
 const broodlineMaxHp = 16;
@@ -686,10 +830,10 @@ const sokobanGrid = { columns: 15, rows: 15 };
 const sokobanTickMs = 120;
 const breakoutConfig = {
   basePaddleLength: 3,
-  paddleSpeed: 330,
-  ballSpeed: 258,
+  paddleSpeed: 330 * gameplaySpeed,
+  ballSpeed: 258 * gameplaySpeed,
   powerupDropChance: 0.18,
-  powerupFallSpeed: 92
+  powerupFallSpeed: 92 * gameplaySpeed
 };
 const sokobanLevels = [
   {
@@ -940,14 +1084,21 @@ function gatherSaveState() {
     ...consolidatedSave,
     saveVersion: SAVE_VERSION,
     savedAt: Date.now(),
-    currencies: { seeds: seedsTotal },
+    currencies: { seeds: seedsTotal, provisions: provisionsTotal, branches: branchesTotal },
     upgrades: { ...upgrades },
-    board: { selectedBoardLevel, selectedDuelGridSize },
-    records: { best, crossingBest, mazeBest, breakoutBest, sokobanBest },
+    board: { selectedBoardLevel, selectedDuelGridSize, mastery: { ...boardMastery } },
+    records: { best, crossingBest, mazeBest, breakoutBest, runnerBest, sokobanBest, centipedeBest },
     settings: { snakeColors: { ...snakeColors } },
     nursery: { ...nursery },
     habitats: { ...habitats },
-    snakebird: { ...snakebirdProgress }
+    notables: { ...notablesState },
+    snakebird: { ...snakebirdProgress },
+    migration: latestSnapshot?.migration ? structuredClone(latestSnapshot.migration) : consolidatedSave.migration,
+    tradeRoutes: latestSnapshot?.tradeRoutes ? structuredClone(latestSnapshot.tradeRoutes) : consolidatedSave.tradeRoutes,
+    activeResupplyMissions: latestSnapshot?.activeResupplyMissions ? structuredClone(latestSnapshot.activeResupplyMissions) : consolidatedSave.activeResupplyMissions,
+    completedResupplyMissions: latestSnapshot?.completedResupplyMissions ? structuredClone(latestSnapshot.completedResupplyMissions) : consolidatedSave.completedResupplyMissions,
+    nextResupplyMissionId: latestSnapshot?.nextResupplyMissionId || consolidatedSave.nextResupplyMissionId,
+    routes: undefined
   };
 }
 
@@ -957,16 +1108,24 @@ function gatherSaveState() {
 function applySaveState(saved) {
   consolidatedSave = normalizeSaveState(saved);
   seedsTotal = Number(getSaveItem("seeds") || 0);
+  provisionsTotal = Math.max(0, Number(consolidatedSave.currencies.provisions) || 0);
+  branchesTotal = Math.max(0, Number(consolidatedSave.currencies.branches) || 0);
   upgrades = readUpgrades();
   grid = parseGridSize(upgradeConfig.board.levels[upgrades.boardLevel]);
   selectedBoardLevel = upgrades.boardLevel;
+  boardMastery = { ...(consolidatedSave.board?.mastery || {}) };
+  boardOptionsBuiltForLevel = -1;
   snakeColors = readSnakeColors();
   nursery = readNursery();
   habitats = readHabitats();
+  notablesState = window.IdleSnakeNotables.createState(consolidatedSave.notables);
   best = Number(getSaveItem("best") || 0);
   crossingBest = Number(getSaveItem("crossing-best") || 0);
   mazeBest = Number(getSaveItem("maze-best") || 0);
   breakoutBest = Number(getSaveItem("breakout-best") || 0);
+  runnerBest = Number(getSaveItem("runner-best") || 0);
+  if (!Number.isFinite(runnerBest)) runnerBest = 0;
+  centipedeBest = Number(getSaveItem("centipede-best") || 0);
   sokobanBest = Number(getSaveItem("sokoban-best") || 0);
   selectedDuelGridSize = readDuelGridSize();
   duelGrid = squareGrid(selectedDuelGridSize);
@@ -975,6 +1134,7 @@ function applySaveState(saved) {
   syncColorChoices();
   buildNurseryGrid();
   buildHabitatList();
+  renderNotables();
   render();
 }
 
@@ -1380,6 +1540,206 @@ function endSokoban(won) {
     : "Campaign clear · Start to replay from stage 1");
 }
 
+// --- Battleship ("Venom Strike", phone key 8) --------------------------------
+// Classic battleship rules on a 10x10 board: the ships are snakes and the bombs
+// are venom strikes. The player manually places their fleet (with an 8-to-shuffle
+// random helper), then trades one strike per turn with a hunt/target AI. Rules,
+// placement and AI targeting live in engine/battleship.js; this host owns the
+// two-grid render, the d-pad/click input, the AI-fire delay and the reward.
+
+function launchBattleship() {
+  hideSnakebirdPicker();
+  hidePersonalization();
+  if (gameMode === "battleship" && state !== "gameover") {
+    // Re-pressing 8 mid-setup reshuffles the player's fleet (the random helper).
+    if (battleship && battleship.phase === "placement") battleshipShuffle();
+    return;
+  }
+  const B = window.IdleSnakeBattleship;
+  gameMode = "battleship";
+  grid = { ...battleshipGrid };
+  battleship = {
+    phase: "placement",       // placement -> playing -> over
+    turn: "player",
+    enemy: B.randomFleet(Math.random, battleshipGrid.columns) || B.emptyFleet(),
+    player: B.emptyFleet(),
+    placement: { index: 0, orientation: "h", x: 0, y: 0 },
+    target: { x: Math.floor(battleshipGrid.columns / 2), y: Math.floor(battleshipGrid.rows / 2) },
+    ai: B.createAi(),
+    aiFireAt: null,
+    result: null,
+    lastPlayerShot: null,
+    lastAiShot: null
+  };
+  direction = "right";
+  nextDirection = "right";
+  directionQueue = [];
+  state = "running";
+  tickMs = 60;
+  elapsedMs = 0;
+  stepAccumulatorMs = 0;
+  timerStarted = false;
+  boardMetrics = getBoardMetrics();
+  hideOverlay();
+  battleshipSetPlacementHint();
+  syncHud();
+  render();
+}
+
+function battleshipCurrentDef() {
+  return window.IdleSnakeBattleship.FLEET[battleship.placement.index] || null;
+}
+
+function battleshipSetPlacementHint() {
+  const def = battleshipCurrentDef();
+  if (def) {
+    setScreenHint(`Place the ${def.name} (${def.length}) · arrows move · Pause/R rotate · Start place · 8 shuffle`);
+  } else {
+    setScreenHint("Fleet ready · Start to begin the battle · 8 to re-shuffle");
+  }
+}
+
+function battleshipClampAnchor() {
+  const def = battleshipCurrentDef();
+  if (!def) return;
+  const maxX = battleship.placement.orientation === "h" ? battleshipGrid.columns - def.length : battleshipGrid.columns - 1;
+  const maxY = battleship.placement.orientation === "v" ? battleshipGrid.rows - def.length : battleshipGrid.rows - 1;
+  battleship.placement.x = Math.max(0, Math.min(battleship.placement.x, maxX));
+  battleship.placement.y = Math.max(0, Math.min(battleship.placement.y, maxY));
+}
+
+function battleshipMoveCursor(directionName) {
+  const vector = vectors[directionName];
+  if (!battleship || !vector) return;
+  if (battleship.phase === "placement" && battleshipCurrentDef()) {
+    battleship.placement.x += vector.x;
+    battleship.placement.y += vector.y;
+    battleshipClampAnchor();
+    render();
+  } else if (battleship.phase === "playing" && battleship.turn === "player") {
+    battleship.target.x = Math.max(0, Math.min(battleshipGrid.columns - 1, battleship.target.x + vector.x));
+    battleship.target.y = Math.max(0, Math.min(battleshipGrid.rows - 1, battleship.target.y + vector.y));
+    render();
+  }
+}
+
+function battleshipRotate() {
+  if (!battleship || battleship.phase !== "placement" || !battleshipCurrentDef()) return;
+  battleship.placement.orientation = battleship.placement.orientation === "h" ? "v" : "h";
+  battleshipClampAnchor();
+  render();
+}
+
+function battleshipPlaceCurrent() {
+  const B = window.IdleSnakeBattleship;
+  const def = battleshipCurrentDef();
+  if (!def) return;
+  if (!B.placeShip(battleship.player, def, battleship.placement.x, battleship.placement.y, battleship.placement.orientation, battleshipGrid.columns)) {
+    setScreenHint("Snakes can't overlap — pick another spot");
+    return;
+  }
+  battleship.placement.index += 1;
+  battleshipClampAnchor();
+  battleshipSetPlacementHint();
+  render();
+}
+
+function battleshipPlaceAt(x, y) {
+  if (!battleship || battleship.phase !== "placement" || !battleshipCurrentDef()) return;
+  battleship.placement.x = x;
+  battleship.placement.y = y;
+  battleshipClampAnchor();
+  battleshipPlaceCurrent();
+}
+
+function battleshipShuffle() {
+  const B = window.IdleSnakeBattleship;
+  const fleet = B.randomFleet(Math.random, battleshipGrid.columns);
+  if (!fleet) return;
+  battleship.player = fleet;
+  battleship.placement.index = B.FLEET.length;
+  battleshipSetPlacementHint();
+  render();
+}
+
+function battleshipBeginBattle() {
+  battleship.phase = "playing";
+  battleship.turn = "player";
+  battleship.aiFireAt = null;
+  battleship.target = { x: Math.floor(battleshipGrid.columns / 2), y: Math.floor(battleshipGrid.rows / 2) };
+  timerStarted = true;
+  elapsedMs = 0;
+  lastFrameAt = performance.now();
+  stepAccumulatorMs = 0;
+  hideOverlay();
+  setScreenHint("Aim with arrows · Start (or tap the top grid) to launch a venom strike");
+  syncHud();
+  render();
+}
+
+function battleshipFire() {
+  if (!battleship || battleship.phase !== "playing" || battleship.turn !== "player") return;
+  const B = window.IdleSnakeBattleship;
+  const { x, y } = battleship.target;
+  const outcome = B.fireAt(battleship.enemy, x, y);
+  if (outcome.result === "repeat") {
+    setScreenHint("You already struck there — aim somewhere new");
+    return;
+  }
+  battleship.lastPlayerShot = { x, y, result: outcome.result };
+  if (outcome.result === "sunk") setScreenHint(`Venom sank the enemy ${outcome.ship.name}!`);
+  else setScreenHint(outcome.result === "hit" ? "Direct venom hit!" : "Venom splashed the water — miss");
+  if (B.allSunk(battleship.enemy)) {
+    endBattleship(true);
+    return;
+  }
+  battleship.turn = "ai";
+  battleship.aiFireAt = performance.now() + battleshipAiDelayMs;
+  syncHud();
+  render();
+}
+
+function stepBattleship(now) {
+  if (!battleship || battleship.phase !== "playing" || battleship.turn !== "ai") return;
+  if (battleship.aiFireAt && now < battleship.aiFireAt) return;
+  const B = window.IdleSnakeBattleship;
+  const { target, outcome } = B.aiFire(battleship.ai, battleship.player, Math.random, battleshipGrid.columns);
+  if (!target) {
+    battleship.turn = "player";
+    battleship.aiFireAt = null;
+    return;
+  }
+  battleship.lastAiShot = { x: target.x, y: target.y, result: outcome.result };
+  if (outcome.result === "sunk") setScreenHint(`Enemy venom sank your ${outcome.ship.name}!`);
+  else setScreenHint(outcome.result === "hit" ? "Your snake took a venom hit!" : "Enemy venom missed you");
+  if (B.allSunk(battleship.player)) {
+    endBattleship(false);
+    return;
+  }
+  battleship.turn = "player";
+  battleship.aiFireAt = null;
+  syncHud();
+}
+
+function endBattleship(won) {
+  battleship.phase = "over";
+  battleship.result = won ? "won" : "lost";
+  state = "gameover";
+  if (won) {
+    seedsTotal += battleshipReward;
+    saveSeeds();
+    battleshipBest += 1;
+    setSaveItem("battleship-best", String(battleshipBest));
+    showOverlay(`Victory · +${formatNumber(battleshipReward)} Seeds`);
+    setScreenHint("All enemy snakes sunk · Start to play again");
+  } else {
+    showOverlay("Fleet Lost");
+    setScreenHint("Your nest was wiped out · Start to try again");
+  }
+  syncHud();
+  render();
+}
+
 function returnToRegularSnake() {
   hideSnakebirdPicker();
   hidePersonalization();
@@ -1569,6 +1929,33 @@ function launchBreakout() {
   render();
   showOverlay("Brick Breakout · Ready");
   setScreenHint("Left / right to move · catch seeds to grow");
+}
+
+function launchRunner() {
+  hideSnakebirdPicker();
+  hidePersonalization();
+  if (gameMode === "runner" && state !== "gameover") return;
+  gameMode = "runner";
+  grid = { columns: 18, rows: 18 };
+  boardMetrics = getBoardMetrics();
+  runner = window.IdleSnakeRunner.createState(boardMetrics.width, boardMetrics.height);
+  direction = "right";
+  directionQueue = [];
+  state = "ready";
+  tickMs = 16;
+  elapsedMs = 0;
+  stepAccumulatorMs = 0;
+  timerStarted = false;
+  syncHud();
+  render();
+  showOverlay("Snake Runner · Ready");
+  setScreenHint("Up / Space: jump · clear the rocks");
+}
+
+function runnerJump() {
+  if (!runner || state === "gameover") return false;
+  if (state === "ready") startGame();
+  return window.IdleSnakeRunner.jump(runner);
 }
 
 function buildBreakoutLevel(boardWidth) {
@@ -1856,7 +2243,7 @@ function syncBroodlineFormation() { if (!broodlineChainEl || !broodline) return;
 function broodlineStartNext() { if (!broodline || broodline.phase !== "formation") return; broodline.round += 1; broodline.armor = broodline.maxArmor; broodline.hp = broodline.maxHp; broodlineSpawnRound(); state = "ready"; showOverlay(`Broodline · Round ${broodline.round}`); syncHud(); }
 
 function isMinigameMode() {
-  return ["duel", "maze", "breakout", "crossing", "snakebird", "sokoban", "broodline"].includes(gameMode);
+  return ["duel", "maze", "breakout", "runner", "crossing", "snakebird", "sokoban", "broodline", "battleship"].includes(gameMode);
 }
 
 function restartCurrentMinigame() {
@@ -1869,6 +2256,9 @@ function restartCurrentMinigame() {
   } else if (gameMode === "breakout") {
     state = "gameover";
     launchBreakout();
+  } else if (gameMode === "runner") {
+    state = "gameover";
+    launchRunner();
   } else if (gameMode === "crossing") {
     state = "gameover";
     launchCrossing();
@@ -1881,10 +2271,24 @@ function restartCurrentMinigame() {
     loadSokobanLevel(nextStage);
   } else if (gameMode === "broodline") {
     launchBroodline();
+  } else if (gameMode === "battleship") {
+    state = "gameover";
+    launchBattleship();
   }
 }
 
 function startGame() {
+  if (gameMode === "battleship") {
+    if (state === "gameover") { launchBattleship(); return; }
+    if (!battleship) return;
+    if (battleship.phase === "placement") {
+      if (battleshipCurrentDef()) battleshipPlaceCurrent();
+      else battleshipBeginBattle();
+    } else if (battleship.phase === "playing") {
+      battleshipFire();
+    }
+    return;
+  }
   if (gameMode === "snakebird") {
     if (state === "gameover") restartCurrentMinigame();
     if (state !== "running") {
@@ -1924,6 +2328,31 @@ function startGame() {
   }
   if (gameMode === "breakout") {
     if (state === "gameover") launchBreakout();
+    if (state !== "running") {
+      state = "running";
+      timerStarted = true;
+      lastFrameAt = performance.now();
+      stepAccumulatorMs = 0;
+      syncHud();
+      hideOverlay();
+    }
+    return;
+  }
+  if (gameMode === "centipede") {
+    if (state === "gameover") launchCentipede();
+    if (state !== "running") {
+      state = "running";
+      timerStarted = true;
+      lastFrameAt = performance.now();
+      stepAccumulatorMs = 0;
+      syncHud();
+      hideOverlay();
+      setScreenHint("Arrows to move · you auto-fire upward");
+    }
+    return;
+  }
+  if (gameMode === "runner") {
+    if (state === "gameover") launchRunner();
     if (state !== "running") {
       state = "running";
       timerStarted = true;
@@ -1986,6 +2415,9 @@ function startGame() {
 
 function readNursery() {
   const fallback = {
+    nestLevel: 0,
+    nurseryLevel: 0,
+    nestEggs: [],
     nestStartedAt: null,
     hatchlings: [],
     colonyCount: 0,
@@ -1997,7 +2429,7 @@ function readNursery() {
   try {
     const saved = JSON.parse(getSaveItem("nursery") || "{}");
     const hatchlings = Array.isArray(saved.hatchlings)
-      ? saved.hatchlings.slice(0, nurseryConfig.capacity).map((hatchling, index) => ({
+      ? saved.hatchlings.slice(0, 64).map((hatchling, index) => ({
         id: String(hatchling.id || `hatchling-${index + 1}`),
         x: clampNumber(hatchling.x, 0, nurseryConfig.columns - 1, index === 0 ? 2 : 9),
         y: clampNumber(hatchling.y, 0, nurseryConfig.rows - 1, index === 0 ? 4 : 10),
@@ -2007,6 +2439,9 @@ function readNursery() {
       : [];
 
     return {
+      nestLevel: Math.floor(clampNumber(saved.nestLevel, 0, Number.MAX_SAFE_INTEGER, 0)),
+      nurseryLevel: Math.floor(clampNumber(saved.nurseryLevel, 0, Number.MAX_SAFE_INTEGER, 0)),
+      nestEggs: Array.isArray(saved.nestEggs) ? saved.nestEggs.slice(0, 64) : [],
       nestStartedAt: (() => {
         const savedNestStartedAt = Number(saved.nestStartedAt);
         return Number.isFinite(savedNestStartedAt) && savedNestStartedAt > 0
@@ -2027,15 +2462,23 @@ function readNursery() {
 function readHabitats() {
   const fallback = {
     counts: habitatConfig.habitats.map(() => 0),
+    upgradeLevels: habitatConfig.habitats.map(() => 0),
     lastUpdatedAt: Date.now()
   };
 
   try {
     const saved = JSON.parse(getSaveItem("habitats") || "{}");
     const savedCounts = Array.isArray(saved.counts) ? saved.counts : [];
+    const savedUpgradeLevels = Array.isArray(saved.upgradeLevels) ? saved.upgradeLevels : [];
     return {
       counts: habitatConfig.habitats.map((_, index) => Math.floor(clampNumber(
         savedCounts[index],
+        0,
+        Number.MAX_SAFE_INTEGER,
+        0
+      ))),
+      upgradeLevels: habitatConfig.habitats.map((_, index) => Math.floor(clampNumber(
+        savedUpgradeLevels[index],
         0,
         Number.MAX_SAFE_INTEGER,
         0
@@ -2249,39 +2692,46 @@ function buildHabitatList() {
     card.className = "habitat-card";
     card.innerHTML = `
       <div class="habitat-card-heading">
-        <div>
-          <span class="upgrade-label">Habitat ${index + 1}</span>
-          <strong class="habitat-name">${habitat.name}</strong>
-        </div>
-        <span class="upgrade-level habitat-state"></span>
+        <strong class="habitat-name">${habitat.name}</strong>
       </div>
-      <div class="habitat-stats">
-        <span class="habitat-snakes"></span>
-        <span class="habitat-income"></span>
+      <p class="habitat-notable" hidden></p>
+      <div class="habitat-primary-row">
+        <span class="habitat-capacity" tabindex="0">
+          <span class="habitat-snakes"><span class="habitat-assigned-count"></span>/<span class="habitat-natural-count"></span>/<span class="habitat-max-count"></span></span>
+          <span class="habitat-capacity-tooltip" role="tooltip"></span>
+        </span>
+        <span class="habitat-production"></span>
       </div>
-      <p class="habitat-unlock"></p>
-      <div class="habitat-milestones"></div>
-      <button class="upgrade-button habitat-place-button" type="button">Place snake</button>
+      <div class="habitat-over-capacity-row" hidden>
+        <span class="habitat-provisions-use"></span>
+        <span class="habitat-idle-snakes" hidden></span>
+      </div>
+      <p class="habitat-bonus"></p>
+      <div class="habitat-actions">
+        <button class="upgrade-button habitat-place-button" type="button">Assign snake</button>
+        <button class="upgrade-button habitat-upgrade-button" type="button">Upgrade</button>
+      </div>
     `;
     const button = card.querySelector(".habitat-place-button");
+    const upgradeButton = card.querySelector(".habitat-upgrade-button");
     button.addEventListener("click", () => placeSnakeInHabitat(index));
-    const milestoneEls = habitat.milestones.map((milestone) => {
-      const milestoneEl = document.createElement("span");
-      milestoneEl.className = "habitat-milestone";
-      milestoneEl.textContent = `○ ${formatNumber(milestone.score)} · ×${formatDecimal(milestone.multiplier, 2)}`;
-      milestoneEl.title = `Earn with ${formatNumber(milestone.score)} snakes in this habitat`;
-      return milestoneEl;
-    });
-    card.querySelector(".habitat-milestones").append(...milestoneEls);
+    upgradeButton.addEventListener("click", () => upgradeHabitat(index));
     habitatListEl.append(card);
     return {
       card,
       button,
-      state: card.querySelector(".habitat-state"),
+      upgradeButton,
       snakes: card.querySelector(".habitat-snakes"),
-      income: card.querySelector(".habitat-income"),
-      unlock: card.querySelector(".habitat-unlock"),
-      milestones: milestoneEls
+      assignedCount: card.querySelector(".habitat-assigned-count"),
+      naturalCount: card.querySelector(".habitat-natural-count"),
+      maxCount: card.querySelector(".habitat-max-count"),
+      capacityTooltip: card.querySelector(".habitat-capacity-tooltip"),
+      production: card.querySelector(".habitat-production"),
+      overCapacityRow: card.querySelector(".habitat-over-capacity-row"),
+      provisionsUse: card.querySelector(".habitat-provisions-use"),
+      idleSnakes: card.querySelector(".habitat-idle-snakes"),
+      bonus: card.querySelector(".habitat-bonus"),
+      notable: card.querySelector(".habitat-notable")
     };
   });
 }
@@ -2308,9 +2758,15 @@ function habitatIncomePerSecond(habitat, snakeCount) {
 }
 
 function totalHabitatIncomePerSecond() {
-  return habitatConfig.habitats.reduce((total, habitat, index) => (
-    total + habitats.counts[index] * habitatIncomePerSecond(habitat, habitats.counts[index])
-  ), 0);
+  return window.IdleSnakeEconomy.calculateHabitatActivation(
+    habitats.counts, currentFoodType().value, notablesState, habitats.upgradeLevels).incomePerSecond;
+}
+
+// The slice of total habitat income that also counts toward egg progress
+// (Provisions habitats only). The remainder is plain Seeds: income only.
+function totalProvisionsPerSecond() {
+  return window.IdleSnakeEconomy.calculateHabitatActivation(
+    habitats.counts, currentFoodType().value, notablesState, habitats.upgradeLevels).provisionsProducedPerSecond;
 }
 
 function updateHabitatIncome(now) {
@@ -2335,46 +2791,84 @@ function updateHabitatIncome(now) {
 function renderHabitats() {
   const availableSnakes = Math.floor(nursery.colonyCount);
   const placedSnakes = habitats.counts.reduce((total, count) => total + count, 0);
-  const totalIncome = totalHabitatIncomePerSecond();
+  const activation = window.IdleSnakeEconomy.calculateHabitatActivation(
+    habitats.counts, currentFoodType().value, notablesState, habitats.upgradeLevels,
+    { activateAllOverCapacity: provisionsTotal > 0 });
+  const fullActivation = window.IdleSnakeEconomy.calculateHabitatActivation(
+    habitats.counts, currentFoodType().value, notablesState, habitats.upgradeLevels,
+    { activateAllOverCapacity: true });
+  const totalIncome = activation.incomePerSecond;
+  const totalProvisions = activation.provisionsProducedPerSecond;
+  const totalProvisionsUse = activation.provisionsConsumedPerSecond;
+  const totalProvisionsDraw = fullActivation.provisionsConsumedPerSecond;
+  const totalBranches = activation.branchesPerSecond;
   colonyCountEl.textContent = padScore(availableSnakes);
   colonyPlacedCountEl.textContent = padScore(placedSnakes);
-  colonyIncomeRateEl.textContent = `${formatDecimal(totalIncome)} seed/sec`;
+  setText(colonyProvisionTotalEl, formatProvisions(provisionsTotal));
+  setText(colonyBranchTotalEl, formatWholeNumber(branchesTotal));
+  setText(colonySeedIncomeRateEl, formatDecimal(totalIncome));
+  setText(colonyProvisionIncomeRateEl, formatProvisions(totalProvisions));
+  setText(colonyBranchIncomeRateEl, formatDecimal(totalBranches));
+  setText(colonyProvisionConsumptionRateEl, `${formatProvisions(totalProvisionsUse)} (${formatProvisions(totalProvisionsDraw)} Drawn)`);
 
   habitatCardRefs.forEach((ref, index) => {
     const habitat = habitatConfig.habitats[index];
     const count = habitats.counts[index];
     const unlocked = isHabitatUnlocked(habitat);
-    const rate = habitatIncomePerSecond(habitat, count);
+    const perSnakeRate = activation.perSnakeRates[index];
     const multiplier = habitatMultiplier(habitat, count);
     const nextMilestone = habitat.milestones.find((milestone) => count < milestone.score);
+    const overCapacity = Math.max(0, count - habitat.naturalCapacity);
+    const idleSnakes = activation.idleCounts[index];
+    const workingSnakes = activation.activeCounts[index];
+    const eggHatchReduction = workingSnakes * (habitat.eggHatchReductionSeconds || 0);
+    const seedRate = activation.habitatSeedOutputs[index];
+    const branchRate = activation.habitatBranchOutputs[index];
+    const provisionRate = habitat.producesProvisions
+      ? workingSnakes * perSnakeRate * activation.productionMultipliers[index]
+      : 0;
+    const provisionsUse = activation.activeOverCapacityCounts[index]
+      * perSnakeRate * habitatConfig.income.overCapacityProvisionCost * activation.consumptionMultipliers[index];
 
     ref.card.classList.toggle("is-locked", !unlocked);
-    ref.state.textContent = unlocked ? "OPEN" : "LOCKED";
-    ref.snakes.textContent = `${formatNumber(count)} snake${count === 1 ? "" : "s"}`;
-    ref.income.textContent = `${formatDecimal(rate)} / sec each`;
-    ref.unlock.textContent = unlocked
-      ? `${formatDecimal(multiplier, 2)}× habitat bonus`
-      : `Unlock at best score ${formatNumber(habitat.unlockScore)}`;
-    ref.button.disabled = !unlocked || availableSnakes < 1;
+    ref.card.classList.toggle("produces-provisions", Boolean(habitat.producesProvisions));
+    ref.card.classList.toggle("produces-branches", Boolean(habitat.producesBranches));
+    ref.card.classList.toggle("speeds-egg-hatch", eggHatchReduction > 0);
+    const notable = notablesState.retained.find((candidate) => candidate.status === "ASSIGNED" && candidate.assignedHabitatId === index);
+    ref.notable.hidden = !notable;
+    ref.notable.textContent = notable ? `Leader: ${notableDisplayName(notable)} · ${notablePowerText(notable)}` : "";
+    const hardCapacity = activation.hardCapacities[index];
+    ref.assignedCount.textContent = formatNumber(count);
+    ref.naturalCount.textContent = formatNumber(habitat.naturalCapacity);
+    ref.maxCount.textContent = formatNumber(hardCapacity);
+    ref.naturalCount.classList.toggle("is-over-natural", count > habitat.naturalCapacity);
+    ref.maxCount.classList.toggle("is-at-maximum", count === hardCapacity);
+    ref.capacityTooltip.innerHTML = `<ul><li><strong>${formatNumber(count)}</strong> snakes assigned.</li><li>Local resources easily support <strong>${formatNumber(habitat.naturalCapacity)}</strong> individuals.</li><li>Space limits this habitat to <strong>${formatNumber(hardCapacity)}</strong> snakes. Upgrade to increase.</li></ul>`;
+    ref.production.textContent = eggHatchReduction > 0
+      ? `-${formatDecimal(eggHatchReduction)} sec per egg`
+      : `${formatDecimal(seedRate)} seed/sec${branchRate > 0 ? ` + ${formatDecimal(branchRate)} branch/sec` : ""}${provisionRate > 0 ? ` + ${formatProvisions(provisionRate)} provision/sec` : ""}`;
+    ref.overCapacityRow.hidden = overCapacity === 0;
+    ref.provisionsUse.textContent = `Consumes ${formatProvisions(provisionsUse)}/sec`;
+    ref.idleSnakes.hidden = idleSnakes === 0;
+    ref.idleSnakes.textContent = `${formatNumber(idleSnakes)} idle snake${idleSnakes === 1 ? "" : "s"}`;
+    ref.bonus.textContent = `×${formatDecimal(multiplier, 2)} habitat bonus${nextMilestone ? ` (next at ${formatNumber(nextMilestone.score)} snakes)` : ""}`;
+    ref.card.classList.toggle("is-hard-over-capacity", count > hardCapacity);
+    ref.button.disabled = !unlocked || availableSnakes < 1 || count >= hardCapacity;
     ref.button.textContent = !unlocked
       ? `Score ${formatNumber(habitat.unlockScore)}`
+      : count >= hardCapacity
+        ? "At capacity"
       : availableSnakes < 1
         ? "No snakes"
-        : "Place snake";
+        : "Assign snake";
 
-    ref.milestones.forEach((milestoneEl, milestoneIndex) => {
-      const milestone = habitat.milestones[milestoneIndex];
-      const earned = count >= milestone.score;
-      milestoneEl.classList.toggle("is-earned", earned);
-      milestoneEl.textContent = `${earned ? "✓" : "○"} ${formatNumber(milestone.score)} · ×${formatDecimal(milestone.multiplier, 2)}`;
-      milestoneEl.title = earned
-        ? `Earned with ${formatNumber(milestone.score)} snakes in this habitat`
-        : `Earn with ${formatNumber(milestone.score)} snakes in this habitat`;
-    });
+    const upgradeLevel = habitats.upgradeLevels[index];
+    const upgradeCost = window.IdleSnakeEconomy.habitatUpgradeCost(habitat, upgradeLevel);
+    ref.upgradeButton.disabled = !unlocked || branchesTotal < upgradeCost;
+    ref.upgradeButton.textContent = !unlocked
+      ? "Upgrade locked"
+      : `Upgrade - ${formatNumber(upgradeCost)} Branches`;
 
-    if (nextMilestone && unlocked) {
-      ref.unlock.textContent += ` · next at ${formatNumber(nextMilestone.score)} snakes`;
-    }
   });
 }
 
@@ -2386,6 +2880,7 @@ function placeSnakeInHabitat(index) {
   const { snapshot, events } = session.dispatch({ type: "placeHabitat", index });
   if (events.some((e) => e.type === "actionRejected")) return;
   mirrorEconomyFromWorld(now, snapshot);
+  if (events.some((item) => item.type === "NOTABLE_GENERATED")) showNotablesMenu();
   saveNursery();
   saveHabitats();
   syncHud();
@@ -2394,31 +2889,70 @@ function placeSnakeInHabitat(index) {
 
 let nestVisualHasEgg = null;
 function syncNurseryPanel(now = Date.now()) {
-  const hatchAt = nursery.nestStartedAt === null ? null : nursery.nestStartedAt + nurseryConfig.eggHatchMs;
+  const nurseryUpgrades = window.IdleSnakeConfig.nurseryConfig.upgrades;
+  const nestLevel = nursery.nestLevel || 0;
+  const nurseryLevel = nursery.nurseryLevel || 0;
+  const nestCapacity = Math.min(nurseryUpgrades.nest.maxSlots, 1 + nestLevel * nurseryUpgrades.nest.slotsPerLevel);
+  const capacity = nurseryConfig.capacity + nurseryLevel * nurseryUpgrades.nursery.capacityPerLevel;
+  const nestCost = Math.ceil(nurseryUpgrades.nest.branchBaseCost * nurseryUpgrades.nest.costRatio ** nestLevel);
+  const nurseryBranchCost = Math.ceil(nurseryUpgrades.nursery.branchBaseCost * nurseryUpgrades.nursery.costRatio ** nurseryLevel);
+  const nurserySeedCost = Math.ceil(nurseryUpgrades.nursery.seedBaseCost * nurseryUpgrades.nursery.costRatio ** nurseryLevel);
+  const eggHatchDuration = nursery.eggHatchDurationMs ?? nurseryConfig.eggHatchMs;
+  const hatchAt = nursery.nestStartedAt === null ? null : nursery.nestStartedAt + eggHatchDuration;
+  const eggHatchReduction = Math.max(0, (nurseryConfig.eggHatchMs - eggHatchDuration) / 1000);
   const activeCount = nursery.hatchlings.length;
-  const canLayEgg = nursery.nestStartedAt === null && activeCount < nurseryConfig.capacity && seedsTotal >= nurseryConfig.eggCost;
+  const eggRequirement = Math.floor(nurseryConfig.eggCost * Math.pow(nurseryConfig.eggCostRatio, nursery.eggsStarted || 0));
+  const eggProgress = Math.min(eggRequirement, nursery.eggProgress || 0);
+  const displayedProgress = Math.floor(eggProgress);
+  const remainingEggSeeds = Math.max(0, eggRequirement - displayedProgress);
+  setText(nurseryEggProgressTextEl, `${formatNumber(displayedProgress)} / ${formatNumber(eggRequirement)} seeds`);
+  setText(eggProgressRateEl, `+${formatProvisions(totalProvisionsPerSecond())}/s`);
+  setText(nurserySeedStatusEl, remainingEggSeeds > 0
+    ? `${formatNumber(remainingEggSeeds)} seeds to next egg`
+    : "Egg ready · waiting for nursery space");
+  const eggProgressPercent = `${Math.min(100, (eggProgress / eggRequirement) * 100)}%`;
+  if (eggProgressFillEl.style.width !== eggProgressPercent) eggProgressFillEl.style.width = eggProgressPercent;
+  eggProgressFillEl.parentElement.setAttribute("aria-valuemax", String(eggRequirement));
+  eggProgressFillEl.parentElement.setAttribute("aria-valuenow", String(displayedProgress));
 
-  setText(nurserySeedStatusEl, activeCount > 0
-    ? `${formatNumber(seedsTotal)} banked · ${activeCount} seed${activeCount === 1 ? "" : "s"}/sec required`
-    : `${formatNumber(seedsTotal)} seeds banked`);
-  layEggButton.disabled = !canLayEgg;
-
-  const hasEgg = hatchAt !== null && now < hatchAt;
-  if (hasEgg) {
-    setText(nestStateEl, "HATCHING");
-    setText(nestTimerEl, `Hatches in ${formatDuration(hatchAt - now)}`);
+  // A finished egg held in the nest because the yard is full (eggElapsedMs pinned
+  // at eggHatchMs). It keeps the nest occupied and hatches once a slot frees.
+  const extraEggs = nursery.nestEggs || [];
+  const primaryEggHeld = nursery.eggElapsedMs !== null &&
+    nursery.eggElapsedMs >= eggHatchDuration &&
+    activeCount >= capacity;
+  const extraEggHeld = extraEggs.some((egg) => egg.elapsedMs >= egg.hatchDurationMs) && activeCount >= capacity;
+  const eggHeld = primaryEggHeld || extraEggHeld;
+  const primaryHatching = hatchAt !== null && now < hatchAt;
+  const extraHatching = extraEggs.some((egg) => egg.elapsedMs < egg.hatchDurationMs);
+  const hatching = !eggHeld && (primaryHatching || extraHatching);
+  if (eggHeld) {
+    setText(nestStateEl, `READY · ${1 + (nursery.nestEggs || []).length}/${nestCapacity}`);
+    setText(nestTimerEl, "Hatchling ready · waiting for nursery space");
+  } else if (hatching) {
+    setText(nestStateEl, `HATCHING · ${1 + (nursery.nestEggs || []).length}/${nestCapacity}`);
+    setText(nestTimerEl, primaryHatching
+      ? `Hatches in ${formatDuration(hatchAt - now)}${eggHatchReduction > 0 ? ` · Lake bonus -${formatDecimal(eggHatchReduction)} sec` : ""}`
+      : `${extraEggs.length} egg${extraEggs.length === 1 ? "" : "s"} incubating`);
   } else {
-    setText(nestStateEl, "EMPTY");
-    setText(nestTimerEl, activeCount >= nurseryConfig.capacity ? "Nursery capacity reached" : "Ready for an egg");
+    setText(nestStateEl, `EMPTY · ${(nursery.nestEggs || []).length}/${nestCapacity}`);
+    setText(nestTimerEl, activeCount >= capacity ? "Nursery capacity reached" : "Ready for an egg");
   }
-  // Only rewrite the nest glyph when the egg state flips, not every refresh.
-  if (nestVisualHasEgg !== hasEgg) {
-    nestVisualEl.classList.toggle("has-egg", hasEgg);
-    nestVisualEl.innerHTML = hasEgg ? '<span class="egg-shape"></span>' : "<span>+</span>";
-    nestVisualHasEgg = hasEgg;
+  // Only rewrite the nest glyph when the occupancy flips, not every refresh.
+  const nestOccupied = eggHeld || hatching;
+  if (nestVisualHasEgg !== nestOccupied) {
+    nestVisualEl.classList.toggle("has-egg", nestOccupied);
+    nestVisualEl.innerHTML = nestOccupied ? '<span class="egg-shape"></span>' : "<span>+</span>";
+    nestVisualHasEgg = nestOccupied;
   }
 
-  setText(nurseryCapacityEl, `${activeCount} / ${nurseryConfig.capacity}`);
+  setText(nurseryCapacityEl, `${activeCount} / ${capacity}`);
+  setText(nurseryBranchTotalEl, formatWholeNumber(branchesTotal));
+  const nestMaxed = nestCapacity >= nurseryUpgrades.nest.maxSlots;
+  nestUpgradeButtonEl.disabled = nestMaxed || branchesTotal < nestCost;
+  nestUpgradeButtonEl.textContent = nestMaxed ? "Nest Slots Maxed · 5 / 5" : `Add Nest Slot · ${formatNumber(nestCost)} Branches`;
+  nurseryUpgradeButtonEl.disabled = branchesTotal < nurseryBranchCost || seedsTotal < nurserySeedCost;
+  nurseryUpgradeButtonEl.textContent = `Upgrade Nursery · ${formatNumber(nurseryBranchCost)} Branches + ${formatNumber(nurserySeedCost)} Seeds`;
   if (activeCount === 0) {
     setText(nurseryGrowthStatusEl, "Waiting for a hatchling");
   } else if (seedsTotal < activeCount) {
@@ -2500,6 +3034,12 @@ function mirrorEconomyFromWorld(now, snapshot) {
   const snap = snapshot || session.snapshot();
   const en = snap.nursery;
   nursery.eggElapsedMs = en.eggElapsedMs;
+  nursery.nestLevel = en.nestLevel;
+  nursery.nurseryLevel = en.nurseryLevel;
+  nursery.nestEggs = en.nestEggs;
+  nursery.eggHatchDurationMs = en.eggHatchDurationMs;
+  nursery.eggProgress = en.eggProgress;
+  nursery.eggsStarted = en.eggsStarted;
   nursery.nestStartedAt = en.eggElapsedMs == null ? null : now - en.eggElapsedMs;
   nursery.hatchlings = en.hatchlings;
   nursery.colonyCount = en.colonyCount;
@@ -2507,7 +3047,23 @@ function mirrorEconomyFromWorld(now, snapshot) {
   nursery.movementAccumulatorMs = en.movementAccumulatorMs;
   nursery.lastUpdatedAt = now;
   habitats.counts = snap.habitats.counts.slice();
+  habitats.upgradeLevels = snap.habitats.upgradeLevels.slice();
   habitats.lastUpdatedAt = now;
+  notablesState = window.IdleSnakeNotables.createState(snap.notables);
+  consolidatedSave.notables = { ...notablesState };
+  consolidatedSave.migration = structuredClone(snap.migration);
+  consolidatedSave.tradeRoutes = structuredClone(snap.tradeRoutes || []);
+  consolidatedSave.activeResupplyMissions = structuredClone(snap.activeResupplyMissions || []);
+  consolidatedSave.completedResupplyMissions = structuredClone(snap.completedResupplyMissions || []);
+  consolidatedSave.nextResupplyMissionId = snap.nextResupplyMissionId || 1;
+  provisionsTotal = snap.provisions;
+  branchesTotal = snap.branches;
+  const upgradeStateChanged = JSON.stringify(upgrades) !== JSON.stringify(snap.upgrades);
+  upgrades = { ...snap.upgrades };
+  selectedBoardLevel = Math.min(upgrades.boardLevel, Math.max(0, Number(snap.selectedBoardLevel) || 0));
+  if (upgradeStateChanged) boardOptionsBuiltForLevel = -1;
+  consolidatedSave.upgrades = { ...upgrades };
+  consolidatedSave.board = { ...consolidatedSave.board, selectedBoardLevel };
 }
 
 // Advance the idle economy on the unified clock. Called every frame from
@@ -2535,19 +3091,228 @@ function tickIdleWorld() {
   if (upgradesJson !== sessionLastUpgradesJson) { session.dispatch({ type: "setUpgrades", upgrades }); sessionLastUpgradesJson = upgradesJson; }
   const { snapshot, events } = session.tick(dt);
   latestSnapshot = snapshot;
+  recordBoardMastery(snapshot);
   seedsTotal = snapshot.seeds;
+  provisionsTotal = snapshot.provisions;
+  branchesTotal = snapshot.branches;
   sessionLastSeeds = seedsTotal;
-  best = Math.max(best, snapshot.best);
+  best = snapshot.best;
   sessionLastBest = best;
   mirrorEconomyFromWorld(now, snapshot);
+  if (events.some((item) => item.type === "NOTABLE_GENERATED")) showNotablesMenu();
   // Persist on the old ~250ms cadence (writes are debounced/coalesced anyway).
   if (now - idleLastPersistAt >= 250) {
     idleLastPersistAt = now;
     saveSeeds();
+    saveProvisions();
+    saveBranches();
     saveNursery();
     saveHabitats();
   }
   return events;
+}
+
+function upgradeHabitat(index) {
+  const habitat = habitatConfig.habitats[index];
+  if (!habitat || !session || !isHabitatUnlocked(habitat)) return;
+  const now = Date.now();
+  const { snapshot, events } = session.dispatch({ type: "upgradeHabitat", index });
+  if (events.some((event) => event.type === "actionRejected")) return;
+  latestSnapshot = snapshot;
+  mirrorEconomyFromWorld(now, snapshot);
+  saveBranches();
+  saveHabitats();
+  syncHud();
+  syncPanels(now);
+}
+
+function upgradeNursery(kind) {
+  if (!session) return;
+  const now = Date.now();
+  const { snapshot, events } = session.dispatch({ type: kind === "nest" ? "upgradeNest" : "upgradeNursery" });
+  if (events.some((event) => event.type === "actionRejected")) return;
+  latestSnapshot = snapshot;
+  mirrorEconomyFromWorld(now, snapshot);
+  saveSeeds();
+  saveBranches();
+  saveNursery();
+  syncHud();
+  syncPanels(now);
+}
+
+nestUpgradeButtonEl.addEventListener("click", () => upgradeNursery("nest"));
+nurseryUpgradeButtonEl.addEventListener("click", () => upgradeNursery("nursery"));
+
+function notableDisplayName(notable) {
+  return notable.epithet ? `${notable.name}, ${notable.epithet}` : notable.name;
+}
+
+function notablePowerText(notable) {
+  const percent = `${formatDecimal(notable.powerMagnitude * 100, 0)}%`;
+  if (notable.powerType === "PRODUCTION_INCREASE") return `Production +${percent}`;
+  if (notable.powerType === "CONSUMPTION_REDUCTION") return `Consumption −${percent}`;
+  if (notable.powerType === "CAPACITY_INCREASE") return `Habitat capacity +${percent}`;
+  if (notable.powerType === "FORAGER") return `${formatProvisions(notable.powerMagnitude)} Provision per Seed`;
+  if (notable.powerType === "RATIONER") return `Shortage productivity ${percent}`;
+  return notable.powerType;
+}
+
+function notableSourceText(notable) {
+  if (notable.sourceType === "BOARD_MASTERY") return `Mastery of ${notable.sourceReference}`;
+  if (notable.sourceType === "HABITAT_ASSIGNMENT") return `Placed in ${notable.sourceReference}`;
+  if (notable.sourceType === "DIRECT_RECRUITMENT") return "Direct recruitment";
+  return notable.sourceReference || notable.sourceType;
+}
+
+function notableContributionText(notable) {
+  if (notable.powerType === "PRODUCTION_INCREASE") return `Generated ${formatDecimal(notable.totalProductionAdded)} bonus Seeds`;
+  if (notable.powerType === "CONSUMPTION_REDUCTION") return `Prevented ${formatProvisions(notable.totalConsumptionPrevented)} Provision consumption`;
+  if (notable.powerType === "CAPACITY_INCREASE") return `Enabled ${formatDecimal(notable.totalCapacityEnabled / 3600)} snake-hours of capacity`;
+  if (notable.powerType === "FORAGER") return `Foraged ${formatProvisions(notable.totalProvisionsForaged)} Provisions`;
+  if (notable.powerType === "RATIONER") return `Preserved ${formatDecimal(notable.totalShortageOutputPreserved)} Seeds during shortages`;
+  return "No recorded contribution";
+}
+
+function commitNotableAction(action) {
+  if (!session) return null;
+  const result = session.dispatch({ ...action, now: Date.now() });
+  const rejected = result.events.find((item) => item.type === "actionRejected");
+  if (rejected) { window.alert(`Unable to complete that action: ${rejected.reason}.`); return result; }
+  latestSnapshot = result.snapshot;
+  mirrorEconomyFromWorld(Date.now(), result.snapshot);
+  if (result.events.some((item) => item.type === "NOTABLE_GENERATED" || item.type === "NOTABLE_PENDING")) showNotablesMenu();
+  saveNursery(); saveHabitats(); persistConsolidatedSave(); renderNotables(); syncNurseryPanel(Date.now());
+  return result;
+}
+
+const NOTABLE_HOLD_CONFIRM_MS = 900;
+function makeHoldConfirmButton(label, onConfirm) {
+  const button = document.createElement("button");
+  button.type = "button"; button.className = "notable-hold-confirm"; button.textContent = `Hold to ${label}`;
+  button.style.setProperty("--hold-confirm-ms", `${NOTABLE_HOLD_CONFIRM_MS}ms`);
+  let timer = null;
+  const cancel = () => {
+    if (timer !== null) { clearTimeout(timer); timer = null; }
+    button.classList.remove("is-holding");
+  };
+  const start = (event) => {
+    if (event.type === "keydown" && !["Enter", " "].includes(event.key)) return;
+    event.preventDefault();
+    if (timer !== null || event.repeat) return;
+    button.classList.add("is-holding");
+    timer = setTimeout(() => { timer = null; button.classList.remove("is-holding"); onConfirm(); }, NOTABLE_HOLD_CONFIRM_MS);
+  };
+  button.addEventListener("pointerdown", start);
+  ["pointerup", "pointerleave", "pointercancel"].forEach((type) => button.addEventListener(type, cancel));
+  button.addEventListener("keydown", start);
+  button.addEventListener("keyup", cancel);
+  button.addEventListener("blur", cancel);
+  button.addEventListener("click", (event) => event.preventDefault());
+  return button;
+}
+
+function buildNotableCard(notable, elder = false) {
+  const card = document.createElement("article"); card.className = "notable-card";
+  const habitat = notable.assignedHabitatId == null ? null : habitatConfig.habitats[notable.assignedHabitatId];
+  const heading = document.createElement("strong"); heading.textContent = notableDisplayName(notable); card.append(heading);
+  const details = document.createElement("p");
+  details.textContent = `${notablePowerText(notable)} · ${habitat ? `Leader of ${habitat.name}` : elder ? "Retired" : "Inactive"} · Source: ${notableSourceText(notable)}`;
+  card.append(details);
+  const service = document.createElement("p"); service.className = "notable-service";
+  const servedNames = notable.habitatsServed.map((index) => habitatConfig.habitats[index]?.name).filter(Boolean);
+  service.textContent = `${formatDuration(notable.totalServiceTime)} served${servedNames.length ? ` in ${servedNames.join(", ")}` : ""} · ${notableContributionText(notable)}${elder && notable.retiredAt ? ` · Retired ${new Date(notable.retiredAt).toLocaleDateString()}` : ""}`;
+  card.append(service);
+  if (elder) return card;
+  const actions = document.createElement("div"); actions.className = "notable-actions";
+  if (notable.assignedHabitatId != null) {
+    const unassign = document.createElement("button"); unassign.type = "button"; unassign.textContent = "Unassign";
+    unassign.addEventListener("click", () => { if (confirm(`Remove ${notableDisplayName(notable)} from ${habitat.name}?`)) commitNotableAction({ type: "unassignNotable", notableId: notable.id }); });
+    actions.append(unassign);
+  } else {
+    const select = document.createElement("select"); select.setAttribute("aria-label", `Assign ${notableDisplayName(notable)}`);
+    const prompt = document.createElement("option"); prompt.value = ""; prompt.textContent = "Assign to…"; select.append(prompt);
+    habitatConfig.habitats.forEach((item, index) => {
+      if (!habitats.counts[index]) return;
+      const option = document.createElement("option"); option.value = String(index);
+      const occupant = notablesState.retained.find((candidate) => candidate.assignedHabitatId === index && candidate.id !== notable.id);
+      option.textContent = occupant ? `Replace ${notableDisplayName(occupant)} in ${item.name}` : item.name;
+      if (notable.powerType === "FORAGER" && !window.IdleSnakeNotables.isForagerEligible(item)) { option.disabled = true; option.textContent += " (Forager ineligible)"; }
+      select.append(option);
+    });
+    select.addEventListener("change", () => {
+      if (select.value === "") return;
+      commitNotableAction({ type: "assignNotable", notableId: notable.id, habitatId: Number(select.value) });
+    });
+    actions.append(select);
+  }
+  const retire = makeHoldConfirmButton(notable.hasServed ? "Retire" : "Dismiss", () =>
+    commitNotableAction({ type: notable.hasServed ? "retireNotable" : "dismissNotable", notableId: notable.id }));
+  actions.append(retire); card.append(actions); return card;
+}
+
+function syncNotablesSummary() {
+  if (!notablesButtonEl) return;
+  const capacity = latestSnapshot?.notableCapacity ?? window.IdleSnakeNotables.capacity(notablesState, habitats.counts);
+  const over = notablesState.retained.length > capacity;
+  const label = `Notables: ${notablesState.retained.length} / ${capacity}${over ? " · Over Capacity" : ""}`;
+  notablesButtonEl.textContent = label; if (notablesSummaryEl) notablesSummaryEl.textContent = label;
+  return over;
+}
+
+function renderNotables() {
+  const over = syncNotablesSummary();
+  if (!notablesPanelEl || notablesPanelEl.hidden) return;
+  notablesRosterEl.replaceChildren(...notablesState.retained.map((item) => buildNotableCard(item)));
+  if (!notablesState.retained.length) notablesRosterEl.textContent = "No retained Notables.";
+  eldersRosterEl.replaceChildren(...notablesState.elders.map((item) => buildNotableCard(item, true)));
+  if (!notablesState.elders.length) eldersRosterEl.textContent = "No Elders yet.";
+  const pending = notablesState.pending[0]; pendingNotableEl.replaceChildren();
+  if (pending) {
+    const card = buildNotableCard(pending); card.classList.add("is-pending");
+    const title = document.createElement("h3"); title.textContent = `Pending candidate (${notablesState.pending.length})`; pendingNotableEl.append(title, card);
+    const relieve = document.createElement("button"); relieve.type = "button"; relieve.textContent = "Relieve"; relieve.addEventListener("click", () => commitNotableAction({ type: "resolvePendingNotable", decision: "RELIEVE" }));
+    card.querySelector(".notable-actions")?.remove(); const actions = document.createElement("div"); actions.className = "notable-actions"; actions.append(relieve);
+    const replaceSelect = document.createElement("select"); replaceSelect.setAttribute("aria-label", `Replace a retained Notable with ${notableDisplayName(pending)}`);
+    const replacePrompt = document.createElement("option"); replacePrompt.value = ""; replacePrompt.textContent = "Replace a Notable…"; replaceSelect.append(replacePrompt);
+    notablesState.retained.forEach((existing) => { const option = document.createElement("option"); option.value = existing.id; option.textContent = notableDisplayName(existing); replaceSelect.append(option); });
+    replaceSelect.addEventListener("change", () => { if (replaceSelect.value) commitNotableAction({ type: "resolvePendingNotable", decision: "REPLACE", replaceNotableId: replaceSelect.value }); });
+    actions.append(replaceSelect); card.append(actions);
+  }
+  const cost = window.IdleSnakeConfig.notableConfig.directRecruitmentCost;
+  recruitNotableButtonEl.disabled = nursery.colonyCount < cost || over;
+  recruitNotableButtonEl.textContent = `Recruit Notable · Sacrifice ${cost} unassigned snakes`;
+}
+
+function showNotablesMenu() {
+  if (!colonyOverviewEl || !notablesPanelEl) return;
+  colonyOverviewEl.hidden = true;
+  notablesPanelEl.hidden = false;
+  renderNotables();
+}
+
+function showColonyOverview() {
+  if (!colonyOverviewEl || !notablesPanelEl) return;
+  notablesPanelEl.hidden = true;
+  colonyOverviewEl.hidden = false;
+}
+
+function recordBoardMastery(snapshot) {
+  if (!snapshot || snapshot.mode !== "snake" || !snapshot.active) return;
+  const activeGrid = snapshot.active.grid;
+  const size = `${activeGrid.columns}x${activeGrid.rows}`;
+  const mastery = window.IdleSnakeConfig.boardMasteryConfig.find((item) => item.boardSize === size);
+  if (!mastery || snapshot.active.score < mastery.masteryScore) return;
+  if (boardMastery[size]) return;
+  const reward = session.dispatch({ type: "claimBoardMastery", masteryId: mastery.masteryId, now: Date.now() });
+  if (reward.events.some((item) => item.type === "actionRejected")) return;
+  latestSnapshot = reward.snapshot;
+  mirrorEconomyFromWorld(Date.now(), reward.snapshot);
+  if (reward.events.some((item) => item.type === "NOTABLE_GENERATED")) showNotablesMenu();
+  boardMastery[size] = true;
+  consolidatedSave.board.mastery = { ...boardMastery };
+  boardOptionsBuiltForLevel = -1;
+  persistConsolidatedSave();
+  syncUpgradeMenu();
 }
 
 // Rebuild the session from the current consolidatedSave (used at boot and after a
@@ -2557,17 +3322,18 @@ function tickIdleWorld() {
 function initIdleWorld() {
   if (!window.IdleSnakeSession) return;
   session = window.IdleSnakeSession.createGameSession({ save: consolidatedSave, now: Date.now(), rng: Math.random });
-  session.dispatch({ type: "setUpgrades", upgrades });
-  sessionLastUpgradesJson = JSON.stringify(upgrades);
   const { snapshot } = session.advanceOffline(Date.now());
   latestSnapshot = snapshot;
   idleLastWallAt = Date.now();
   idleLastPersistAt = idleLastWallAt;
   seedsTotal = snapshot.seeds;
+  provisionsTotal = snapshot.provisions;
+  branchesTotal = snapshot.branches;
   sessionLastSeeds = seedsTotal;
-  best = Math.max(best, snapshot.best);
+  best = snapshot.best;
   sessionLastBest = best;
   mirrorEconomyFromWorld(idleLastWallAt, snapshot);
+  if (snapshot.notables.pending.length) showNotablesMenu();
 }
 
 // Copy the session's snake run into the legacy globals the renderer reads.
@@ -2597,12 +3363,18 @@ function interpretSessionEvents(events) {
   if (!events || events.length === 0) return;
   for (const event of events) {
     switch (event.type) {
-      case "hatch": idleLastPanelAt = 0; break;
+      case "hatch":
+      case "eggBoardHatched": idleLastPanelAt = 0; break;
       case "eat": if (gameMode === "snake") startDigestionAnimation(); break;
       case "shield": if (gameMode === "snake") saveUpgrades(); break;
       case "bestScore": if (gameMode === "snake") setSaveItem("best", String(best)); break;
       case "gameOver": if (gameMode === "snake") { state = "gameover"; syncHud(); showOverlay("Game Over"); } break;
       case "win": if (gameMode === "snake") { state = "gameover"; syncHud(); showOverlay("Maxed"); } break;
+      case "migrationStopReached": setScreenHint("A migration convoy is waiting at a stop."); idleLastPanelAt = 0; break;
+      case "migrationFailed": setScreenHint("A migration expedition was lost."); idleLastPanelAt = 0; break;
+      case "settlementEstablished": setScreenHint("A new settlement is fully established."); idleLastPanelAt = 0; break;
+      case "migrationChallengeCompleted": state = "gameover"; syncHud(); showOverlay("Challenge complete"); setScreenHint("The convoy passed the Seed Trial."); idleLastPanelAt = 0; break;
+      case "migrationChallengeFailed": state = "gameover"; syncHud(); showOverlay("Attempt failed"); setScreenHint("The convoy took losses. Retry or skip from Migration."); idleLastPanelAt = 0; break;
     }
   }
 }
@@ -2622,6 +3394,11 @@ function formatDuration(ms) {
 }
 
 function togglePause() {
+  if (gameMode === "battleship" && battleship && battleship.phase === "placement") {
+    // During fleet setup the Pause button doubles as "rotate".
+    battleshipRotate();
+    return;
+  }
   if (state === "ready") return;
   if (state === "gameover") {
     if (isMinigameMode()) restartCurrentMinigame();
@@ -2677,6 +3454,8 @@ function gameLoop(now) {
     stepAccumulatorMs += deltaMs;
     while (stepAccumulatorMs >= tickMs && state === "running" && gameMode !== "broodline") {
       if (gameMode === "breakout") stepBreakout(tickMs);
+      else if (gameMode === "runner") stepRunner(tickMs);
+      else if (gameMode === "centipede") stepCentipede();
       else if (gameMode === "crossing") stepCrossing(now);
       else if (gameMode === "duel") stepVsSnake();
       else if (gameMode === "snakebird") {
@@ -2684,6 +3463,11 @@ function gameLoop(now) {
         break;
       }
       else if (gameMode === "sokoban") {
+        stepAccumulatorMs = 0;
+        break;
+      }
+      else if (gameMode === "battleship") {
+        stepBattleship(now);
         stepAccumulatorMs = 0;
         break;
       }
@@ -2832,6 +3616,83 @@ function endBreakout(won) {
   }
   syncHud();
   showOverlay(won ? "Level Clear · +500 Seeds" : "Game Over");
+}
+
+function stepRunner(deltaMs) {
+  if (!runner) return;
+  const { events } = window.IdleSnakeRunner.step(runner, { deltaMs, rng: Math.random });
+  for (const event of events) {
+    if (event.type !== "gameOver") continue;
+    state = "gameover";
+    runnerBest = Math.max(runnerBest, event.score);
+    setSaveItem("runner-best", String(runnerBest));
+    seedsTotal += event.reward;
+    saveSeeds();
+    syncHud();
+    showOverlay(`Runner Down · +${formatNumber(event.reward)} Seeds`);
+    setScreenHint("Start to run again");
+    return;
+  }
+}
+
+// Centipede (minigame 9). A villain centipede winds down a mushroom field; the
+// shooter roams the bottom band and auto-fires. Grid logic lives in the headless
+// engine (engine/centipede.js); the host owns input, rendering (the villain is
+// tinted with the player's snake colors) and the score/wave/game-over events.
+function launchCentipede() {
+  hideSnakebirdPicker();
+  hidePersonalization();
+  if (gameMode === "centipede" && state !== "gameover") return;
+  gameMode = "centipede";
+  grid = { ...centipedeGrid };
+  boardMetrics = getBoardMetrics();
+  centipede = window.IdleSnakeCentipede.createState({
+    cols: centipedeGrid.columns,
+    rows: centipedeGrid.rows,
+    rng: Math.random
+  });
+  direction = "right";
+  nextDirection = "right";
+  directionQueue = [];
+  state = "ready";
+  tickMs = 70;
+  elapsedMs = 0;
+  stepAccumulatorMs = 0;
+  timerStarted = false;
+  syncHud();
+  render();
+  showOverlay("Centipede · Ready");
+  setScreenHint("Arrows to move · you auto-fire upward");
+}
+
+function stepCentipede() {
+  if (!centipede) return;
+  const { events, alive } = window.IdleSnakeCentipede.step(centipede, { rng: Math.random });
+  for (const event of events) {
+    if (event.type === "gameOver") { endCentipede(); return; }
+    if (event.type === "playerHit" && alive) {
+      // Pause after a hit so the player can regroup before the next life.
+      state = "ready";
+      syncHud();
+      showOverlay(`Hit! · ${event.lives} ${event.lives === 1 ? "life" : "lives"} left`);
+      setScreenHint("Arrows to move · you auto-fire upward");
+      return;
+    }
+  }
+  syncHud();
+}
+
+function endCentipede() {
+  state = "gameover";
+  centipedeBest = Math.max(centipedeBest, centipede.score);
+  setSaveItem("centipede-best", String(centipedeBest));
+  const reward = 40 * centipede.wavesCleared + Math.floor(centipede.score / 20);
+  if (reward > 0) {
+    seedsTotal += reward;
+    saveSeeds();
+  }
+  syncHud();
+  showOverlay(reward > 0 ? `Game Over · +${formatNumber(reward)} Seeds` : "Game Over");
 }
 
 // Core snake step, delegated to the headless engine (engine/snake.js). The host
@@ -2985,6 +3846,20 @@ function queueDirection(next) {
     }
     return;
   }
+  if (gameMode === "runner") {
+    if (next === "up") runnerJump();
+    return;
+  }
+  if (gameMode === "centipede") {
+    if (state === "ready") startGame();
+    if (state !== "gameover" && centipede) {
+      if (next === "left") centipede.player.inputX = -1;
+      else if (next === "right") centipede.player.inputX = 1;
+      else if (next === "up") centipede.player.inputY = -1;
+      else if (next === "down") centipede.player.inputY = 1;
+    }
+    return;
+  }
   if (gameMode === "crossing") {
     queueCrossingDirection(next);
     return;
@@ -2995,6 +3870,10 @@ function queueDirection(next) {
   }
   if (gameMode === "duel") {
     queueDuelDirection(next);
+    return;
+  }
+  if (gameMode === "battleship") {
+    battleshipMoveCursor(next);
     return;
   }
   if (state === "ready") startGame();
@@ -3397,9 +4276,12 @@ function render() {
   boardMetrics = getBoardMetrics();
   drawScreen();
   if (gameMode === "crossing") drawCrossing();
+  else if (gameMode === "battleship") drawBattleship();
+  else if (gameMode === "runner") drawRunner();
   else {
     if (gameMode !== "broodline") drawGrid();
     if (gameMode === "breakout") drawBreakout();
+    else if (gameMode === "centipede") drawCentipede();
     else if (gameMode === "duel") drawVsSnake();
     else if (gameMode === "maze") drawMaze();
     else if (gameMode === "snakebird") drawSnakebird();
@@ -3411,6 +4293,47 @@ function render() {
     }
   }
   drawScanlines();
+}
+
+function drawRunner() {
+  if (!runner) return;
+  const originX = boardMetrics.x;
+  const originY = boardMetrics.y;
+  const groundY = originY + runner.groundY;
+  ctx.fillStyle = "rgba(24, 36, 19, 0.16)";
+  ctx.fillRect(originX, groundY, boardMetrics.width, 3);
+  for (let x = originX + 8; x < originX + boardMetrics.width; x += 22) ctx.fillRect(x, groundY + 8, 10, 2);
+  runner.obstacles.forEach((obstacle) => {
+    const x = originX + obstacle.x;
+    const y = groundY - obstacle.height;
+    ctx.fillStyle = "rgba(24, 36, 19, 0.28)";
+    ctx.fillRect(x + 3, groundY + 2, obstacle.width, 3);
+    ctx.fillStyle = obstacle.kind === "cactus" ? "#38502a" : "#29391f";
+    if (obstacle.kind === "cactus") {
+      drawRoundedRect(x, y, obstacle.width, obstacle.height);
+      ctx.fillRect(x - obstacle.width * 0.45, y + obstacle.height * 0.42, obstacle.width * 0.45, Math.max(3, obstacle.height * 0.13));
+      ctx.fillRect(x + obstacle.width, y + obstacle.height * 0.28, obstacle.width * 0.45, Math.max(3, obstacle.height * 0.13));
+    } else {
+      ctx.beginPath();
+      ctx.moveTo(x, groundY); ctx.lineTo(x + obstacle.width * 0.22, y + obstacle.height * 0.28); ctx.lineTo(x + obstacle.width * 0.68, y); ctx.lineTo(x + obstacle.width, groundY); ctx.closePath(); ctx.fill();
+    }
+  });
+  const { player } = runner;
+  for (let index = window.IdleSnakeRunner.config.segmentCount - 1; index >= 0; index -= 1) {
+    const segmentSize = player.size * (index === 0 ? 1 : 0.88);
+    const x = originX + player.x - index * segmentSize * 0.72;
+    const y = groundY - segmentSize - window.IdleSnakeRunner.segmentYOffset(runner, index);
+    ctx.fillStyle = "rgba(24, 36, 19, 0.28)";
+    ctx.fillRect(x + 2, groundY + 2, segmentSize, 3);
+    ctx.fillStyle = index === 0 ? snakeColors.head : snakeColors.body;
+    drawRoundedRect(x, y, segmentSize, segmentSize);
+    ctx.fillStyle = "rgba(231, 225, 197, 0.2)";
+    ctx.fillRect(x + 3, y + 3, Math.max(2, segmentSize - 6), Math.max(2, segmentSize * 0.12));
+    if (index === 0) drawEyes(x, y, segmentSize, "right");
+  }
+  ctx.strokeStyle = "rgba(24, 36, 19, 0.4)";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(originX - 1, originY - 1, boardMetrics.width + 2, boardMetrics.height + 2);
 }
 
 function drawCrossing() {
@@ -3554,6 +4477,70 @@ function drawBreakout() {
     }
   }
 
+}
+
+function drawCentipede() {
+  if (!centipede) return;
+  const cs = boardMetrics.cellSize;
+
+  // Mushroom field — the cap fades as it takes damage (4 hp = solid).
+  for (const cell in centipede.mushrooms) {
+    const hp = centipede.mushrooms[cell];
+    const parts = cell.split(",");
+    const rect = cellRect({ x: Number(parts[0]), y: Number(parts[1]) }, Math.max(2, cs * 0.16));
+    ctx.fillStyle = "rgba(24, 36, 19, 0.26)";
+    ctx.fillRect(rect.x + 2, rect.y + rect.size * 0.55, rect.size, rect.size * 0.4);
+    ctx.fillStyle = `rgba(88, 110, 58, ${Math.min(1, 0.32 + 0.17 * hp)})`;
+    ctx.beginPath();
+    ctx.arc(rect.x + rect.size / 2, rect.y + rect.size * 0.46, rect.size * 0.5, Math.PI, 0);
+    ctx.fill();
+    ctx.fillStyle = "rgba(231, 225, 197, 0.45)";
+    ctx.fillRect(rect.x + rect.size * 0.22, rect.y + rect.size * 0.24, Math.max(1, rect.size * 0.16), Math.max(1, rect.size * 0.16));
+  }
+
+  // Villain centipede — segments are tinted with the player's chosen snake
+  // colours (body colour for the chain, head colour for each head).
+  centipede.segments.forEach((seg) => {
+    const rect = cellRect({ x: seg.x, y: seg.y }, Math.max(1, cs * 0.08));
+    ctx.fillStyle = "rgba(24, 36, 19, 0.3)";
+    ctx.fillRect(rect.x + 2, rect.y + 2, rect.size, rect.size);
+    ctx.fillStyle = seg.isHead ? snakeColors.head : snakeColors.body;
+    ctx.beginPath();
+    ctx.arc(rect.x + rect.size / 2, rect.y + rect.size / 2, rect.size / 2, 0, Math.PI * 2);
+    ctx.fill();
+    if (seg.isHead) {
+      const eye = Math.max(2, Math.floor(rect.size * 0.16));
+      ctx.fillStyle = contrastingEyeColor(snakeColors.head);
+      ctx.fillRect(rect.x + rect.size * 0.28, rect.y + rect.size * 0.3, eye, eye);
+      ctx.fillRect(rect.x + rect.size * 0.58, rect.y + rect.size * 0.3, eye, eye);
+    }
+  });
+
+  // Bullet.
+  if (centipede.bullet) {
+    const rect = cellRect(centipede.bullet, Math.max(2, cs * 0.38));
+    ctx.fillStyle = "#e7e1c5";
+    ctx.fillRect(rect.x, rect.y, rect.size, cs * 0.6);
+  }
+
+  // Player shooter — cream, so the hero reads clearly against the tinted villain.
+  const p = cellRect(centipede.player, Math.max(1, cs * 0.12));
+  ctx.fillStyle = "rgba(24, 36, 19, 0.32)";
+  ctx.fillRect(p.x + 2, p.y + 3, p.size, p.size);
+  ctx.fillStyle = "#182413";
+  ctx.fillRect(p.x + p.size * 0.42, p.y - cs * 0.12, Math.max(2, p.size * 0.16), cs * 0.22);
+  ctx.fillStyle = "#e7e1c5";
+  ctx.beginPath();
+  ctx.moveTo(p.x + p.size / 2, p.y);
+  ctx.lineTo(p.x + p.size, p.y + p.size);
+  ctx.lineTo(p.x, p.y + p.size);
+  ctx.closePath();
+  ctx.fill();
+
+  // Faint divider marking the top of the shooter's band.
+  const bandY = boardMetrics.y + (centipede.rows - centipede.playerRows) * cs;
+  ctx.fillStyle = "rgba(24, 36, 19, 0.18)";
+  ctx.fillRect(boardMetrics.x, bandY, boardMetrics.width, 2);
 }
 
 function drawVsSnake() {
@@ -3776,6 +4763,187 @@ function drawSokoban() {
   }
 }
 
+// Two stacked 10x10 grids: enemy waters on top (where the player fires venom),
+// their own nest below (where the AI fires). Layout is computed independently of
+// getBoardMetrics/grid so both grids fit the square LCD screen.
+function battleshipLayout() {
+  const cols = battleshipGrid.columns;
+  const rows = battleshipGrid.rows;
+  const labelH = 16;
+  const gap = 18;
+  const usableH = canvas.height - labelH * 2 - gap - 14;
+  const size = Math.max(8, Math.floor(Math.min((canvas.width - 24) / cols, usableH / (rows * 2))));
+  const boardW = size * cols;
+  const boardH = size * rows;
+  const offsetX = Math.floor((canvas.width - boardW) / 2);
+  const enemyY = labelH + 6;
+  const playerY = enemyY + boardH + labelH + gap;
+  return { cols, rows, size, boardW, boardH, offsetX, enemyY, playerY, labelH };
+}
+
+// Map a canvas click to { board: "enemy"|"player", x, y } or null, accounting
+// for CSS scaling of the canvas.
+function battleshipCellFromEvent(event) {
+  const rect = canvas.getBoundingClientRect();
+  const px = (event.clientX - rect.left) * (canvas.width / rect.width);
+  const py = (event.clientY - rect.top) * (canvas.height / rect.height);
+  const L = battleshipLayout();
+  const hit = (top) => {
+    if (px < L.offsetX || px >= L.offsetX + L.boardW) return null;
+    if (py < top || py >= top + L.boardH) return null;
+    return { x: Math.floor((px - L.offsetX) / L.size), y: Math.floor((py - top) / L.size) };
+  };
+  const enemy = hit(L.enemyY);
+  if (enemy) return { board: "enemy", ...enemy };
+  const player = hit(L.playerY);
+  if (player) return { board: "player", ...player };
+  return null;
+}
+
+function battleshipGhost() {
+  const def = battleshipCurrentDef();
+  if (!def) return null;
+  const B = window.IdleSnakeBattleship;
+  const cells = B.shipCells(battleship.placement.x, battleship.placement.y, def.length, battleship.placement.orientation);
+  return { cells, valid: B.canPlaceCells(battleship.player, cells, battleshipGrid.columns) };
+}
+
+function drawBattleship() {
+  if (!battleship) return;
+  const L = battleshipLayout();
+  ctx.save();
+  drawBattleshipLabel(battleship.phase === "over" ? "ENEMY WATERS · REVEALED" : "ENEMY WATERS · STRIKE", L.offsetX, L.enemyY - 5, L);
+  drawBattleshipBoard({
+    L,
+    top: L.enemyY,
+    fleet: battleship.enemy,
+    revealSunk: true,
+    revealAll: battleship.phase === "over",
+    cursor: battleship.phase === "playing" && battleship.turn === "player" ? battleship.target : null,
+    lastShot: battleship.lastPlayerShot
+  });
+  drawBattleshipLabel("YOUR NEST", L.offsetX, L.playerY - 5, L);
+  drawBattleshipBoard({
+    L,
+    top: L.playerY,
+    fleet: battleship.player,
+    revealAll: true,
+    ghost: battleship.phase === "placement" ? battleshipGhost() : null,
+    lastShot: battleship.lastAiShot
+  });
+  ctx.restore();
+}
+
+function drawBattleshipLabel(text, x, y, L) {
+  ctx.fillStyle = "#182413";
+  ctx.font = `bold ${Math.max(9, Math.floor(L.labelH * 0.72))}px "Courier New", monospace`;
+  ctx.textAlign = "left";
+  ctx.textBaseline = "alphabetic";
+  ctx.fillText(text, x, y);
+}
+
+function drawBattleshipBoard({ L, top, fleet, revealAll, revealSunk, cursor, ghost, lastShot }) {
+  const { offsetX, size, cols, rows } = L;
+  const B = window.IdleSnakeBattleship;
+  for (let y = 0; y < rows; y += 1) {
+    for (let x = 0; x < cols; x += 1) {
+      ctx.fillStyle = (x + y) % 2 === 0 ? "rgba(24,36,19,0.16)" : "rgba(24,36,19,0.07)";
+      ctx.fillRect(offsetX + x * size, top + y * size, size, size);
+    }
+  }
+  fleet.ships.forEach((ship) => {
+    const sunk = B.isSunk(ship, fleet.shots);
+    if (!revealAll && !(revealSunk && sunk)) return;
+    drawBattleshipShip(ship, offsetX, top, size, sunk);
+  });
+  if (ghost) {
+    const inset = Math.max(2, size * 0.16);
+    ghost.cells.forEach((c) => {
+      ctx.fillStyle = ghost.valid ? "rgba(45,139,104,0.6)" : "rgba(179,72,61,0.55)";
+      drawRoundedRect(offsetX + c.x * size + inset, top + c.y * size + inset, size - inset * 2, size - inset * 2);
+    });
+  }
+  Object.keys(fleet.shots).forEach((k) => {
+    const [sx, sy] = k.split(",").map(Number);
+    const cx = offsetX + sx * size;
+    const cy = top + sy * size;
+    if (fleet.shots[k] === "hit") drawVenomHit(cx, cy, size);
+    else drawVenomMiss(cx, cy, size);
+  });
+  if (lastShot) {
+    ctx.strokeStyle = "rgba(231,225,197,0.85)";
+    ctx.lineWidth = 2;
+    ctx.strokeRect(offsetX + lastShot.x * size + 1.5, top + lastShot.y * size + 1.5, size - 3, size - 3);
+  }
+  if (cursor) drawBattleshipReticle(offsetX + cursor.x * size, top + cursor.y * size, size);
+  ctx.strokeStyle = "rgba(24,36,19,0.32)";
+  ctx.lineWidth = 1;
+  for (let i = 0; i <= cols; i += 1) {
+    ctx.beginPath();
+    ctx.moveTo(offsetX + i * size + 0.5, top + 0.5);
+    ctx.lineTo(offsetX + i * size + 0.5, top + rows * size + 0.5);
+    ctx.stroke();
+  }
+  for (let i = 0; i <= rows; i += 1) {
+    ctx.beginPath();
+    ctx.moveTo(offsetX + 0.5, top + i * size + 0.5);
+    ctx.lineTo(offsetX + cols * size + 0.5, top + i * size + 0.5);
+    ctx.stroke();
+  }
+  ctx.strokeStyle = "rgba(24,36,19,0.6)";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(offsetX, top, cols * size, rows * size);
+}
+
+function drawBattleshipShip(ship, offsetX, top, size, sunk) {
+  const inset = Math.max(2, size * 0.17);
+  ship.cells.forEach((c) => {
+    ctx.fillStyle = sunk ? "rgba(24,36,19,0.72)" : snakeColors.body;
+    drawRoundedRect(offsetX + c.x * size + inset, top + c.y * size + inset, size - inset * 2, size - inset * 2);
+  });
+  const head = ship.cells[0];
+  ctx.fillStyle = sunk ? "#182413" : snakeColors.head;
+  drawRoundedRect(offsetX + head.x * size + inset, top + head.y * size + inset, size - inset * 2, size - inset * 2);
+}
+
+function drawVenomHit(cx, cy, size) {
+  const mx = cx + size / 2;
+  const my = cy + size / 2;
+  const r = size * 0.26;
+  ctx.fillStyle = "#182413";
+  ctx.beginPath();
+  ctx.arc(mx, my, r, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = "rgba(231,225,197,0.72)";
+  ctx.lineWidth = Math.max(1.5, size * 0.09);
+  ctx.beginPath();
+  ctx.moveTo(mx - r * 0.6, my - r * 0.6);
+  ctx.lineTo(mx + r * 0.6, my + r * 0.6);
+  ctx.moveTo(mx + r * 0.6, my - r * 0.6);
+  ctx.lineTo(mx - r * 0.6, my + r * 0.6);
+  ctx.stroke();
+}
+
+function drawVenomMiss(cx, cy, size) {
+  ctx.fillStyle = "rgba(24,36,19,0.4)";
+  ctx.beginPath();
+  ctx.arc(cx + size / 2, cy + size / 2, Math.max(1.5, size * 0.12), 0, Math.PI * 2);
+  ctx.fill();
+}
+
+function drawBattleshipReticle(cx, cy, size) {
+  const bright = Math.floor(Date.now() / 400) % 2 === 0;
+  ctx.strokeStyle = bright ? "#182413" : "rgba(24,36,19,0.55)";
+  ctx.lineWidth = 2;
+  ctx.strokeRect(cx + 2, cy + 2, size - 4, size - 4);
+  ctx.beginPath();
+  ctx.moveTo(cx + size / 2, cy + 4);
+  ctx.lineTo(cx + size / 2, cy + size - 4);
+  ctx.moveTo(cx + 4, cy + size / 2);
+  ctx.lineTo(cx + size - 4, cy + size / 2);
+  ctx.stroke();
+}
+
 function getBoardMetrics() {
   const margin = 12;
   const cellSize = Math.floor(Math.min(
@@ -3956,6 +5124,16 @@ function drawFood() {
     const centerX = rect.x + rect.size / 2;
     const centerY = rect.y + rect.size / 2;
 
+    if (snack.kind === "egg") {
+      ctx.fillStyle = "#f2e9ba";
+      ctx.beginPath();
+      ctx.ellipse(centerX, centerY, rect.size * 0.32, rect.size * 0.43, 0, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.strokeStyle = "#182413";
+      ctx.lineWidth = Math.max(1, rect.size * 0.08);
+      ctx.stroke();
+      return;
+    }
     ctx.fillStyle = "#182413";
     if (foodType.kind === "fruit") {
       ctx.beginPath();
@@ -3991,6 +5169,20 @@ function drawScanlines() {
 function syncHud() {
   const isSnakebird = gameMode === "snakebird";
   const isSokoban = gameMode === "sokoban";
+  if (gameMode === "battleship" && battleship) {
+    const B = window.IdleSnakeBattleship;
+    scoreLabelEl.textContent = "Sunk";
+    bestLabelEl.textContent = "Wins";
+    setText(scoreEl, padScore(B.sunkCount(battleship.enemy)));
+    setText(bestEl, padScore(battleshipBest));
+    setText(seedsTotalEl, padSeeds(seedsTotal));
+    if (duelGridSelect) duelGridSelect.hidden = true;
+    if (gridLabelEl) gridLabelEl.hidden = false;
+    setText(gridLabelEl, `${battleshipGrid.columns}x${battleshipGrid.rows}`);
+    setText(timerEl, formatTime(timerStarted ? elapsedMs : 0));
+    pauseButton.classList.toggle("is-active", state === "paused");
+    return;
+  }
   if (gameMode === "broodline" && broodline) {
     scoreLabelEl.textContent = "Seeds"; bestLabelEl.textContent = "Kills";
     scoreEl.textContent = padScore(broodline.pendingSeeds); bestEl.textContent = padScore(broodline.kills);
@@ -4006,17 +5198,22 @@ function syncHud() {
     ? sokoban?.score || 0
     : gameMode === "breakout"
     ? breakout?.score || 0
+    : gameMode === "runner"
+    ? runner?.score || 0
     : gameMode === "crossing"
       ? crossingScore
-      : gameMode === "duel" ? duelScore : gameMode === "maze" ? mazeScore : score;
+      : gameMode === "duel" ? duelScore : gameMode === "maze" ? mazeScore : gameMode === "centipede" ? centipede?.score || 0 : score;
   const activeBest = isSnakebird
     ? snakebirdProgress.bestMoves[snakebird?.levelIndex || 0]
     : isSokoban
     ? sokobanBest
     : gameMode === "breakout"
     ? breakoutBest
+    : gameMode === "runner"
+    ? runnerBest
     : gameMode === "crossing" ? crossingBest
     : gameMode === "maze" ? mazeBest
+    : gameMode === "centipede" ? centipedeBest
     : Math.max(best, score);
   setText(scoreEl, padScore(activeScore));
   setText(bestEl, isSnakebird && activeBest === null ? "—" : padScore(activeBest));
@@ -4030,6 +5227,8 @@ function syncHud() {
     ? `L${(snakebird?.levelIndex || 0) + 1}/5`
     : isSokoban ? `S${(sokoban?.stageIndex || 0) + 1}/${sokobanLevels.length}`
     : gameMode === "breakout" ? `LIVES ${breakout?.lives ?? 0}`
+    : gameMode === "runner" ? "RUN"
+    : gameMode === "centipede" ? `LIVES ${centipede?.lives ?? 0} · W${centipede?.wave ?? 1}`
     : gameMode === "broodline" ? `R${broodline?.round || 1} W${broodline?.wave || 1}/${broodlineWavesPerRound}`
     : `${grid.columns}x${grid.rows}`);
   setText(timerEl, formatTime(timerStarted ? elapsedMs : 0));
@@ -4045,6 +5244,248 @@ function syncHud() {
 function syncPanels(now = Date.now()) {
   syncNurseryPanel(now);
   syncUpgradeMenu();
+  // Keep the always-visible count fresh without rebuilding the interactive
+  // roster under the pointer every 250ms.
+  syncNotablesSummary();
+  syncMigrationPanel();
+}
+
+function replaceSelectOptions(select, items, selectedValue) {
+  if (!select) return;
+  const signature = JSON.stringify(items);
+  if (select.dataset.optionsSignature !== signature) {
+    select.replaceChildren(...items.map((item) => {
+      const option = document.createElement("option");
+      option.value = item.value; option.textContent = item.label; option.disabled = Boolean(item.disabled); return option;
+    }));
+    select.dataset.optionsSignature = signature;
+  }
+  if (items.some((item) => item.value === selectedValue)) select.value = selectedValue;
+}
+
+function migrationManifestFromInputs() {
+  return {
+    adults: Math.max(0, Math.floor(Number(migrationAdultsEl?.value) || 0)),
+    eggs: Math.max(0, Math.floor(Number(migrationEggsEl?.value) || 0)),
+    seeds: Math.max(0, Math.floor(Number(migrationSeedsEl?.value) || 0)),
+    branches: Math.max(0, Math.floor(Number(migrationBranchesEl?.value) || 0)),
+    provisions: Math.max(0, Math.floor(Number(migrationProvisionsEl?.value) || 0))
+  };
+}
+
+function migrationActionButton(label, action, value, danger = false) {
+  const button = document.createElement("button"); button.type = "button"; button.textContent = label; button.dataset.migrationAction = action;
+  if (value != null) button.dataset.value = value; if (danger) button.classList.add("is-danger"); return button;
+}
+
+function formatMigrationLosses(losses) {
+  const labels = { adults: ["adult", "adults"], eggs: ["egg", "eggs"], seeds: ["Seed", "Seeds"], branches: ["Branch", "Branches"], provisions: ["Provision", "Provisions"] };
+  return Object.entries(losses || {}).filter(([, amount]) => Number(amount) > 0).map(([resource, amount]) => {
+    const count = formatWholeNumber(amount); const label = labels[resource] || [resource, `${resource}s`];
+    return `${count} ${Number(amount) === 1 ? label[0] : label[1]}`;
+  }).join(" · ") || "none";
+}
+
+function exactOptionLosses(manifest, option) {
+  const remaining = { ...manifest }; const losses = {};
+  [option.cost, option.penalty].forEach((change) => Object.entries(change || {}).forEach(([resource, amount]) => {
+    const minimum = resource === "adults" || resource === "provisions" ? 1 : 0;
+    const lost = Math.min(Math.max(0, Number(amount) || 0), Math.max(0, (Number(remaining[resource]) || 0) - minimum));
+    remaining[resource] = Math.max(minimum, (Number(remaining[resource]) || 0) - lost);
+    losses[resource] = (losses[resource] || 0) + lost;
+  }));
+  return losses;
+}
+
+function renderExpedition(expedition) {
+  const card = document.createElement("article"); card.className = "migration-expedition-card"; card.dataset.expeditionId = expedition.id;
+  const heading = document.createElement("h3"); heading.textContent = `${expedition.notable.name} → ${expedition.destination}`; card.append(heading);
+  const summary = document.createElement("p");
+  const stateLabel = expedition.state === "traveling" ? `Travel ${formatDuration(expedition.travelTimeRemainingMs)} left` : expedition.state === "waitingChallenge" ? "Seed Trial awaiting input" : "Decision awaiting input";
+  summary.textContent = `${stateLabel} · Stop ${expedition.currentStopIndex}/${expedition.stopCount} · ${formatDecimal(expedition.chanceOfSuccess * 100, 1)}% overall · ${formatDecimal(Math.min(1, expedition.perStopChance) * 100, 1)}% roll`;
+  card.append(summary);
+  const cargo = document.createElement("p"); const m = expedition.currentManifest; cargo.textContent = `Cargo: ${m.adults} adults · ${m.eggs} eggs · ${m.seeds} seeds · ${m.branches} branches · ${m.provisions} provisions`; card.append(cargo);
+  if (["waitingStop", "waitingChallenge"].includes(expedition.state)) {
+    const previousLeg = [...expedition.attritionHistory].reverse().find((item) => item.type === "travel" && item.leg === expedition.currentStopIndex);
+    const attrition = document.createElement("p"); attrition.className = "migration-attrition";
+    attrition.textContent = `Previous leg attrition: ${formatMigrationLosses(previousLeg?.losses)}.`; card.append(attrition);
+  }
+  const actions = document.createElement("div"); actions.className = "migration-expedition-actions";
+  if (expedition.state === "waitingStop" && expedition.stopEvent) {
+    const eventTitle = document.createElement("p"); eventTitle.textContent = `${expedition.stopEvent.title}: ${expedition.stopEvent.description}`; card.append(eventTitle);
+    expedition.stopEvent.options.forEach((option) => {
+      const losses = formatMigrationLosses(exactOptionLosses(m, option));
+      const outcome = losses === "none" ? option.detail : `Lose ${losses}`;
+      actions.append(migrationActionButton(`${option.label} — ${outcome}`, "resolve", option.id));
+    });
+  }
+  if (expedition.state === "waitingChallenge") {
+    const challenge = expedition.stopEvent.challenge;
+    const instruction = document.createElement("p"); instruction.textContent = `Eat ${challenge.requiredSeeds} Seeds on a ${challenge.columns} by ${challenge.rows} board.`; card.append(instruction);
+    actions.append(migrationActionButton(`Attempt ${expedition.stopEvent.title}`, "challenge"));
+    const skipLosses = exactOptionLosses(m, { penalty: window.IdleSnakeConfig.migrationConfig.attrition.skippedChallenge });
+    actions.append(migrationActionButton(`Skip — lose ${formatMigrationLosses(skipLosses)}`, "skip", null, true));
+  }
+  actions.append(migrationActionButton("Order voluntary return · 10% MP refund", "return", null, true)); card.append(actions); return card;
+}
+
+function tradeRouteStatus(route) {
+  if (route.isPaused) return "Paused";
+  const api = window.IdleSnakeTradeRoutes;
+  return api.isOperable(route, route.directionAToB) || api.isOperable(route, route.directionBToA) ? "Active" : "Idle";
+}
+
+function tradeButton(label, action, detail = {}) {
+  const button = document.createElement("button"); button.type = "button"; button.className = "trade-route-button"; button.textContent = label; button.dataset.tradeAction = action;
+  Object.entries(detail).forEach(([key, value]) => { button.dataset[key] = value; }); return button;
+}
+
+function renderTradeDirection(route, directionName, settlements) {
+  const api = window.IdleSnakeTradeRoutes; const direction = directionName === "AToB" ? route.directionAToB : route.directionBToA;
+  const resupplyApi = window.IdleSnakeResupply; const mission = (latestSnapshot?.activeResupplyMissions || []).find((item) => item.routeId === route.id && item.directionId === directionName);
+  const endpoints = api.endpoints(route, directionName); const source = settlements.find((item) => item.id === endpoints.sourceId); const destination = settlements.find((item) => item.id === endpoints.destinationId);
+  const card = document.createElement("article"); card.className = "trade-direction-card"; card.dataset.tradeDirection = directionName;
+  const heading = document.createElement("h4"); heading.textContent = `${source?.name || endpoints.sourceId} → ${destination?.name || endpoints.destinationId}`; card.append(heading);
+  const derived = document.createElement("p"); derived.className = "trade-direction-derived";
+  derived.textContent = `Capacity ${formatWholeNumber(api.capacity(direction))} · ${formatDecimal(api.efficiency(direction) * 100, 0)}% delivered · ${formatDuration(api.interval(direction))}`; card.append(derived);
+  if (resupplyApi) {
+    const missionStats = document.createElement("p"); missionStats.className = "migration-cargo-note";
+    missionStats.textContent = `Re-Supply: upgrade score ${resupplyApi.upgradeScore(direction)} · ${formatDecimal(resupplyApi.routeDiscount(direction) * 100, 0)}% provision discount · ${formatDuration(resupplyApi.travelDuration(direction))}`; card.append(missionStats);
+  }
+  if (mission) {
+    const active = document.createElement("p"); active.className = "migration-founding"; active.dataset.resupplyArrivalAt = String(mission.arrivalTime);
+    active.textContent = `Re-Supply in transit: ${mission.notableIds.length} Notable${mission.notableIds.length === 1 ? "" : "s"}, ${mission.adultCount} adults, ${mission.eggCount} eggs · arrives ${formatDuration(Math.max(0, mission.arrivalTime - Date.now()))}`; card.append(active);
+  }
+
+  const fields = document.createElement("div"); fields.className = "trade-direction-fields";
+  const resourceLabel = document.createElement("label"); resourceLabel.textContent = "Export"; const resource = document.createElement("select"); resource.dataset.tradeField = "resourceType";
+  [["seeds", "Seeds"], ["branches", "Branches"], ["provisions", "Provisions"]].forEach(([value, label]) => { const option = document.createElement("option"); option.value = value; option.textContent = label; option.selected = value === direction.resourceType; resource.append(option); }); resourceLabel.append(resource);
+  const targetLabel = document.createElement("label"); targetLabel.textContent = "Target"; const target = document.createElement("input"); target.type = "number"; target.min = "0"; target.step = "1"; target.value = direction.shipmentTarget; target.dataset.tradeField = "shipmentTarget"; targetLabel.append(target);
+  const reserveLabel = document.createElement("label"); reserveLabel.textContent = "Reserve"; const reserve = document.createElement("input"); reserve.type = "number"; reserve.min = "0"; reserve.step = "1"; reserve.value = direction.reserveThreshold; reserve.dataset.tradeField = "reserveThreshold"; reserveLabel.append(reserve);
+  fields.append(resourceLabel, targetLabel, reserveLabel); card.append(fields, tradeButton("Apply configuration", "configure", { direction: directionName }));
+
+  const workers = document.createElement("div"); workers.className = "trade-worker-row";
+  const workerText = document.createElement("span"); workerText.textContent = `Workers ${direction.workersAssigned}/${direction.maxWorkers}`;
+  const workerControls = document.createElement("span"); const minus = tradeButton("−", "workers", { direction: directionName, delta: -1 }); const plus = tradeButton("+", "workers", { direction: directionName, delta: 1 });
+  minus.disabled = direction.workersAssigned <= 0; plus.disabled = direction.workersAssigned >= direction.maxWorkers; workerControls.append(minus, plus); workers.append(workerText, workerControls); card.append(workers);
+
+  const schedule = document.createElement("p"); schedule.className = "migration-cargo-note trade-next-shipment";
+  if (direction.nextShipmentAt != null) schedule.dataset.nextShipmentAt = String(direction.nextShipmentAt);
+  schedule.textContent = direction.nextShipmentAt == null ? "No shipment scheduled" : `Next shipment ${formatDuration(Math.max(0, direction.nextShipmentAt - Date.now()))}`; card.append(schedule);
+  const stats = document.createElement("p"); stats.className = "migration-cargo-note"; stats.textContent = `${formatWholeNumber(direction.lifetimeShipments)} shipments · ${formatWholeNumber(direction.lifetimeResourceSent)} sent · ${formatWholeNumber(direction.lifetimeResourceDelivered)} delivered`; card.append(stats);
+
+  const actions = document.createElement("div"); actions.className = "trade-upgrade-grid";
+  const levels = { capacity: direction.capacityLevel, speed: direction.speedLevel, efficiency: direction.efficiencyLevel, workerCap: direction.workerCapLevel };
+  const labels = { capacity: "Capacity", speed: "Speed", efficiency: "Efficiency", workerCap: "Worker cap" };
+  Object.entries(levels).forEach(([type, level]) => {
+    const cost = api.upgradeCost(type, level); const button = tradeButton(`${labels[type]} L${level} · ${formatWholeNumber(cost.seeds)}S/${formatWholeNumber(cost.branches)}B`, "upgrade", { direction: directionName, upgradeType: type });
+    if (type === "efficiency" && level >= window.IdleSnakeConfig.tradeRouteConfig.direction.efficiencyByLevel.length - 1) { button.textContent = `${labels[type]} MAX`; button.disabled = true; }
+    actions.append(button);
+  });
+  actions.append(tradeButton(direction.isPaused ? "Resume direction" : "Pause direction", "direction-pause", { direction: directionName, paused: String(!direction.isPaused) })); card.append(actions);
+  if (resupplyApi && !mission) {
+    const builder = document.createElement("div"); builder.className = "trade-direction-fields";
+    const notableLabel = document.createElement("label"); notableLabel.textContent = "Re-Supply Notables"; const notableSelect = document.createElement("select"); notableSelect.multiple = true; notableSelect.size = 3; notableSelect.dataset.resupplyField = "notables";
+    resupplyApi.eligibleNotables(source).forEach((item) => { const option = document.createElement("option"); option.value = item.id; option.textContent = `${item.name}${item.epithet ? ` ${item.epithet}` : ""}`; notableSelect.append(option); }); notableLabel.append(notableSelect);
+    const adultLabel = document.createElement("label"); adultLabel.textContent = `Colony adults (available ${formatWholeNumber(source?.economy?.nursery?.colonyCount || 0)})`; const adults = document.createElement("input"); adults.type = "number"; adults.min = "0"; adults.max = String(source?.economy?.nursery?.colonyCount || 0); adults.value = "0"; adults.dataset.resupplyField = "adults"; adultLabel.append(adults);
+    const eggLabel = document.createElement("label"); const availableEggs = resupplyApi.availableEggs(source?.economy?.nursery); eggLabel.textContent = `Eggs (available ${formatWholeNumber(availableEggs)})`; const eggs = document.createElement("input"); eggs.type = "number"; eggs.min = "0"; eggs.max = String(availableEggs); eggs.value = "0"; eggs.dataset.resupplyField = "eggs"; eggLabel.append(eggs);
+    builder.append(notableLabel, adultLabel, eggLabel); card.append(builder);
+    const send = tradeButton("Send Re-Supply", "resupply", { direction: directionName }); send.disabled = direction.workersAssigned < 1 || !notableSelect.options.length; card.append(send);
+  }
+  if (mission) card.querySelectorAll("button, input, select").forEach((control) => { control.disabled = true; });
+  return card;
+}
+
+function renderTradeNetwork(settlements, routes) {
+  if (!tradeRouteNetworkEl) return; tradeRouteNetworkEl.replaceChildren();
+  const ns = "http://www.w3.org/2000/svg"; const points = new Map(); const count = Math.max(1, settlements.length);
+  settlements.forEach((settlement, index) => { const angle = -Math.PI / 2 + index * Math.PI * 2 / count; points.set(settlement.id, { x: 160 + Math.cos(angle) * 105, y: 90 + Math.sin(angle) * 62 }); });
+  routes.forEach((route) => { const a = points.get(route.settlementAId); const b = points.get(route.settlementBId); if (!a || !b) return;
+    const line = document.createElementNS(ns, "line"); line.setAttribute("x1", a.x); line.setAttribute("y1", a.y); line.setAttribute("x2", b.x); line.setAttribute("y2", b.y); line.classList.add("trade-network-edge");
+    if (route.id === selectedTradeRouteId) line.classList.add("is-selected"); line.dataset.routeId = route.id; line.setAttribute("role", "button"); line.setAttribute("aria-label", `Manage route ${route.id}`); tradeRouteNetworkEl.append(line);
+  });
+  settlements.forEach((settlement) => { const point = points.get(settlement.id); const group = document.createElementNS(ns, "g"); group.classList.add("trade-network-node"); if (settlement.status === "founding") group.classList.add("is-founding");
+    const circle = document.createElementNS(ns, "circle"); circle.setAttribute("cx", point.x); circle.setAttribute("cy", point.y); circle.setAttribute("r", 17);
+    const text = document.createElementNS(ns, "text"); text.setAttribute("x", point.x); text.setAttribute("y", point.y + 29); text.setAttribute("text-anchor", "middle"); text.textContent = settlement.name; group.append(circle, text); tradeRouteNetworkEl.append(group);
+  });
+}
+
+function syncTradeRoutesPanel(migrationState) {
+  if (!tradeSettlementAEl || !window.IdleSnakeTradeRoutes) return;
+  const established = migrationState.settlements.filter((item) => item.status === "established"); const routes = latestSnapshot.tradeRoutes || [];
+  const choices = established.map((item) => ({ value: item.id, label: item.name }));
+  replaceSelectOptions(tradeSettlementAEl, choices, choices.some((item) => item.value === tradeSettlementAEl.value) ? tradeSettlementAEl.value : migrationState.activeSettlementId);
+  const secondChoices = choices.filter((item) => item.value !== tradeSettlementAEl.value); replaceSelectOptions(tradeSettlementBEl, secondChoices, secondChoices.some((item) => item.value === tradeSettlementBEl.value) ? tradeSettlementBEl.value : secondChoices[0]?.value);
+  const cost = window.IdleSnakeTradeRoutes.constructionCost(); const a = established.find((item) => item.id === tradeSettlementAEl.value); const b = established.find((item) => item.id === tradeSettlementBEl.value);
+  const exists = routes.some((route) => [route.settlementAId, route.settlementBId].sort().join("::") === [a?.id, b?.id].sort().join("::"));
+  setText(tradeConstructionPreviewEl, `${formatWholeNumber(cost.seeds)} Seeds + ${formatWholeNumber(cost.branches)} Branches from each settlement${exists ? " · already connected" : ""}`);
+  createTradeRouteButtonEl.disabled = !a || !b || exists || a.economy?.seeds < cost.seeds || a.economy?.branches < cost.branches || b.economy?.seeds < cost.seeds || b.economy?.branches < cost.branches;
+  if (!routes.some((route) => route.id === selectedTradeRouteId)) selectedTradeRouteId = routes[0]?.id || null;
+  tradeRouteManagementEl.querySelectorAll("[data-next-shipment-at]").forEach((item) => { item.textContent = `Next shipment ${formatDuration(Math.max(0, Number(item.dataset.nextShipmentAt) - Date.now()))}`; });
+  tradeRouteManagementEl.querySelectorAll("[data-resupply-arrival-at]").forEach((item) => { item.textContent = item.textContent.replace(/arrives .*/, `arrives ${formatDuration(Math.max(0, Number(item.dataset.resupplyArrivalAt) - Date.now()))}`); });
+  const networkSignature = JSON.stringify({ settlements: migrationState.settlements.map((item) => [item.id, item.name, item.status]), routes: routes.map((item) => [item.id, item.settlementAId, item.settlementBId]), selectedTradeRouteId });
+  if (networkSignature !== tradeNetworkRenderSignature) { renderTradeNetwork(migrationState.settlements, routes); tradeNetworkRenderSignature = networkSignature; }
+  if (tradeRouteManagementEl.contains(document.activeElement) && ["INPUT", "SELECT"].includes(document.activeElement.tagName)) return;
+  const selected = routes.find((route) => route.id === selectedTradeRouteId);
+  const managementSignature = JSON.stringify({ selected, names: migrationState.settlements.map((item) => [item.id, item.name]) });
+  if (managementSignature === tradeManagementRenderSignature) return;
+  tradeManagementRenderSignature = managementSignature; tradeRouteManagementEl.replaceChildren();
+  if (!selected) { const empty = document.createElement("p"); empty.className = "migration-cargo-note"; empty.textContent = migrationState.settlements.length < 2 ? "Found a second settlement to unlock Trade." : established.length < 2 ? "Wait for the new settlement to become established before constructing a trade route." : "No trade routes constructed."; tradeRouteManagementEl.append(empty); return; }
+  const aSettlement = migrationState.settlements.find((item) => item.id === selected.settlementAId); const bSettlement = migrationState.settlements.find((item) => item.id === selected.settlementBId);
+  const header = document.createElement("article"); header.className = "trade-route-header"; const title = document.createElement("h3"); title.textContent = `${aSettlement?.name} ↔ ${bSettlement?.name}`;
+  const total = selected.directionAToB.lifetimeResourceSent + selected.directionBToA.lifetimeResourceSent; const summary = document.createElement("p"); summary.textContent = `${tradeRouteStatus(selected)} · Built ${new Date(selected.createdAt).toLocaleDateString()} · ${formatWholeNumber(total)} cargo sent`;
+  const headerActions = document.createElement("div"); headerActions.className = "trade-route-header-actions"; headerActions.append(tradeButton(selected.isPaused ? "Resume route" : "Pause route", "route-pause", { paused: String(!selected.isPaused) }), tradeButton("Dismantle", "dismantle"));
+  header.append(title, summary, headerActions); tradeRouteManagementEl.append(header, renderTradeDirection(selected, "AToB", migrationState.settlements), renderTradeDirection(selected, "BToA", migrationState.settlements));
+  const history = (latestSnapshot.completedResupplyMissions || []).filter((item) => item.routeId === selected.id).slice(-5).reverse();
+  if (history.length) { const block = document.createElement("article"); block.className = "trade-route-header"; const title = document.createElement("h3"); title.textContent = "Re-Supply history"; block.append(title); history.forEach((item) => { const line = document.createElement("p"); line.textContent = `${item.notableIds.length} Notables · ${item.adultCount} adults · ${item.eggCount} eggs · ${formatWholeNumber(item.provisionsConsumed)} Provisions · ${formatDuration(item.travelDuration)}`; block.append(line); }); tradeRouteManagementEl.append(block); }
+}
+
+function showSettleOverview() {
+  if (!settleOverviewEl || !tradePanelEl) return;
+  settleOverviewEl.hidden = false; tradePanelEl.hidden = true;
+}
+
+function showTradePanel() {
+  if (!settleOverviewEl || !tradePanelEl || tradeButtonEl?.disabled) return;
+  settleOverviewEl.hidden = true; tradePanelEl.hidden = false;
+}
+
+function syncMigrationPanel() {
+  if (!latestSnapshot?.migration || !migrationAvailableEl) return;
+  const migrationState = latestSnapshot.migration; const config = window.IdleSnakeConfig.migrationConfig;
+  setText(migrationAvailableEl, `${formatDecimal(migrationState.availablePoints, 2)} MP`);
+  setText(migrationLifetimeEl, `${formatDecimal(migrationState.totalEarned, 2)} MP`);
+  const settlementItems = migrationState.settlements.map((item) => ({ value: item.id, label: `${item.name}${item.status === "founding" ? " (founding)" : ""}` }));
+  replaceSelectOptions(activeSettlementSelectEl, settlementItems, migrationState.activeSettlementId);
+  const grasslands = migrationState.settlements.find((item) => item.id === "grasslands"); const economy = grasslands?.economy;
+  const claimedDestinations = new Set([...migrationState.settlements.map((item) => String(item.region || item.name).toLowerCase()), ...migrationState.activeExpeditions.map((item) => String(item.destination).toLowerCase())]);
+  const destinationItems = config.destinations.map((name) => ({ value: name, label: `${name}${claimedDestinations.has(name.toLowerCase()) ? " (settled)" : ""}`, disabled: claimedDestinations.has(name.toLowerCase()) }));
+  const selectableDestinations = destinationItems.filter((item) => !item.disabled);
+  replaceSelectOptions(migrationDestinationEl, destinationItems, selectableDestinations.some((item) => item.value === migrationDestinationEl.value) ? migrationDestinationEl.value : selectableDestinations[0]?.value);
+  const notableItems = (economy?.notables?.retained || []).map((item) => ({ value: item.id, label: `${item.name}${item.epithet ? ` ${item.epithet}` : ""}` }));
+  if (!notableItems.length) notableItems.push({ value: "", label: "No Grasslands Notable available", disabled: true });
+  replaceSelectOptions(migrationNotableEl, notableItems, notableItems.some((item) => item.value === migrationNotableEl.value) ? migrationNotableEl.value : notableItems[0].value);
+  const available = economy ? window.IdleSnakeMigration.manifestAvailable(economy) : { adults: 0, eggs: 0, seeds: 0, branches: 0, provisions: 0 };
+  [[migrationAdultsEl, available.adults], [migrationEggsEl, available.eggs], [migrationSeedsEl, available.seeds], [migrationBranchesEl, available.branches], [migrationProvisionsEl, available.provisions]].forEach(([input, max]) => { if (input) input.max = String(Math.floor(max)); });
+  const manifest = migrationManifestFromInputs(); const notable = economy?.notables?.retained?.find((item) => item.id === migrationNotableEl.value); const cost = window.IdleSnakeMigration.calculateCost(manifest); const success = window.IdleSnakeMigration.calculateSuccess(manifest, notable);
+  setText(migrationCostEl, `${formatDecimal(cost, 2)} MP`); setText(migrationSuccessEl, notable ? `${formatDecimal(success * 100, 1)}%` : "—");
+  const adultRate = window.IdleSnakeMigration.attritionRate("adults", success) * 100; const provisionRate = window.IdleSnakeMigration.attritionRate("provisions", success) * 100;
+  setText(migrationEstimateEl, `Estimated ordinary loss per leg: ${formatDecimal(adultRate, 1)}% adults, ${formatDecimal(provisionRate, 1)}% provisions. Eggs are immune.`);
+  migrationDepartEl.disabled = !grasslands || grasslands.status !== "established" || !notable || !selectableDestinations.length || manifest.adults < config.requirements.adults || manifest.provisions < config.requirements.provisions || cost > migrationState.availablePoints;
+  activeExpeditionsEl.replaceChildren();
+  if (migrationState.activeExpeditions.length) migrationState.activeExpeditions.forEach((expedition) => activeExpeditionsEl.append(renderExpedition(expedition)));
+  else { const empty = document.createElement("p"); empty.className = "migration-cargo-note"; empty.textContent = "No active expeditions."; activeExpeditionsEl.append(empty); }
+  migrationHistoryEl.replaceChildren();
+  const history = [...migrationState.completedMigrations.map((item) => ({ ...item, label: "Arrived" })), ...migrationState.failedMigrations.map((item) => ({ ...item, label: "Failed" })), ...migrationState.returnedMigrations.map((item) => ({ ...item, label: "Returned" }))].sort((a, b) => (b.arrivalTime || 0) - (a.arrivalTime || 0)).slice(0, 5);
+  if (history.length) { const title = document.createElement("p"); title.className = "migration-cargo-note"; title.textContent = "Recent history"; migrationHistoryEl.append(title, ...history.map((item) => { const row = document.createElement("p"); row.className = "migration-cargo-note"; row.textContent = `${item.label}: ${item.destination} · ${item.notable?.name || "Unknown"}`; return row; })); }
+  const activeSettlement = migrationState.settlements.find((item) => item.id === migrationState.activeSettlementId); const founding = activeSettlement?.status === "founding";
+  migrationFoundingStatusEl.hidden = !founding; if (founding) setText(migrationFoundingStatusEl, `Founding ${formatDuration(activeSettlement.foundingRemainingMs)} · every normal Snake Seed removes 1 second. Nursery and Colony are locked.`);
+  menuTabs.forEach((tab) => { if (["nursery", "colony"].includes(tab.dataset.menuTab)) tab.disabled = founding; });
+  const tradeUnlocked = migrationState.settlements.length >= 2;
+  if (tradeButtonEl) { tradeButtonEl.disabled = !tradeUnlocked; tradeButtonEl.classList.toggle("is-ready", tradeUnlocked); }
+  const decisionPending = migrationState.activeExpeditions.some((item) => ["waitingStop", "waitingChallenge"].includes(item.state));
+  if (settleTabNotificationEl) settleTabNotificationEl.hidden = !decisionPending;
+  syncTradeRoutesPanel(migrationState);
 }
 
 function padScore(value) {
@@ -4052,7 +5493,7 @@ function padScore(value) {
 }
 
 function padSeeds(value) {
-  return formatDecimal(value, 2).padStart(6, "0");
+  return formatDecimal(value, 2);
 }
 
 function formatTime(ms) {
@@ -4189,7 +5630,7 @@ function syncBoardSizeSelect() {
     boardSizeSelect.replaceChildren(...unlockedLevels.map((size, level) => {
       const option = document.createElement("option");
       option.value = String(level);
-      option.textContent = size;
+      option.textContent = boardMastery[size] ? `♛ ${size}` : size;
       return option;
     }));
     boardSizeSelect.hidden = unlockedLevels.length < 2;
@@ -4223,6 +5664,17 @@ function grantMinigameFunds() {
   setScreenHint(`+${formatNumber(grant)} seeds granted for minigame upgrades`);
 }
 
+function grantAdultSnakes() {
+  if (!session) return;
+  const now = Date.now();
+  const { snapshot } = session.dispatch({ type: "addColonySnakes", amount: 5 });
+  latestSnapshot = snapshot;
+  mirrorEconomyFromWorld(now, snapshot);
+  saveNursery();
+  syncPanels(now);
+  setScreenHint("+5 adult snakes added to the colony");
+}
+
 function purchaseUpgrade(type) {
   const config = upgradeConfig[type];
   const levelKey = `${type}Level`;
@@ -4230,16 +5682,21 @@ function purchaseUpgrade(type) {
   if (type === "board" && upgrades.boardLevel >= config.levels.length - 1) return;
   if (type === "foodType" && upgrades.foodTypeLevel >= config.levels.length - 1) return;
 
-  const cost = upgradeCost(config, upgrades[levelKey]);
-  if (seedsTotal < cost) return;
-
-  seedsTotal -= cost;
-  upgrades[levelKey] += 1;
+  if (!session) return;
+  const now = Date.now();
+  const { snapshot, events } = session.dispatch({ type: "buyUpgrade", upgrade: type });
+  if (events.some((event) => event.type === "actionRejected")) return;
+  latestSnapshot = snapshot;
+  seedsTotal = snapshot.seeds;
+  sessionLastSeeds = seedsTotal;
+  best = snapshot.best;
+  sessionLastBest = best;
+  mirrorEconomyFromWorld(now, snapshot);
+  sessionLastUpgradesJson = JSON.stringify(upgrades);
   saveSeeds();
   saveUpgrades();
 
   if (type === "board") {
-    selectedBoardLevel = upgrades.boardLevel;
     grid = parseGridSize(config.levels[upgrades.boardLevel]);
     freshGame();
   } else if (type === "foodCount") {
@@ -4255,13 +5712,19 @@ function setActiveBoardLevel(level) {
   const nextLevel = Number(level);
   if (!Number.isInteger(nextLevel) || nextLevel < 0 || nextLevel > upgrades.boardLevel) return;
 
-  selectedBoardLevel = nextLevel;
+  if (!session) return;
+  const { snapshot, events } = session.dispatch({ type: "selectBoard", level: nextLevel });
+  if (events.some((event) => event.type === "actionRejected")) return;
+  latestSnapshot = snapshot;
+  mirrorEconomyFromWorld(Date.now(), snapshot);
   grid = parseGridSize(upgradeConfig.board.levels[selectedBoardLevel]);
   freshGame();
   syncPanels();
 }
 
 const numberFormatCache = new Map();
+const compactNumberSuffixes = ["", "k", "M", "B", "T", "Q"];
+
 function getNumberFormat(maximumFractionDigits) {
   let formatter = numberFormatCache.get(maximumFractionDigits);
   if (!formatter) {
@@ -4274,12 +5737,58 @@ function getNumberFormat(maximumFractionDigits) {
   return formatter;
 }
 
+// Keep UI values readable without hiding their scale. Compact units cover through
+// quadrillions; larger values use scientific notation. The displayed mantissa
+// never has more than five significant digits.
+function formatCompactNumber(value, maximumFractionDigits = 4) {
+  const number = Number(value);
+  if (!Number.isFinite(number)) return String(number);
+
+  const absolute = Math.abs(number);
+  if (absolute === 0) return "0";
+
+  let suffixIndex = absolute >= 100000 ? Math.floor(Math.log10(absolute) / 3) : 0;
+  if (suffixIndex >= compactNumberSuffixes.length) {
+    return number.toExponential(4);
+  }
+
+  let scaled = number / (1000 ** suffixIndex);
+  let integerDigits = Math.max(1, Math.floor(Math.log10(Math.abs(scaled))) + 1);
+  let fractionDigits = Math.min(maximumFractionDigits, Math.max(0, 5 - integerDigits));
+  scaled = Number(scaled.toFixed(fractionDigits));
+
+  // Rounding at a unit boundary (for example 99,999.9) belongs in the next unit.
+  if (Math.abs(scaled) >= (suffixIndex === 0 ? 100000 : 1000)
+      && suffixIndex < compactNumberSuffixes.length - 1) {
+    suffixIndex += 1;
+    scaled = number / (1000 ** suffixIndex);
+    integerDigits = Math.max(1, Math.floor(Math.log10(Math.abs(scaled))) + 1);
+    fractionDigits = Math.min(maximumFractionDigits, Math.max(0, 5 - integerDigits));
+    scaled = Number(scaled.toFixed(fractionDigits));
+  }
+
+  if (suffixIndex === compactNumberSuffixes.length - 1 && Math.abs(scaled) >= 1000) {
+    return number.toExponential(4);
+  }
+
+  return `${getNumberFormat(fractionDigits).format(scaled)}${compactNumberSuffixes[suffixIndex]}`;
+}
+
 function formatNumber(value) {
-  return getNumberFormat(4).format(Number(value));
+  return formatCompactNumber(value);
+}
+
+function formatWholeNumber(value) {
+  return formatCompactNumber(Math.floor(Math.max(0, Number(value) || 0)), 0);
+}
+
+function formatProvisions(value) {
+  const floored = Math.floor(Math.max(0, Number(value) || 0) * 10) / 10;
+  return floored.toFixed(1);
 }
 
 function formatDecimal(value, maximumFractionDigits = 4) {
-  return getNumberFormat(maximumFractionDigits).format(Number(value));
+  return formatCompactNumber(value, maximumFractionDigits);
 }
 
 // Write to a text node only when the value actually changed, so stable HUD
@@ -4306,6 +5815,8 @@ function setScreenHint(text) {
 }
 
 function setMenuTab(activeTab) {
+  const requestedTab = [...menuTabs].find((tab) => tab.dataset.menuTab === activeTab);
+  if (requestedTab?.disabled) activeTab = "migration";
   menuTabs.forEach((tab) => {
     const isActive = tab.dataset.menuTab === activeTab;
     tab.classList.toggle("is-active", isActive);
@@ -4314,6 +5825,10 @@ function setMenuTab(activeTab) {
   menuPanels.forEach((panel) => {
     panel.hidden = panel.dataset.menuPanel !== activeTab;
   });
+  // The top-level Colony tab is an explicit return to the Colony overview;
+  // Notables remains a sub-screen reached from its dedicated button.
+  if (activeTab === "colony") showColonyOverview();
+  if (activeTab === "migration") showSettleOverview();
 }
 
 document.addEventListener("keydown", (event) => {
@@ -4326,6 +5841,28 @@ document.addEventListener("keydown", (event) => {
   if (event.code === "KeyG" && event.shiftKey) {
     event.preventDefault();
     grantMinigameFunds();
+    return;
+  }
+
+  if (event.code === "KeyH" && event.shiftKey) {
+    event.preventDefault();
+    if (!event.repeat) grantAdultSnakes();
+    return;
+  }
+
+  if (event.code === "KeyN" && event.shiftKey) {
+    event.preventDefault();
+    if (!event.repeat) {
+      setMenuTab("colony");
+      commitNotableAction({ type: "generateNotable", sourceType: "DEV_CODE", sourceReference: "Shift+N" });
+      showNotablesMenu();
+    }
+    return;
+  }
+
+  if (event.code === "KeyR" && gameMode === "battleship" && battleship?.phase === "placement") {
+    event.preventDefault();
+    if (!event.repeat) battleshipRotate();
     return;
   }
 
@@ -4342,6 +5879,10 @@ document.addEventListener("keydown", (event) => {
 
   if (event.code === "Space") {
     event.preventDefault();
+    if (gameMode === "runner") {
+      if (!event.repeat) runnerJump();
+      return;
+    }
     togglePause();
   }
 
@@ -4359,6 +5900,13 @@ document.addEventListener("keyup", (event) => {
     updateDirectionButtonPressed(directionName);
   }
 
+  if (gameMode === "centipede" && centipede) {
+    const released = keyMap[event.code];
+    if (released === "left" || released === "right") centipede.player.inputX = 0;
+    else if (released === "up" || released === "down") centipede.player.inputY = 0;
+    return;
+  }
+
   if (gameMode !== "breakout" || !breakout) return;
   if (event.code === "ArrowLeft" || event.code === "KeyA" || event.code === "ArrowRight" || event.code === "KeyD") {
     breakout.paddle.input = 0;
@@ -4374,6 +5922,7 @@ window.addEventListener("blur", () => {
   document.querySelectorAll("[data-direction]").forEach((button) => {
     button.classList.remove("is-pressed");
   });
+  if (gameMode === "centipede" && centipede) { centipede.player.inputX = 0; centipede.player.inputY = 0; }
   flushPendingSaves();
 });
 
@@ -4387,10 +5936,12 @@ document.querySelectorAll("[data-direction]").forEach((button) => {
   });
   button.addEventListener("pointerup", () => {
     if (gameMode === "breakout" && breakout) breakout.paddle.input = 0;
+    if (gameMode === "centipede" && centipede) { centipede.player.inputX = 0; centipede.player.inputY = 0; }
   });
   button.addEventListener("pointercancel", (event) => {
     directionPointerStarts.delete(event.pointerId);
     if (gameMode === "breakout" && breakout) breakout.paddle.input = 0;
+    if (gameMode === "centipede" && centipede) { centipede.player.inputX = 0; centipede.player.inputY = 0; }
   });
 });
 document.addEventListener("pointerup", (event) => {
@@ -4401,11 +5952,28 @@ document.addEventListener("pointerup", (event) => {
   }
 
   if (gameMode === "breakout" && breakout) breakout.paddle.input = 0;
+  if (gameMode === "centipede" && centipede) { centipede.player.inputX = 0; centipede.player.inputY = 0; }
 });
 
 startButton.addEventListener("click", startGame);
 pauseButton.addEventListener("click", togglePause);
 resetButton.addEventListener("click", resetGame);
+
+// Battleship supports pointer play: click your nest to place a snake during
+// setup, click enemy waters to launch a venom strike on your turn.
+canvas.addEventListener("click", (event) => {
+  if (gameMode !== "battleship" || !battleship) return;
+  const cell = battleshipCellFromEvent(event);
+  if (!cell) return;
+  if (battleship.phase === "placement" && cell.board === "player") {
+    battleshipPlaceAt(cell.x, cell.y);
+  } else if (battleship.phase === "placement" && cell.board === "enemy" && !battleshipCurrentDef()) {
+    battleshipBeginBattle();
+  } else if (battleship.phase === "playing" && battleship.turn === "player" && cell.board === "enemy") {
+    battleship.target = { x: cell.x, y: cell.y };
+    battleshipFire();
+  }
+});
 personalizationBackButton.addEventListener("click", hidePersonalization);
 openSaveDataButton.addEventListener("click", showSaveData);
 saveDataBackButton.addEventListener("click", hideSaveData);
@@ -4414,7 +5982,6 @@ importSaveDataButton.addEventListener("click", importSaveData);
 buildColorChoices(bodyColorChoices, "body");
 buildColorChoices(headColorChoices, "head");
 syncColorChoices();
-layEggButton.addEventListener("click", layEgg);
 
 const RESET_HOLD_MS = 900;
 resetProgressButton?.style.setProperty("--reset-hold-ms", `${RESET_HOLD_MS}ms`);
@@ -4456,6 +6023,94 @@ resetProgressButton?.addEventListener("pointerdown", (event) => { event.preventD
 menuTabs.forEach((tab) => {
   tab.addEventListener("click", () => setMenuTab(tab.dataset.menuTab));
 });
+
+function commitMigrationAction(action) {
+  if (!session) return null;
+  const result = session.dispatch({ ...action, now: Date.now() });
+  latestSnapshot = result.snapshot;
+  mirrorEconomyFromWorld(Date.now(), result.snapshot);
+  const rejected = result.events.find((item) => item.type === "actionRejected");
+  if (rejected) setText(migrationErrorEl, rejected.reason.replace(/([A-Z])/g, " $1").toLowerCase());
+  else setText(migrationErrorEl, "");
+  interpretSessionEvents(result.events);
+  syncHud(); syncPanels(); persistConsolidatedSave();
+  return result;
+}
+
+function commitTradeAction(action) {
+  const result = commitMigrationAction(action); if (!result) return null;
+  const rejected = result.events.find((item) => item.type === "actionRejected");
+  setText(tradeRouteErrorEl, rejected ? rejected.reason.replace(/([A-Z])/g, " $1").toLowerCase() : "");
+  if (rejected) setText(migrationErrorEl, "");
+  return result;
+}
+
+activeSettlementSelectEl?.addEventListener("change", () => {
+  const result = commitMigrationAction({ type: "selectSettlement", settlementId: activeSettlementSelectEl.value });
+  if (!result || result.events.some((item) => item.type === "actionRejected")) return;
+  freshGame(); setMenuTab("migration"); setScreenHint(`Now managing ${activeSettlementSelectEl.selectedOptions[0]?.textContent || "settlement"}.`);
+});
+
+migrationDepartEl?.addEventListener("click", () => {
+  const result = commitMigrationAction({ type: "startMigration", originSettlementId: "grasslands", destination: migrationDestinationEl.value, notableId: migrationNotableEl.value, manifest: migrationManifestFromInputs() });
+  if (result && !result.events.some((item) => item.type === "actionRejected")) setScreenHint("Expedition departed. Migration Points and cargo are permanently committed.");
+});
+
+[migrationDestinationEl, migrationNotableEl, migrationAdultsEl, migrationEggsEl, migrationSeedsEl, migrationBranchesEl, migrationProvisionsEl].forEach((control) => {
+  control?.addEventListener("input", syncMigrationPanel);
+  control?.addEventListener("change", syncMigrationPanel);
+});
+
+tradeButtonEl?.addEventListener("click", showTradePanel);
+closeTradeButtonEl?.addEventListener("click", showSettleOverview);
+
+[tradeSettlementAEl, tradeSettlementBEl].forEach((control) => control?.addEventListener("change", () => syncTradeRoutesPanel(latestSnapshot.migration)));
+createTradeRouteButtonEl?.addEventListener("click", () => {
+  const result = commitTradeAction({ type: "createTradeRoute", settlementAId: tradeSettlementAEl.value, settlementBId: tradeSettlementBEl.value });
+  const created = result?.events.find((item) => item.type === "tradeRouteCreated"); if (created) { selectedTradeRouteId = created.routeId; syncTradeRoutesPanel(result.snapshot.migration); setScreenHint("Permanent trade route constructed."); }
+});
+tradeRouteNetworkEl?.addEventListener("click", (event) => { const routeId = event.target.dataset.routeId; if (!routeId) return; selectedTradeRouteId = routeId; syncTradeRoutesPanel(latestSnapshot.migration); });
+tradeRouteManagementEl?.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-trade-action]"); if (!button || !selectedTradeRouteId) return;
+  const action = button.dataset.tradeAction; const direction = button.dataset.direction;
+  if (action === "route-pause") commitTradeAction({ type: "setTradeRoutePaused", routeId: selectedTradeRouteId, isPaused: button.dataset.paused === "true" });
+  if (action === "direction-pause") commitTradeAction({ type: "setTradeDirectionPaused", routeId: selectedTradeRouteId, direction, isPaused: button.dataset.paused === "true" });
+  if (action === "workers") {
+    const route = latestSnapshot.tradeRoutes.find((item) => item.id === selectedTradeRouteId); const lane = direction === "AToB" ? route?.directionAToB : route?.directionBToA;
+    commitTradeAction({ type: "setTradeWorkers", routeId: selectedTradeRouteId, direction, workersAssigned: (lane?.workersAssigned || 0) + Number(button.dataset.delta) });
+  }
+  if (action === "upgrade") commitTradeAction({ type: "purchaseTradeUpgrade", routeId: selectedTradeRouteId, direction, upgradeType: button.dataset.upgradeType });
+  if (action === "configure") {
+    const card = button.closest("[data-trade-direction]");
+    commitTradeAction({ type: "configureTradeDirection", routeId: selectedTradeRouteId, direction,
+      resourceType: card.querySelector('[data-trade-field="resourceType"]').value,
+      shipmentTarget: Number(card.querySelector('[data-trade-field="shipmentTarget"]').value),
+      reserveThreshold: Number(card.querySelector('[data-trade-field="reserveThreshold"]').value) });
+  }
+  if (action === "resupply") {
+    const card = button.closest("[data-trade-direction]"); const notableIds = [...card.querySelector('[data-resupply-field="notables"]').selectedOptions].map((item) => item.value);
+    const adultCount = Number(card.querySelector('[data-resupply-field="adults"]').value); const eggCount = Number(card.querySelector('[data-resupply-field="eggs"]').value); const route = latestSnapshot.tradeRoutes.find((item) => item.id === selectedTradeRouteId); const lane = direction === "AToB" ? route?.directionAToB : route?.directionBToA; const resupplyApi = window.IdleSnakeResupply;
+    const base = resupplyApi.baseProvisionRequirement(notableIds.length, adultCount, eggCount); const discount = resupplyApi.routeDiscount(lane); const cost = resupplyApi.provisionRequirement(notableIds.length, adultCount, eggCount, lane); const duration = resupplyApi.travelDuration(lane);
+    if (!confirm(`Send ${notableIds.length} Notables, ${adultCount} adults, and ${eggCount} eggs?\n\nBase Provisions: ${formatWholeNumber(base)}\nRoute Discount: ${formatDecimal(discount * 100, 0)}%\nFinal Provisions: ${formatWholeNumber(cost)}\nWorkers: ${lane.workersAssigned}\nTravel Time: ${formatDuration(duration)}`)) return;
+    const result = commitTradeAction({ type: "dispatchResupply", routeId: selectedTradeRouteId, direction, notableIds, adultCount, eggCount }); if (result && !result.events.some((item) => item.type === "actionRejected")) setScreenHint("Re-Supply mission departed safely. Its direction is locked until arrival.");
+  }
+  if (action === "dismantle" && confirm("Dismantle this permanent route? Assigned workers will return, but construction and upgrade costs will not be refunded.")) {
+    commitTradeAction({ type: "dismantleTradeRoute", routeId: selectedTradeRouteId }); selectedTradeRouteId = null;
+  }
+});
+
+activeExpeditionsEl?.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-migration-action]"); const card = button?.closest("[data-expedition-id]"); if (!button || !card) return;
+  const expeditionId = card.dataset.expeditionId; const action = button.dataset.migrationAction;
+  if (action === "resolve") commitMigrationAction({ type: "resolveMigrationStop", expeditionId, optionId: button.dataset.value });
+  if (action === "skip") commitMigrationAction({ type: "skipMigrationChallenge", expeditionId });
+  if (action === "return") commitMigrationAction({ type: "returnMigration", expeditionId });
+  if (action === "challenge") {
+    const result = commitMigrationAction({ type: "beginMigrationChallenge", expeditionId });
+    if (!result || result.events.some((item) => item.type === "actionRejected")) return;
+    gameMode = "snake"; state = "running"; latestSnapshot = result.snapshot; mirrorSnakeFromSnapshot(result.snapshot); previousSnake = snake.map((part) => ({ ...part })); lastFrameAt = performance.now(); timerStarted = true; hideOverlay(); setScreenHint(`Seed Trial: collect ${result.snapshot.migrationChallenge.requiredSeeds} Seeds before collision.`); render();
+  }
+});
 boardSizeSelect.addEventListener("change", () => {
   setActiveBoardLevel(boardSizeSelect.value);
 });
@@ -4474,8 +6129,12 @@ upgradeButtons.minigames.addEventListener("click", () => purchaseUpgrade("miniga
 minigameKeys.forEach((key) => {
   key.addEventListener("click", () => {
     const gameNumber = Number(key.dataset.minigame);
+    if (gameNumber === 9 && gameMode === "duel") {
+      launchRunner();
+      return;
+    }
     if (gameNumber === 0) {
-      if (!personalizationScreen.hidden || gameMode === "duel" || gameMode === "maze" || gameMode === "breakout" || gameMode === "crossing" || gameMode === "snakebird" || gameMode === "sokoban" || gameMode === "broodline") {
+      if (!personalizationScreen.hidden || gameMode === "duel" || gameMode === "maze" || gameMode === "breakout" || gameMode === "runner" || gameMode === "crossing" || gameMode === "snakebird" || gameMode === "sokoban" || gameMode === "broodline" || gameMode === "battleship" || gameMode === "centipede") {
         returnToRegularSnake();
       } else {
         showPersonalization();
@@ -4491,8 +6150,22 @@ minigameKeys.forEach((key) => {
     else if (gameNumber === 5) launchSnakebird();
     else if (gameNumber === 6) launchSokoban();
     else if (gameNumber === 7) launchBroodline();
+    else if (gameNumber === 8) launchBattleship();
+    else if (gameNumber === 9) launchCentipede();
     else showOverlay(`Minigame ${gameNumber} coming soon`);
   });
+});
+
+notablesButtonEl?.addEventListener("click", showNotablesMenu);
+closeNotablesButtonEl?.addEventListener("click", showColonyOverview);
+closeNotablesButtonEl?.addEventListener("pointerdown", (event) => {
+  event.preventDefault();
+  event.stopPropagation();
+  showColonyOverview();
+});
+recruitNotableButtonEl?.addEventListener("click", () => {
+  const cost = window.IdleSnakeConfig.notableConfig.directRecruitmentCost;
+  if (confirm(`Sacrifice ${cost} unassigned adult snakes to recruit one Notable?`)) commitNotableAction({ type: "recruitNotable" });
 });
 
 buildNurseryGrid();

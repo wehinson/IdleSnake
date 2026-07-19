@@ -3,6 +3,8 @@ const assert = require("node:assert/strict");
 const { createWorld } = require("./index.js");
 const { nurseryConfig } = require("./config.js");
 
+function startEgg(world) { world.state.nursery.eggProgress = 500; world.tick(1, { offline: true }); }
+
 function seededRng(seed) {
   let s = seed >>> 0;
   return () => {
@@ -13,7 +15,7 @@ function seededRng(seed) {
 
 test("one tick advances the economy and the active snake mode together", () => {
   const world = createWorld({ seeds: 500 }, { rng: seededRng(1) });
-  world.layEgg();                       // start an egg incubating
+  startEgg(world);
   world.startSnake({ columns: 9, rows: 9 });
 
   const eggBefore = world.state.nursery.eggElapsedMs;
@@ -30,7 +32,7 @@ test("one tick advances the economy and the active snake mode together", () => {
 
 test("economy keeps ticking even when no mode is running (idle)", () => {
   const world = createWorld({ seeds: 500 }, { rng: seededRng(2) });
-  world.layEgg();
+  startEgg(world);
   // phase stays "ready" — no snake started.
   world.tick(nurseryConfig.eggHatchMs + 1000, { offline: true });
   assert.equal(world.state.nursery.hatchlings.length, 1, "egg hatched while idle");
@@ -55,17 +57,17 @@ test("offline catch-up: one big tick hatches an egg and accrues habitat income",
 
 test("live dt is clamped but offline dt is not", () => {
   const world = createWorld({ seeds: 500 }, { rng: seededRng(4) });
-  world.layEgg();
+  startEgg(world);
   world.tick(5000);                     // live: clamped to 100ms
-  assert.equal(world.state.nursery.eggElapsedMs, 100);
+  assert.equal(world.state.nursery.eggElapsedMs, 101);
 
   world.tick(5000, { offline: true });  // offline: full 5000ms
-  assert.equal(world.state.nursery.eggElapsedMs, 5100);
+  assert.equal(world.state.nursery.eggElapsedMs, 5101);
 });
 
 test("serialize round-trips through a new world", () => {
   const world = createWorld({ seeds: 500 }, { rng: seededRng(5) });
-  world.layEgg();
+  startEgg(world);
   world.tick(60000, { offline: true });
   const snapshot = world.serialize();
 

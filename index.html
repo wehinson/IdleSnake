@@ -14,11 +14,11 @@
           <span>Seeds</span>
           <strong id="seedsTotal">000000</strong>
         </div>
-
         <nav class="menu-tabs" aria-label="Menu areas">
           <button class="menu-tab is-active" type="button" data-menu-tab="upgrades" aria-selected="true">Upgrades</button>
           <button class="menu-tab" type="button" data-menu-tab="nursery" aria-selected="false">Nursery</button>
           <button class="menu-tab" type="button" data-menu-tab="colony" aria-selected="false">Colony</button>
+          <button class="menu-tab" type="button" data-menu-tab="migration" aria-selected="false">Settle <span class="menu-tab-notification" id="settleTabNotification" hidden aria-label="Migration decision pending">!</span></button>
         </nav>
 
         <section class="upgrade-list menu-panel-content" data-menu-panel="upgrades" aria-label="Upgrades">
@@ -104,14 +104,22 @@
         <section class="nursery-panel menu-panel-content" data-menu-panel="nursery" aria-label="Nursery" hidden>
           <div class="menu-section-heading">
             <span>Breeding program</span>
-            <span class="menu-section-mark">2 SLOTS</span>
+            <span class="menu-section-mark">GROW</span>
+          </div>
+          <div class="nursery-currency" aria-label="Nursery currencies">
+            <span>Branches <strong id="nurseryBranchTotal">0</strong></span>
           </div>
 
           <article class="nursery-goal-card">
             <span class="upgrade-label">Next milestone</span>
-            <strong>Collect 500 seeds to lay an egg.</strong>
-            <p id="nurserySeedStatus">500 seeds banked</p>
-            <button class="upgrade-button" id="layEggButton" type="button">Lay egg · 500</button>
+            <div class="egg-progress-heading">
+              <strong id="nurseryEggProgressText">0 / 500 seeds</strong>
+              <span class="egg-progress-rate" id="eggProgressRate" aria-label="Egg progress rate">+0/s</span>
+            </div>
+            <div class="growth-bar egg-progress-bar" role="progressbar" aria-label="Progress to next egg" aria-valuemin="0" aria-valuemax="500" aria-valuenow="0">
+              <span id="eggProgressFill"></span>
+            </div>
+            <p id="nurserySeedStatus">500 seeds to next egg</p>
           </article>
 
           <article class="nest-card">
@@ -124,6 +132,7 @@
             </div>
             <div class="nest-visual" id="nestVisual" aria-hidden="true"><span>+</span></div>
             <p class="nursery-timer" id="nestTimer">Ready for an egg</p>
+            <button class="upgrade-button nursery-upgrade-button" id="nestUpgradeButton" type="button">Add Nest Slot</button>
           </article>
 
           <article class="nursery-yard-card">
@@ -140,26 +149,110 @@
               <span id="nurseryGrowthStatus">Waiting for a hatchling</span>
             </div>
             <div class="hatchling-list" id="hatchlingList"></div>
+            <button class="upgrade-button nursery-upgrade-button" id="nurseryUpgradeButton" type="button">Upgrade Nursery</button>
           </article>
         </section>
 
         <section class="colony-panel menu-panel-content" data-menu-panel="colony" aria-label="Colony" hidden>
-          <div class="menu-section-heading">
-            <span>Long-term record</span>
-            <span class="menu-section-mark">LOG</span>
-          </div>
+          <div class="colony-overview" id="colonyOverview">
+            <div class="menu-section-heading">
+              <span>Long-term record</span>
+              <span class="menu-section-mark">LOG</span>
+            </div>
 
-          <article class="colony-placeholder">
-            <span class="upgrade-label">Snakes available</span>
-            <strong id="colonyCount">000</strong>
-            <p>snakes ready to place in a habitat.</p>
-          </article>
-          <div class="colony-income-summary">
-            <span>Placed <strong id="colonyPlacedCount">000</strong></span>
-            <span>Income <strong id="colonyIncomeRate">0 seed/sec</strong></span>
+            <article class="colony-placeholder">
+              <span class="upgrade-label">Snakes available</span>
+              <strong id="colonyCount">000</strong>
+              <p>snakes ready to place in a habitat.</p>
+            </article>
+            <button class="notables-open-button" id="notablesButton" type="button">Notables: 0 / 1</button>
+            <div class="colony-income-summary">
+              <div class="colony-summary-assigned">
+                <span>Assigned <strong id="colonyPlacedCount">000</strong></span>
+                <span>Provisions <strong id="colonyProvisionTotal">0</strong></span>
+                <span>Branches <strong id="colonyBranchTotal">0</strong></span>
+              </div>
+              <section class="colony-summary-section" aria-label="Income per second">
+                <span class="colony-summary-heading">Income (per second)</span>
+                <ul class="colony-summary-list">
+                  <li>Seeds <strong id="colonySeedIncomeRate">0</strong></li>
+                  <li>Provisions <strong id="colonyProvisionIncomeRate">0</strong></li>
+                  <li>Branches <strong id="colonyBranchIncomeRate">0</strong></li>
+                </ul>
+              </section>
+              <section class="colony-summary-section" aria-label="Consumption per second">
+                <span class="colony-summary-heading">Consumption (per second)</span>
+                <ul class="colony-summary-list">
+                  <li>Provisions <strong id="colonyProvisionConsumptionRate">0</strong></li>
+                </ul>
+              </section>
+            </div>
+            <p class="colony-note">Place a snake for steady income. Food upgrades increase habitat rates too.</p>
+            <div class="habitat-list" id="habitatList" aria-label="Habitats"></div>
           </div>
-          <p class="colony-note">Place a snake for steady income. Food upgrades increase habitat rates too.</p>
-          <div class="habitat-list" id="habitatList" aria-label="Habitats"></div>
+          <section class="notables-panel" id="notablesPanel" hidden aria-label="Notables">
+            <div class="notables-heading">
+              <div><span class="upgrade-label">Colony leaders</span><strong id="notablesSummary">Notables: 0 / 1</strong></div>
+              <span class="menu-section-mark">LEAD</span>
+            </div>
+            <div id="pendingNotable"></div>
+            <button class="upgrade-button" id="recruitNotableButton" type="button">Recruit Notable · Sacrifice 150 unassigned snakes</button>
+            <h3>Notables</h3>
+            <div class="notables-roster" id="notablesRoster"></div>
+            <h3>Elders</h3>
+            <p class="colony-note">Retired leaders remain in the archive. Elders may receive additional functions in a future update.</p>
+            <div class="notables-roster" id="eldersRoster"></div>
+            <button class="notables-back-button" id="closeNotablesButton" type="button">Back to Colony</button>
+          </section>
+        </section>
+
+        <section class="migration-panel menu-panel-content" data-menu-panel="migration" aria-label="Settlement" hidden>
+          <div class="settle-overview" id="settleOverview">
+            <div class="menu-section-heading"><span>Settlement</span><span class="menu-section-mark">GO</span></div>
+            <article class="migration-summary-card">
+              <div><span>Available</span><strong id="migrationAvailable">0 MP</strong></div>
+              <div><span>Lifetime</span><strong id="migrationLifetime">0 MP</strong></div>
+            </article>
+            <label class="migration-field">Active settlement
+              <select id="activeSettlementSelect"></select>
+            </label>
+            <p class="migration-founding" id="migrationFoundingStatus" hidden></p>
+            <button class="trade-open-button" id="tradeButton" type="button" disabled>Trade</button>
+            <article class="migration-builder">
+              <div class="nursery-card-heading"><div><span class="upgrade-label">New expedition</span><strong>Convoy</strong></div><span class="upgrade-level">4–6 STOPS</span></div>
+              <label class="migration-field">Destination<select id="migrationDestination"></select></label>
+              <label class="migration-field migration-required">Required Notable<select id="migrationNotable"></select></label>
+              <div class="migration-manifest-grid">
+                <label class="migration-field migration-required">Adults<input id="migrationAdults" type="number" min="5" step="1" value="5"></label>
+                <label class="migration-field">Eggs<input id="migrationEggs" type="number" min="0" step="1" value="0"></label>
+                <label class="migration-field">Seeds<input id="migrationSeeds" type="number" min="0" step="1" value="0"></label>
+                <label class="migration-field">Branches<input id="migrationBranches" type="number" min="0" step="1" value="0"></label>
+                <label class="migration-field migration-required">Provisions<input id="migrationProvisions" type="number" min="100" step="1" value="100"></label>
+              </div>
+              <p class="migration-cargo-note">All expeditions depart from Grasslands. Adults, Provisions, Eggs, and Notable experience improve success. Seeds and Branches are destination cargo only.</p>
+              <div class="migration-preview"><span>Cost <strong id="migrationCost">—</strong></span><span>Success <strong id="migrationSuccess">—</strong></span></div>
+              <p class="migration-cargo-note" id="migrationEstimate"></p>
+              <button class="upgrade-button" id="migrationDepart" type="button">Confirm departure</button>
+              <p class="migration-error" id="migrationError" aria-live="polite"></p>
+            </article>
+            <div class="migration-list" id="activeExpeditions"></div>
+            <div class="migration-list" id="migrationHistory"></div>
+          </div>
+          <section class="trade-panel" id="tradePanel" hidden aria-label="Trade">
+            <div class="menu-section-heading"><span>Trade routes</span><span class="menu-section-mark">LINK</span></div>
+            <article class="trade-route-builder">
+              <div class="trade-route-pair">
+                <label class="migration-field">Settlement A<select id="tradeSettlementA"></select></label>
+                <label class="migration-field">Settlement B<select id="tradeSettlementB"></select></label>
+              </div>
+              <p class="migration-cargo-note" id="tradeConstructionPreview"></p>
+              <button class="upgrade-button" id="createTradeRouteButton" type="button">Construct route</button>
+              <p class="migration-error" id="tradeRouteError" aria-live="polite"></p>
+            </article>
+            <svg class="trade-route-network" id="tradeRouteNetwork" viewBox="0 0 320 180" role="img" aria-label="Settlement trade-route network"></svg>
+            <div class="trade-route-management" id="tradeRouteManagement"></div>
+            <button class="notables-back-button" id="closeTradeButton" type="button">Back to Settle</button>
+          </section>
         </section>
       </aside>
 
@@ -263,7 +356,7 @@
               <button class="phone-key minigame-key" type="button" data-minigame="5" aria-label="Minigame 5">5</button>
               <button class="phone-key minigame-key" type="button" data-minigame="6" aria-label="Minigame 6">6</button>
               <button class="phone-key minigame-key" type="button" data-minigame="7" aria-label="Minigame 7">7</button>
-              <button class="phone-key minigame-key" type="button" data-minigame="8" aria-label="Minigame 8">8</button>
+              <button class="phone-key minigame-key" type="button" data-minigame="8" aria-label="Venom Strike battleship" title="Venom Strike">8</button>
               <button class="phone-key minigame-key" type="button" data-minigame="9" aria-label="Minigame 9">9</button>
               <button class="phone-key minigame-key personalization-key" type="button" data-minigame="0" aria-label="Personalization">0</button>
             </div>
@@ -276,7 +369,11 @@
     </div>
 
     <script src="engine/config.js"></script>
+    <script src="engine/notables.js"></script>
     <script src="engine/economy.js"></script>
+    <script src="engine/migration.js"></script>
+    <script src="engine/trade-routes.js"></script>
+    <script src="engine/resupply.js"></script>
     <script src="engine/snake.js"></script>
     <script src="engine/sokoban.js"></script>
     <script src="engine/maze.js"></script>
@@ -284,6 +381,9 @@
     <script src="engine/broodline.js"></script>
     <script src="engine/duel.js"></script>
     <script src="engine/breakout.js"></script>
+    <script src="engine/runner.js"></script>
+    <script src="engine/battleship.js"></script>
+    <script src="engine/centipede.js"></script>
     <script src="snakebird-engine.js"></script>
     <script src="engine/world.js"></script>
     <script src="engine/index.js"></script>
