@@ -3431,9 +3431,15 @@ function gameLoop(now) {
   // Idle economy advances on the SAME clock as gameplay, every frame, whatever
   // the gameplay phase (menu/ready/running/paused/gameover). This replaces the
   // old separate setInterval(runNurseryClock, 250).
-  // Core snake now runs inside the session (stepped by tickIdleWorld). Capture
-  // the pre-step body first so the smooth interpolation has a "from" position.
-  if (gameMode === "snake" && state === "running") previousSnake = snake.map((part) => ({ ...part }));
+  // Core snake now runs inside the session (stepped by tickIdleWorld). Remember
+  // the pre-step body so the smooth interpolation has a "from" position — but
+  // only adopt it as previousSnake on frames where a step actually lands. The
+  // session only advances the body once per tickMs (every ~3-6 frames), so
+  // overwriting previousSnake every frame collapsed the slide to a one-frame
+  // teleport-per-tick, which read as shake (worse the longer the body got).
+  const snakeBeforeStep = gameMode === "snake" && state === "running"
+    ? snake.map((part) => ({ ...part }))
+    : null;
 
   const sessionEvents = tickIdleWorld();
   interpretSessionEvents(sessionEvents);
@@ -3447,7 +3453,13 @@ function gameLoop(now) {
   if (gameMode === "snake") {
     // The session advanced (or held) the snake; mirror it into the render globals.
     if (latestSnapshot) mirrorSnakeFromSnapshot(latestSnapshot);
-    if (state === "running") syncHud();
+    if (state === "running") {
+      // A step landed iff the head moved (or the body grew). Only then does the
+      // pre-step body become the interpolation origin; otherwise previousSnake
+      // is kept so the slide toward the current cell continues across frames.
+      if (snakeBeforeStep && snakeStepped(snakeBeforeStep, snake)) previousSnake = snakeBeforeStep;
+      syncHud();
+    }
   } else if (state === "running") {
     const deltaMs = Math.min(100, now - lastFrameAt);
     elapsedMs += deltaMs;
@@ -4969,11 +4981,27 @@ function cellRect(point, inset = 0) {
   };
 }
 
+// A snake step advanced the body iff the head occupies a new cell, or the body
+// grew this frame (eating adds a segment). Used to decide when to re-anchor the
+// interpolation's "from" body so the slide plays out across the whole tick.
+function snakeStepped(before, after) {
+  if (!before?.length || !after?.length) return false;
+  return before.length !== after.length
+    || before[0].x !== after[0].x
+    || before[0].y !== after[0].y;
+}
+
+// How far ahead of the logic clock the visual slide runs. The snake visibly
+// commits to a move a hair before the next step is computed, which reads as
+// snappier/more responsive input.
+const MOVE_VISUAL_LEAD_MS = 20;
+
 function interpolatedPoint(previous, current, index = 0) {
-  // Keep the classic cell-by-cell rhythm, but soften each hop instead of
-  // sliding continuously for the entire tick.
-  const transitionMs = Math.min(105, tickMs * 0.55);
-  const rawProgress = Math.min(1, Math.max(0, stepAccumulatorMs / transitionMs));
+  // Quick, step-wise hop: reach the next tile in ~40% of the tick, then hold.
+  // A shorter transition (vs sliding most of the tick) makes movement read as
+  // crisp tile-to-tile steps rather than a long glide.
+  const transitionMs = Math.min(80, tickMs * 0.4);
+  const rawProgress = Math.min(1, Math.max(0, (stepAccumulatorMs + MOVE_VISUAL_LEAD_MS) / transitionMs));
   // Ease out so a newly accepted turn starts moving immediately.
   const progress = 1 - Math.pow(1 - rawProgress, 3);
   const segmentProgress = Math.max(0, progress - Math.min(0.06, index * 0.012));
@@ -5029,24 +5057,56 @@ function drawGrid() {
 function drawSnake() {
   pruneDigestionAnimations();
   const now = performance.now();
-  snake.forEach((part, index) => {
+  const cell = boardMetrics.cellSize;
+
+  // Interpolated cell-space point for every segment (head included), reused by
+  // both the connecting spine and the distinct blocks below.
+  const points = snake.map((part, index) => {
     const previousPart = previousSnake?.[index] || previousSnake?.[previousSnake.length - 1] || part;
-    const point = interpolatedPoint(previousPart, part, index);
+    return interpolatedPoint(previousPart, part, index);
+  });
+
+  // Connecting spine: a rounded path through segment centers, drawn UNDER the
+  // blocks and narrower than them. The blocks cover most of it, leaving only a
+  // slim neck visible in each gap — so the body reads as distinct blocks that
+  // are unmistakably one snake. Round joins keep turns connected too.
+  if (points.length > 1) {
+    ctx.strokeStyle = lightenColor(snakeColors.body, 0.25);
+    ctx.lineJoin = "round";
+    ctx.lineCap = "round";
+    ctx.lineWidth = Math.max(2, cell * 0.46);
+    ctx.beginPath();
+    points.forEach((point, index) => {
+      const cx = boardMetrics.x + (point.x + 0.5) * cell;
+      const cy = boardMetrics.y + (point.y + 0.5) * cell;
+      if (index === 0) ctx.moveTo(cx, cy);
+      else ctx.lineTo(cx, cy);
+    });
+    ctx.stroke();
+  }
+
+  snake.forEach((part, index) => {
+    const point = points[index];
     const baseInset = Math.max(3, boardMetrics.cellSize * (index === 0 ? 0.105 : 0.135));
     const digestionPulse = index === 0 ? 0 : digestionPulseForSegment(index, now);
-    const inset = Math.max(1, baseInset - boardMetrics.cellSize * 0.06 * digestionPulse);
+    const inset = Math.max(1, baseInset - boardMetrics.cellSize * 0.1 * digestionPulse);
     const rect = interpolatedCellRect(point, inset);
     if (index === 0) {
       const shadowOffset = Math.max(2, boardMetrics.cellSize * 0.08);
       ctx.fillStyle = "rgba(24, 36, 19, 0.34)";
       ctx.fillRect(rect.x + shadowOffset, rect.y + shadowOffset, rect.size, rect.size);
     }
+    const isTail = index !== 0 && index === snake.length - 1;
     ctx.fillStyle = index === 0 ? snakeColors.head : snakeColors.body;
-    drawRoundedRect(rect.x, rect.y, rect.size, rect.size);
-
-    ctx.fillStyle = "rgba(156, 172, 119, 0.22)";
-    ctx.fillRect(rect.x + 3, rect.y + 3, Math.max(1, rect.size - 6), Math.max(2, rect.size * 0.12));
-
+    if (isTail) {
+      // Trails behind the segment ahead of it: a smaller wedge pointing away
+      // from the body so the run terminates in a distinct tail piece.
+      drawTail(rect, points[index], points[index - 1]);
+    } else {
+      drawRoundedRect(rect.x, rect.y, rect.size, rect.size);
+      ctx.fillStyle = "rgba(156, 172, 119, 0.22)";
+      ctx.fillRect(rect.x + 3, rect.y + 3, Math.max(1, rect.size - 6), Math.max(2, rect.size * 0.12));
+    }
   });
   const headInset = Math.max(3, Math.floor(boardMetrics.cellSize * 0.11));
   const headPoint = interpolatedPoint(previousSnake?.[0] || snake[0], snake[0]);
@@ -5060,6 +5120,32 @@ function drawSnake() {
 // one is buffered, otherwise the current committed direction.
 function pendingHeadDirection() {
   return directionQueue.length > 0 ? directionQueue[0] : direction;
+}
+
+// Draw the final segment as a tapered tail: a wedge whose base sits toward the
+// body and whose point trails outward, following the direction from the segment
+// ahead. `cur`/`prev` are interpolated cell-space points. Slightly smaller than
+// a body block so it reads as a distinct tail tip.
+function drawTail(rect, cur, prev) {
+  const cx = rect.x + rect.size / 2;
+  const cy = rect.y + rect.size / 2;
+  let dx = cur.x - prev.x;
+  let dy = cur.y - prev.y;
+  const len = Math.hypot(dx, dy);
+  if (len < 0.001) { dx = 0; dy = 1; } else { dx /= len; dy /= len; }
+  const perpX = -dy;
+  const perpY = dx;
+  const back = rect.size * 0.5;   // base sits at the body-facing edge
+  const tip = rect.size * 0.6;    // point trails just past the outer edge
+  const half = rect.size * 0.4;   // base half-width (< block, so it tapers)
+  const baseX = cx - dx * back;
+  const baseY = cy - dy * back;
+  ctx.beginPath();
+  ctx.moveTo(baseX + perpX * half, baseY + perpY * half);
+  ctx.lineTo(baseX - perpX * half, baseY - perpY * half);
+  ctx.lineTo(cx + dx * tip, cy + dy * tip);
+  ctx.closePath();
+  ctx.fill();
 }
 
 function drawEyes(x, y, size, facing = direction) {
@@ -5079,6 +5165,18 @@ function drawEyes(x, y, size, facing = direction) {
   ctx.fillRect(centerX - sideX - eyeSize / 2, centerY - sideY - eyeSize / 2, eyeSize, eyeSize);
 }
 
+// Lighten a hex color by blending it toward white by `amount` (0..1).
+function lightenColor(color, amount) {
+  const hex = String(color).replace("#", "");
+  if (hex.length < 6) return color;
+  const channel = (start) => {
+    const value = parseInt(hex.slice(start, start + 2), 16);
+    const lifted = Math.round(value + (255 - value) * amount);
+    return Math.max(0, Math.min(255, lifted)).toString(16).padStart(2, "0");
+  };
+  return `#${channel(0)}${channel(2)}${channel(4)}`;
+}
+
 function contrastingEyeColor(color) {
   const hex = String(color).replace("#", "");
   const red = parseInt(hex.slice(0, 2), 16);
@@ -5092,25 +5190,44 @@ function startDigestionAnimation() {
   digestionAnimations.push({ startedAt: performance.now(), snakeLength: snake.length });
 }
 
+// The "swallowed seed" bulge occupies mainly ONE block at a time and hops down
+// the body, one segment every DIGESTION_SEGMENT_DELAY ms, until it reaches the
+// tail and vanishes. Lower the delay to send the lump down faster. The segment
+// on each side of the active one gets a small fraction of the bulge (a soft
+// shoulder) so the lump doesn't look like it's snapping between blocks.
+const DIGESTION_SEGMENT_DELAY = 70;
+const DIGESTION_NEIGHBOR_SHARE = 0.15;
+// The bulge shrinks as it nears the tail, bottoming out at this fraction of
+// full size right at the last segment (rather than vanishing/popping there).
+const DIGESTION_TAIL_TAPER_FLOOR = 0.35;
+
 function pruneDigestionAnimations() {
   const now = performance.now();
   digestionAnimations = digestionAnimations.filter((animation) => {
-    const tailIndex = Math.max(1, animation.snakeLength - 1);
-    return now - animation.startedAt < tailIndex * 70 + 280;
+    // Done once the lump has passed the last segment.
+    return now - animation.startedAt < animation.snakeLength * DIGESTION_SEGMENT_DELAY;
   });
 }
 
 function digestionPulseForSegment(index, now) {
-  const segmentDelay = 70;
-  const pulseDuration = 280;
+  const segmentDelay = DIGESTION_SEGMENT_DELAY;
   return digestionAnimations.reduce((strongestPulse, animation) => {
-    const elapsed = now - animation.startedAt - (index - 1) * segmentDelay;
-    if (elapsed < 0 || elapsed > pulseDuration) {
-      return strongestPulse;
-    }
-    const progress = elapsed / pulseDuration;
-    const pulse = Math.sin(progress * Math.PI);
-    return Math.max(strongestPulse, pulse);
+    const elapsed = now - animation.startedAt;
+    if (elapsed < 0) return strongestPulse;
+    // The single segment currently holding the bulge (1 = first body block).
+    const activeIndex = 1 + Math.floor(elapsed / segmentDelay);
+    const distance = Math.abs(index - activeIndex);
+    if (distance > 1) return strongestPulse;
+    // Ease the lump in and out within its own slot so it pops on one block,
+    // then hands off to the next — never two at full size at once.
+    const localProgress = (elapsed % segmentDelay) / segmentDelay;
+    const pulse = Math.sin(localProgress * Math.PI);
+    // Taper the peak down as the bulge approaches the tail.
+    const tailIndex = Math.max(1, animation.snakeLength - 1);
+    const nearingTail = Math.min(1, activeIndex / tailIndex);
+    const taper = 1 - nearingTail * (1 - DIGESTION_TAIL_TAPER_FLOOR);
+    const scaled = (distance === 0 ? pulse : pulse * DIGESTION_NEIGHBOR_SHARE) * taper;
+    return Math.max(strongestPulse, scaled);
   }, 0);
 }
 
