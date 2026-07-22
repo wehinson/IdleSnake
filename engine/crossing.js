@@ -16,6 +16,12 @@
     return point.x < 0 || point.x >= grid.columns || point.y < 0 || point.y >= grid.rows;
   }
 
+  // The crossing snake enters from below the bottom bank. Keeping its staged
+  // tail cells deliberate gives every new stage the same clean starting shape.
+  function buildEntrySnake(grid, entryColumn, snakeLength) {
+    return Array.from({ length: snakeLength }, (_, index) => ({ x: entryColumn, y: grid.rows - 1 + index }));
+  }
+
   // Advance every car and wrap it around the board width.
   function updateCars(state) {
     state.cars.forEach((car) => {
@@ -77,5 +83,5 @@
     return { state, events, alive: true };
   }
 
-  return { vectors, isWallHit, updateCars, isCarHit, stepCrossing };
+  return { vectors, isWallHit, buildEntrySnake, updateCars, isCarHit, stepCrossing };
 });

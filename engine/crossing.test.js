@@ -65,6 +65,12 @@ test("reaching the top bank (y=0) clears the stage, grows, and rewards", () => {
   assert.equal(s.snakeLength, 4, "grew by one on clear");
 });
 
+test("buildEntrySnake deliberately stages the complete body below the bottom bank", () => {
+  assert.deepEqual(crossing.buildEntrySnake(grid, 2, 4), [
+    { x: 2, y: 3 }, { x: 2, y: 4 }, { x: 2, y: 5 }, { x: 2, y: 6 }
+  ]);
+});
+
 test("runs headless with no DOM", () => {
   assert.equal(typeof document, "undefined");
   assert.doesNotThrow(() => crossing.stepCrossing(baseState({ directionQueue: ["up"] })));

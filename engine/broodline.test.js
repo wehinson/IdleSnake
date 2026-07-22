@@ -25,6 +25,37 @@ test("spawnRound populates a combat wave", () => {
   assert.ok(s.enemies.every((e) => e.hp > 0));
 });
 
+test("uses the authoritative 220 ms cadence for cooldowns, effects, and eggs", () => {
+  assert.equal(broodline.TICK_MS, 220);
+  const s = freshState({
+    chain: [
+      { kind: "body", pos: { x: 14, y: 15 } },
+      { kind: "garden", pos: { x: 13, y: 15 }, cooldown: 500 },
+      { kind: "egg", pos: { x: 12, y: 15 }, hatchAt: 500 }
+    ],
+    effects: [{ pos: { x: 15, y: 15 }, text: "TEST", ttl: 500 }]
+  });
+  broodline.step(s, { rng: seededRng(8) });
+  assert.equal(s.chain[1].cooldown, 500 - broodline.TICK_MS);
+  assert.equal(s.effects[0].ttl, 500 - broodline.TICK_MS);
+  assert.equal(s.chain[2].hatchAt, 500 - broodline.TICK_MS);
+});
+
+test("clamps or resolves timers that have less than one tick remaining", () => {
+  const s = freshState({
+    chain: [
+      { kind: "body", pos: { x: 14, y: 15 } },
+      { kind: "garden", pos: { x: 13, y: 15 }, cooldown: 1 },
+      { kind: "egg", pos: { x: 12, y: 15 }, hatchAt: 1 }
+    ],
+    effects: [{ pos: { x: 15, y: 15 }, text: "EXPIRE", ttl: 1 }]
+  });
+  broodline.step(s, { rng: () => 0 });
+  assert.equal(s.chain[1].cooldown, 0);
+  assert.notEqual(s.chain[2].kind, "egg");
+  assert.equal(s.effects.some((effect) => effect.text === "EXPIRE"), false);
+});
+
 test("moving into the wall ends the run", () => {
   const s = freshState({ head: { x: 1, y: 15 }, direction: "left" });
   const r = broodline.step(s, { rng: seededRng(2) });

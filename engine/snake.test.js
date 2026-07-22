@@ -18,6 +18,7 @@ test("createSnakeMode builds a centered snake and spawns the right food count", 
   assert.equal(state.snake.length, 3);
   assert.equal(state.foods.length, 1); // baseCount 1 + level 0
   assert.equal(state.direction, "up");
+  assert.equal(state.tickMs, 317, "starts 40% slower than the prior 190 ms cadence");
   // Food never overlaps the snake.
   const occupied = new Set(state.snake.map((p) => `${p.x},${p.y}`));
   assert.equal(state.foods.some((f) => occupied.has(`${f.x},${f.y}`)), false);

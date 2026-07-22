@@ -3,7 +3,37 @@ const ctx = canvas.getContext("2d");
 const savePrefix = "snake-forever-";
 const legacySavePrefix = "idlesnake-";
 const consolidatedSaveKey = `${savePrefix}save`;
-const SAVE_VERSION = 2;
+const consolidatedBackupKey = `${consolidatedSaveKey}:backup`;
+const saveGuard = window.IdleSnakeSaveGuard;
+const SAVE_VERSION = saveGuard.CURRENT_VERSION;
+const LEGACY_SAVE_VERSION = saveGuard.LEGACY_VERSION;
+let startupStorageNotice = "";
+let storageWarningShown = false;
+
+function isMobilePhone() {
+  if (navigator.userAgentData?.mobile === true) return true;
+  return /Android.*Mobile|iPhone|iPod|IEMobile|Windows Phone|Opera Mini/i.test(navigator.userAgent || "");
+}
+
+function defaultMobileControls() {
+  return { swipeControls: isMobilePhone(), biggerDpad: false };
+}
+
+function classifyStorageError(error) {
+  return /quota|exceeded/i.test(String(error?.name || "") + String(error?.message || "")) ? "quota" : "unavailable";
+}
+function storageNotice(kind) {
+  return kind === "quota" ? "Storage quota exceeded; progress could not be saved." : "Storage unavailable; progress cannot currently be saved.";
+}
+function safeStorage(operation, key, value) {
+  try { return { ok: true, value: operation === "get" ? localStorage.getItem(key) : (operation === "set" ? localStorage.setItem(key, value) : localStorage.removeItem(key)) }; }
+  catch (error) { const kind = classifyStorageError(error); console.warn(`IdleSnake storage ${operation} failed (${kind}).`); return { ok: false, kind }; }
+}
+function reportStorageFailure(kind, saveDataMessage) {
+  const message = storageNotice(kind);
+  if (saveDataMessage && saveDataStatus) saveDataStatus.textContent = message;
+  else if (!storageWarningShown) { storageWarningShown = true; setScreenHint(message); }
+}
 
 // Legacy per-key names this game used before the save was consolidated into
 // one versioned object. Kept only so migrateLegacySaveIfNeeded() can read
@@ -48,14 +78,14 @@ const legacyKeyPaths = {
 
 function buildDefaultSaveState() {
   return {
-    saveVersion: SAVE_VERSION,
+    saveVersion: LEGACY_SAVE_VERSION,
     savedAt: Date.now(),
     currencies: { seeds: 0, provisions: 0, branches: 0 },
     upgrades: { boardLevel: 0, foodTypeLevel: 0, foodCountLevel: 0, shieldLevel: 0, minigamesLevel: 0 },
     board: { selectedBoardLevel: 0, selectedDuelGridSize: 30, mastery: {} },
     records: { best: 0, crossingBest: 0, mazeBest: 0, breakoutBest: 0, runnerBest: 0, sokobanBest: 0, battleshipBest: 0, centipedeBest: 0 },
-    settings: { snakeColors: { body: null, head: null } },
-    nursery: { nestStartedAt: null, hatchlings: [], colonyCount: 0, lastUpdatedAt: Date.now(), seedTickAccumulatorMs: 0, movementAccumulatorMs: 0 },
+    settings: { snakeColors: { body: null, head: null }, mobileControls: defaultMobileControls() },
+    nursery: { nestStartedAt: null, hatchlings: [], colonyCount: 0, resupplyEggHolding: 0, lastUpdatedAt: Date.now(), seedTickAccumulatorMs: 0, movementAccumulatorMs: 0 },
     habitats: { counts: [], upgradeLevels: [], lastUpdatedAt: Date.now() },
     notables: { retained: [], elders: [], pending: [], dismissedCount: 0, directRecruitmentsCompleted: 0, masteryRewardsClaimed: {}, nextId: 1 },
     snakebird: { unlockedLevel: 1, clearedLevels: [], bestMoves: [], lastSelectedLevel: 1 },
@@ -66,12 +96,14 @@ function buildDefaultSaveState() {
     tradeRoutes: [],
     activeResupplyMissions: [],
     completedResupplyMissions: [],
+    resupplyTotals: { completedMissions: 0, notablesDelivered: 0, adultsDelivered: 0, eggsDelivered: 0, provisionsConsumed: 0 },
     nextResupplyMissionId: 1,
+    eggBoardCountdown: null,
     regions: [],
     season: null,
     migration: null,
     prestigeHistory: [],
-    accessibility: { colorblindMode: false, reducedMotion: false }
+    accessibility: { reducedMotion: false }
   };
 }
 
@@ -91,7 +123,7 @@ function normalizeSaveState(saved) {
   return {
     ...base,
     ...saved,
-    saveVersion: SAVE_VERSION,
+    saveVersion: LEGACY_SAVE_VERSION,
     currencies: { ...base.currencies, ...saved.currencies },
     upgrades: { ...base.upgrades, ...saved.upgrades },
     board: {
@@ -103,9 +135,14 @@ function normalizeSaveState(saved) {
     settings: {
       ...base.settings,
       ...saved.settings,
-      snakeColors: { ...base.settings.snakeColors, ...saved.settings?.snakeColors }
+      snakeColors: { ...base.settings.snakeColors, ...saved.settings?.snakeColors },
+      mobileControls: { ...base.settings.mobileControls, ...saved.settings?.mobileControls }
     },
-    nursery: { ...base.nursery, ...saved.nursery },
+    nursery: {
+      ...base.nursery,
+      ...saved.nursery,
+      resupplyEggHolding: Math.floor(clampNumber(saved.nursery?.resupplyEggHolding, 0, Number.MAX_SAFE_INTEGER, 0))
+    },
     habitats: { ...base.habitats, ...saved.habitats },
     notables: { ...base.notables, ...saved.notables },
     snakebird: { ...base.snakebird, ...saved.snakebird },
@@ -113,19 +150,60 @@ function normalizeSaveState(saved) {
     tradeRoutes: Array.isArray(saved.tradeRoutes) ? structuredClone(saved.tradeRoutes) : Array.isArray(saved.routes) ? structuredClone(saved.routes) : [],
     activeResupplyMissions: Array.isArray(saved.activeResupplyMissions) ? structuredClone(saved.activeResupplyMissions) : [],
     completedResupplyMissions: Array.isArray(saved.completedResupplyMissions) ? structuredClone(saved.completedResupplyMissions) : [],
+    resupplyTotals: Object.fromEntries(Object.entries(base.resupplyTotals).map(([key, value]) => [key, Math.floor(clampNumber(saved.resupplyTotals?.[key], 0, Number.MAX_SAFE_INTEGER, value))])),
     nextResupplyMissionId: Math.max(1, Number(saved.nextResupplyMissionId) || 1),
+    eggBoardCountdown: Number.isInteger(Number(saved.eggBoardCountdown)) && Number(saved.eggBoardCountdown) > 0
+      ? Math.min(Number.MAX_SAFE_INTEGER, Number(saved.eggBoardCountdown))
+      : null,
     routes: undefined
   };
 }
 
+// Legacy-shaped values remain useful to the renderer, but are only a UI
+// projection. Canonical V5 state is never flattened for durable storage.
+function projectSaveForUi(saved) {
+  if (saved?.saveVersion !== SAVE_VERSION || !saved.session) return normalizeSaveState(saved);
+  const state = saved.session;
+  return normalizeSaveState({
+    saveVersion: LEGACY_SAVE_VERSION,
+    savedAt: saved.savedAt,
+    currencies: { seeds: state.seeds, provisions: state.provisions, branches: state.branches },
+    upgrades: state.upgrades,
+    board: {
+      selectedBoardLevel: state.selectedBoardLevel,
+      selectedDuelGridSize: state.selectedDuelGridSize,
+      mastery: Object.fromEntries(window.IdleSnakeConfig.boardMasteryConfig.map((item) => [item.boardSize, Boolean(state.notables?.masteryRewardsClaimed?.[item.masteryId])]))
+    },
+    records: { best: state.best, ...(state.records || {}) },
+    settings: { snakeColors: state.cosmetics, mobileControls: state.mobileControls },
+    nursery: state.nursery,
+    habitats: state.habitats,
+    notables: state.notables,
+    snakebird: state.snakebirdProgress,
+    migration: state.migration,
+    tradeRoutes: state.tradeRoutes,
+    activeResupplyMissions: state.activeResupplyMissions,
+    completedResupplyMissions: state.completedResupplyMissions,
+    resupplyTotals: state.resupplyTotals,
+    nextResupplyMissionId: state.nextResupplyMissionId,
+    eggBoardCountdown: state.eggBoardCountdown,
+    accessibility: { reducedMotion: state.reducedMotion }
+  });
+}
+
 function loadConsolidatedSave() {
-  try {
-    const raw = localStorage.getItem(consolidatedSaveKey);
-    if (raw === null) return buildDefaultSaveState();
-    return normalizeSaveState(JSON.parse(raw));
-  } catch {
-    return buildDefaultSaveState();
+  const primary = safeStorage("get", consolidatedSaveKey);
+  if (!primary.ok) { startupStorageNotice = storageNotice(primary.kind); return buildDefaultSaveState(); }
+  if (primary.value === null) return buildDefaultSaveState();
+  const checked = saveGuard.validateImportText(primary.value);
+  if (checked.ok) return checked.value;
+  const backup = safeStorage("get", consolidatedBackupKey);
+  if (backup.ok && backup.value !== null) {
+    const recovered = saveGuard.validateImportText(backup.value);
+    if (recovered.ok) { startupStorageNotice = "Backup save recovered."; safeStorage("set", consolidatedSaveKey, backup.value); return recovered.value; }
   }
+  startupStorageNotice = "Stored progress could not be recovered.";
+  return buildDefaultSaveState();
 }
 
 // One-time migration from the old per-key localStorage scheme into the
@@ -134,12 +212,16 @@ function loadConsolidatedSave() {
 // legacy key prefixes so a browser that never got migrated under the old
 // idlesnake- -> snake-forever- prefix rename still recovers its data.
 function migrateLegacySaveIfNeeded() {
-  if (localStorage.getItem(consolidatedSaveKey) !== null) return false;
+  const primary = safeStorage("get", consolidatedSaveKey);
+  if (!primary.ok) { startupStorageNotice = storageNotice(primary.kind); return false; }
+  if (primary.value !== null) return false;
 
   const legacyRead = (key) => {
-    const current = localStorage.getItem(`${savePrefix}${key}`);
-    if (current !== null) return current;
-    return localStorage.getItem(`${legacySavePrefix}${key}`);
+    const current = safeStorage("get", `${savePrefix}${key}`);
+    if (!current.ok) return null;
+    if (current.value !== null) return current.value;
+    const legacy = safeStorage("get", `${legacySavePrefix}${key}`);
+    return legacy.ok ? legacy.value : null;
   };
 
   const hadAnyLegacyData = saveKeysLegacyList.some((key) => legacyRead(key) !== null);
@@ -159,15 +241,16 @@ function migrateLegacySaveIfNeeded() {
     migrated.habitats = safeParse(legacyRead("habitats"), migrated.habitats);
     migrated.snakebird = safeParse(legacyRead("snakebird"), migrated.snakebird);
   }
-  consolidatedSave = migrated;
-  localStorage.setItem(consolidatedSaveKey, JSON.stringify(consolidatedSave));
-  return true;
+  const migratedSession = window.IdleSnakeSession.createGameSession({ save: migrated, now: Date.now(), rng: Math.random, mobileControlsDefault: defaultMobileControls() });
+  const envelope = migratedSession.serialize();
+  const written = safeStorage("set", consolidatedSaveKey, JSON.stringify(envelope));
+  if (!written.ok) startupStorageNotice = storageNotice(written.kind);
+  return envelope;
 }
 
-let consolidatedSave = buildDefaultSaveState();
-if (!migrateLegacySaveIfNeeded()) {
-  consolidatedSave = loadConsolidatedSave();
-}
+const migratedSaveEnvelope = migrateLegacySaveIfNeeded();
+let loadedSaveEnvelope = migratedSaveEnvelope || loadConsolidatedSave();
+let consolidatedSave = projectSaveForUi(loadedSaveEnvelope);
 
 function getSaveItem(key) {
   const path = legacyKeyPaths[key];
@@ -177,17 +260,11 @@ function getSaveItem(key) {
 }
 
 function setSaveItem(key, value) {
-  const path = legacyKeyPaths[key];
-  if (!path) return;
-  let parsed;
-  try {
-    parsed = JSON.parse(value);
-  } catch {
-    parsed = value;
-  }
-  let target = consolidatedSave;
-  for (let i = 0; i < path.length - 1; i++) target = target[path[i]];
-  target[path[path.length - 1]] = parsed;
+  // Kept as a compatibility seam for UI call sites. Feature-specific values
+  // are already committed through session actions; persistence serializes the
+  // session and never reconstructs a save from key/value mirrors.
+  void key;
+  void value;
   persistConsolidatedSave();
 }
 
@@ -219,8 +296,21 @@ function flushPendingSaves() {
     saveFlushTimer = null;
   }
   if (resettingProgress) { pendingSaveProducers.clear(); return; }
-  pendingSaveProducers.forEach((producer, key) => localStorage.setItem(key, producer()));
-  pendingSaveProducers.clear();
+  for (const [key, producer] of pendingSaveProducers) {
+    try {
+      const value = producer();
+      const previous = safeStorage("get", key);
+      if (!previous.ok) { reportStorageFailure(previous.kind); return; }
+      if (previous.value !== null && saveGuard.validateImportText(previous.value).ok) {
+        const backedUp = safeStorage("set", `${key}:backup`, previous.value);
+        if (!backedUp.ok) { reportStorageFailure(backedUp.kind); return; }
+      }
+      const written = safeStorage("set", key, value);
+      if (!written.ok) { reportStorageFailure(written.kind); return; }
+      pendingSaveProducers.delete(key);
+      storageWarningShown = false;
+    } catch (error) { console.warn("IdleSnake save flush failed.", error); setScreenHint("Progress could not be saved."); return; }
+  }
 }
 
 function queueSave(key, producer) {
@@ -231,10 +321,9 @@ function queueSave(key, producer) {
 
 function persistConsolidatedSave() {
   // Stamp savedAt at flush time so the engine's offline catch-up on next load
-  // measures from the last real persist (see engine/save.js resolveSavedAt).
+  // measures from the last real persist.
   queueSave(consolidatedSaveKey, () => {
-    consolidatedSave.savedAt = Date.now();
-    return JSON.stringify(consolidatedSave);
+    return JSON.stringify(session.serialize());
   });
 }
 
@@ -243,12 +332,10 @@ function saveSeeds() {
 }
 
 function saveProvisions() {
-  consolidatedSave.currencies.provisions = provisionsTotal;
   persistConsolidatedSave();
 }
 
 function saveBranches() {
-  consolidatedSave.currencies.branches = branchesTotal;
   persistConsolidatedSave();
 }
 
@@ -257,91 +344,7 @@ document.addEventListener("visibilitychange", () => {
   if (document.visibilityState === "hidden") flushPendingSaves();
 });
 
-const snakebirdEngine = window.SnakebirdEngine || (() => {
-  const key = (point) => `${point.x},${point.y}`;
-  const vectors = {
-    up: { x: 0, y: -1 },
-    down: { x: 0, y: 1 },
-    left: { x: -1, y: 0 },
-    right: { x: 1, y: 0 }
-  };
-  const bodyContains = (body, point) => body.some((part) => part.x === point.x && part.y === point.y);
-  const isSolid = (state, point) => point.x < 0 || point.x >= state.width || point.y < 0 || point.y >= state.height || state.solids.has(key(point));
-  const parseLevel = (map) => {
-    const body = [];
-    const solids = new Set();
-    const fruits = new Set();
-    let exit = null;
-    map.forEach((row, y) => [...row].forEach((cell, x) => {
-      const point = { x, y };
-      if (cell === "#") solids.add(key(point));
-      if (cell === "F") fruits.add(key(point));
-      if (cell === "G") exit = point;
-      if (cell === "H") body.unshift(point);
-      if (cell === "o") body.push(point);
-    }));
-    return { width: map[0].length, height: map.length, solids, fruits, exit, body, moves: 0, result: null };
-  };
-  const settleGravity = (state) => {
-    const next = { ...state, body: state.body.map((part) => ({ ...part })) };
-    while (true) {
-      if (next.body.some((part) => part.y >= next.height)) return { state: next, fell: true };
-      const canFall = next.body.every((part) => !next.solids.has(key({ x: part.x, y: part.y + 1 })));
-      if (!canFall) return { state: next, fell: false };
-      next.body = next.body.map((part) => ({ x: part.x, y: part.y + 1 }));
-    }
-  };
-  const applyMove = (state, directionName) => {
-    const vector = vectors[directionName];
-    if (!vector) return { accepted: false, state };
-    const head = state.body[0];
-    const nextHead = { x: head.x + vector.x, y: head.y + vector.y };
-    const fruitKey = key(nextHead);
-    const ateFruit = state.fruits.has(fruitKey);
-    const bodyToCheck = ateFruit ? state.body : state.body.slice(0, -1);
-    if (isSolid(state, nextHead) || bodyContains(bodyToCheck, nextHead)) return { accepted: false, state };
-    const next = {
-      ...state,
-      body: [nextHead, ...state.body.slice(0, ateFruit ? state.body.length : -1)],
-      fruits: new Set(state.fruits),
-      moves: state.moves + 1
-    };
-    if (ateFruit) next.fruits.delete(fruitKey);
-    const settled = settleGravity(next);
-    return { accepted: true, state: settled.state, fell: settled.fell, ateFruit };
-  };
-  const isComplete = (state) => {
-    const head = state.body[0];
-    return Boolean(head && state.exit && state.fruits.size === 0 && head.x === state.exit.x && head.y === state.exit.y);
-  };
-  const normalizeProgress = (saved = {}, levelCount = 5) => {
-    saved = saved && typeof saved === "object" ? saved : {};
-    const clearedLevels = Array.from({ length: levelCount }, (_, index) => Boolean(saved.clearedLevels?.[index]));
-    const bestMoves = Array.from({ length: levelCount }, (_, index) => {
-      const value = Number(saved.bestMoves?.[index]);
-      return Number.isFinite(value) && value > 0 ? Math.floor(value) : null;
-    });
-    let unlockedLevel = 1;
-    while (unlockedLevel < levelCount && clearedLevels[unlockedLevel - 1]) unlockedLevel += 1;
-    const requestedLevel = Math.floor(Number(saved.lastSelectedLevel) || 1);
-    return {
-      unlockedLevel,
-      clearedLevels,
-      bestMoves,
-      lastSelectedLevel: Math.max(1, Math.min(unlockedLevel, requestedLevel))
-    };
-  };
-  const recordCompletion = (saved, levelIndex, moves, levelCount, firstClearReward, replayReward) => {
-    const progress = normalizeProgress(saved, levelCount);
-    const index = Math.max(0, Math.min(levelCount - 1, Math.floor(levelIndex)));
-    const firstClear = !progress.clearedLevels[index];
-    progress.clearedLevels[index] = true;
-    progress.unlockedLevel = Math.max(progress.unlockedLevel, Math.min(levelCount, index + 2));
-    if (progress.bestMoves[index] === null || moves < progress.bestMoves[index]) progress.bestMoves[index] = moves;
-    return { progress, firstClear, reward: firstClear ? firstClearReward : replayReward };
-  };
-  return { key, parseLevel, bodyContains, isSolid, settleGravity, applyMove, isComplete, normalizeProgress, recordCompletion };
-})();
+const snakebirdEngine = window.SnakebirdEngine;
 const scoreEl = document.querySelector("#score");
 const timerEl = document.querySelector("#timer");
 const gridLabelEl = document.querySelector("#gridLabel");
@@ -350,7 +353,10 @@ const bestEl = document.querySelector("#best");
 const seedsTotalEl = document.querySelector("#seedsTotal");
 const overlay = document.querySelector("#overlay");
 const stateText = document.querySelector("#stateText");
+const stateLabel = document.querySelector("#stateLabel");
+const readyStartPrompt = document.querySelector("#readyStartPrompt");
 const screenHint = document.querySelector("#screenHint");
+const gameStatus = document.querySelector("#gameStatus");
 const startButton = document.querySelector("#startButton");
 const pauseButton = document.querySelector("#pauseButton");
 const resetButton = document.querySelector("#resetButton");
@@ -361,6 +367,14 @@ const minigameKeys = document.querySelectorAll("[data-minigame]");
 const personalizationScreen = document.querySelector("#personalizationScreen");
 const personalizationBackButton = document.querySelector("#personalizationBackButton");
 const openSaveDataButton = document.querySelector("#openSaveDataButton");
+const reducedMotionButton = document.querySelector("#reducedMotionButton");
+const swipeControlsButton = document.querySelector("#swipeControlsButton");
+const biggerDpadButton = document.querySelector("#biggerDpadButton");
+const controlsEl = document.querySelector(".controls");
+const phoneNavEl = document.querySelector(".phone-nav");
+const minigameKeypadEl = document.querySelector("#minigameKeypad");
+const minimizedKeypadButton = document.querySelector("#minimizedKeypadButton");
+const largeDpadPersonalizeButton = document.querySelector("#largeDpadPersonalizeButton");
 const saveDataScreen = document.querySelector("#saveDataScreen");
 const saveDataExportArea = document.querySelector("#saveDataExportArea");
 const saveDataImportArea = document.querySelector("#saveDataImportArea");
@@ -477,189 +491,9 @@ let tradeNetworkRenderSignature = "";
 let tradeManagementRenderSignature = "";
 
 const defaultGrid = { columns: 5, rows: 7 };
-const upgradeConfig = {
-  board: {
-    levels: ["5x7", "5x9", "7x9", "9x9", "9x13", "11x15", "15x21", "21x21"],
-    baseCost: 18,
-    costRatio: 2.35
-  },
-  foodType: {
-    levels: [
-      { name: "Seed", value: 1, kind: "seed" },
-      { name: "Pod I", value: 2, kind: "pod" },
-      { name: "Pod II", value: 3, kind: "pod" },
-      { name: "Pod III", value: 4, kind: "pod" },
-      { name: "Fruit I", value: 5, kind: "fruit" },
-      { name: "Fruit II", value: 6, kind: "fruit" },
-      { name: "Fruit III", value: 7, kind: "fruit" }
-    ],
-    baseCost: 24,
-    costRatio: 2.15
-  },
-  foodCount: {
-    baseCount: 1,
-    baseCost: 160,
-    costRatio: 3.75
-  },
-  shield: {
-    baseCost: 420,
-    costRatio: 4.5
-  },
-  minigames: {
-    levels: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"],
-    baseCost: 700,
-    costRatio: 2.6
-  }
-};
-const gameplaySpeed = 1;
+const { gameplaySpeed, upgradeConfig, snakeConfig, nurseryConfig, habitatConfig } = window.IdleSnakeConfig;
 const slowedTick = (milliseconds) => Math.round(milliseconds / gameplaySpeed);
-const startTickMs = slowedTick(190);
-const minTickMs = slowedTick(82);
-const maxQueuedDirections = 2;
-const nurseryConfig = {
-  columns: 12,
-  rows: 15,
-  capacity: 2,
-  eggCost: 500,
-  eggCostRatio: 1.01,
-  eggHatchMs: 5 * 60 * 1000,
-  growthMs: 10 * 60 * 1000,
-  twoBlockMs: 2 * 60 * 1000,
-  threeBlockMs: 7 * 60 * 1000,
-  seedIntervalMs: 1000,
-  moveIntervalMs: 430,
-  upgrades: {
-    nest: { branchBaseCost: 50_000, costRatio: 5, slotsPerLevel: 1, maxSlots: 5 },
-    nursery: { branchBaseCost: 100_000, seedBaseCost: 250_000, costRatio: 5, capacityPerLevel: 1 }
-  }
-};
-const habitatConfig = {
-  income: {
-    basePerSecond: 0.01,
-    foodValueMultiplier: true,
-    milestoneMode: "multiply",
-    overCapacityProvisionCost: 0.5
-  },
-  upgrades: { costRatio: 1.75 },
-  habitats: [
-    {
-      name: "Field",
-      unlockScore: 0,
-      naturalCapacity: 25,
-      hardCapacity: 50,
-      upgradeCost: 10,
-      capacityPerUpgrade: 25,
-      incomeMultiplier: 0.5,
-      milestones: [
-        { score: 10, multiplier: 1.1 },
-        { score: 50, multiplier: 1.2 },
-        { score: 100, multiplier: 1.35 }
-      ]
-    },
-    {
-      name: "Lake",
-      unlockScore: 10,
-      naturalCapacity: 30,
-      hardCapacity: 60,
-      upgradeCost: 15,
-      capacityPerUpgrade: 30,
-      incomeMultiplier: 0.75,
-      producesSeeds: false,
-      eggHatchReductionSeconds: 1,
-      milestones: [
-        { score: 25, multiplier: 1.12 },
-        { score: 75, multiplier: 1.25 },
-        { score: 150, multiplier: 1.4 }
-      ]
-    },
-    {
-      name: "Forest",
-      unlockScore: 25,
-      naturalCapacity: 50,
-      hardCapacity: 100,
-      upgradeCost: 25,
-      capacityPerUpgrade: 50,
-      incomeMultiplier: 1,
-      producesBranches: true,
-      milestones: [
-        { score: 50, multiplier: 1.15 },
-        { score: 100, multiplier: 1.3 },
-        { score: 250, multiplier: 1.5 }
-      ]
-    },
-    {
-      name: "River",
-      unlockScore: 50,
-      naturalCapacity: 100,
-      hardCapacity: 200,
-      upgradeCost: 40,
-      capacityPerUpgrade: 100,
-      incomeMultiplier: 2,
-      producesProvisions: true,
-      milestones: [
-        { score: 100, multiplier: 1.18 },
-        { score: 250, multiplier: 1.35 },
-        { score: 500, multiplier: 1.65 }
-      ]
-    },
-    {
-      name: "Cave",
-      unlockScore: 100,
-      naturalCapacity: 200,
-      hardCapacity: 400,
-      upgradeCost: 65,
-      capacityPerUpgrade: 200,
-      incomeMultiplier: 4,
-      milestones: [
-        { score: 200, multiplier: 1.2 },
-        { score: 500, multiplier: 1.45 },
-        { score: 1000, multiplier: 1.8 }
-      ]
-    },
-    {
-      name: "Ocean",
-      unlockScore: 200,
-      naturalCapacity: 400,
-      hardCapacity: 800,
-      upgradeCost: 100,
-      capacityPerUpgrade: 400,
-      incomeMultiplier: 8,
-      milestones: [
-        { score: 400, multiplier: 1.22 },
-        { score: 800, multiplier: 1.55 },
-        { score: 1500, multiplier: 2 }
-      ]
-    },
-    {
-      name: "Mountain",
-      unlockScore: 400,
-      naturalCapacity: 750,
-      hardCapacity: 1500,
-      upgradeCost: 160,
-      capacityPerUpgrade: 750,
-      incomeMultiplier: 16,
-      milestones: [
-        { score: 750, multiplier: 1.25 },
-        { score: 1500, multiplier: 1.7 },
-        { score: 3000, multiplier: 2.2 }
-      ]
-    },
-    {
-      name: "Blizzard",
-      unlockScore: 750,
-      naturalCapacity: 1500,
-      hardCapacity: 3000,
-      upgradeCost: 250,
-      capacityPerUpgrade: 1500,
-      incomeMultiplier: 32,
-      milestones: [
-        { score: 1500, multiplier: 1.3 },
-        { score: 3000, multiplier: 1.85 },
-        { score: 6000, multiplier: 2.5 }
-      ]
-    }
-  ]
-};
+const { startTickMs, minTickMs } = snakeConfig;
 const keyMap = {
   ArrowUp: "up",
   KeyW: "up",
@@ -715,6 +549,9 @@ let snakeColors = readSnakeColors();
 let snake;
 let previousSnake;
 let digestionAnimations = [];
+let crumbAnimations = [];
+let deathAnimation = null;
+let runSeedsEarned = 0;
 let foods;
 let direction;
 let nextDirection;
@@ -722,6 +559,7 @@ let directionQueue;
 const activeDirectionKeys = new Set();
 const activeDirectionClicks = new Set();
 const directionPointerStarts = new Map();
+const swipePointerStarts = new Map();
 const directionClickTimers = new Map();
 const minimumDirectionClickMs = 230;
 let score;
@@ -731,21 +569,12 @@ let elapsedMs;
 let lastFrameAt;
 let timerStarted;
 let animationId;
-let nurseryClockId;
-// Headless idle-economy engine (engine/index.js) — the authority for seeds,
-// eggs, habitats and offline catch-up. The legacy `nursery`/`habitats`/
-// `seedsTotal` globals below are kept as UI mirrors, refreshed from the engine
-// each frame by mirrorEconomyFromWorld(). See the "idle-world bridge" section.
-let idleWorld = null;
-// Headless session engine (engine/session.js) — the single source of truth the
-// browser game runs on. During the incremental migration it starts by owning the
-// idle economy; gameplay modes are routed through it one at a time. The legacy
-// globals below remain as UI mirrors, refreshed each frame from the snapshot.
+let deathOverlayTimer = null;
+// The session is authoritative for Snake and the economy. The browser mirrors
+// snapshots only for rendering and existing UI state.
 let session = null;
-let sessionLastSeeds = 0;
-let sessionLastBest = 0;
-let sessionLastUpgradesJson = "";
 let latestSnapshot = null;
+let latestFrameSnapshot = null;
 let idleLastWallAt = null;
 let idleLastPersistAt = 0;
 let boardMetrics;
@@ -755,6 +584,7 @@ let notablesState = window.IdleSnakeNotables.createState(consolidatedSave.notabl
 let nurseryCells = [];
 let habitatCardRefs = [];
 let gameMode = "snake";
+const sessionOwnedModes = new Set(["snake", "snakebird", "sokoban", "runner", "duel", "maze", "crossing", "breakout", "centipede", "broodline", "battleship"]);
 let snakebird;
 let snakebirdProgress;
 let snakebirdLastLevelIndex = null;
@@ -772,16 +602,10 @@ let duelGrid = squareGrid(selectedDuelGridSize);
 const duelTickMs = slowedTick(125);
 let maze;
 let mazePath;
-let mazeDirection;
 let mazeScore;
 let mazeBest = Number(getSaveItem("maze-best") || 0);
-let mazeLayoutIndex;
-let mazeTravelDirection;
-let mazeChoiceDirections;
-let mazePendingChoices;
-let mazePendingEnd;
 const mazeGrid = { columns: 21, rows: 21 };
-const mazeTickMs = slowedTick(105);
+const mazeTickMs = window.IdleSnakeMaze.TICK_MS;
 const crossingGrid = { columns: 15, rows: 13 };
 const crossingTickMs = slowedTick(82);
 let crossingStage;
@@ -790,11 +614,6 @@ let crossingSnake;
 let previousCrossingSnake;
 let crossingCars;
 let crossingPhase;
-let crossingTransitionUntil;
-let crossingEntryColumn = Math.floor(crossingGrid.columns / 2);
-let crossingSnakeLength = 3;
-const mazeStart = { x: 10, y: 15 };
-const mazeExit = { x: 10, y: 0 };
 let breakout;
 let breakoutBest = Number(getSaveItem("breakout-best") || 0);
 let runner;
@@ -810,14 +629,11 @@ let battleship = null;
 let battleshipBest = Number(getSaveItem("battleship-best") || 0);
 if (!Number.isFinite(battleshipBest)) battleshipBest = 0;
 const battleshipGrid = { columns: 10, rows: 10 };
-const battleshipReward = 300;
-const battleshipAiDelayMs = 650;
 let broodline;
 const broodlineGrid = { columns: 30, rows: 30 };
-const broodlineTickMs = slowedTick(220);
+const broodlineTickMs = window.IdleSnakeBroodline.TICK_MS;
 const broodlineView = 10;          // visible cells across the (30x30) world
 const broodlineWavesPerRound = 5;  // each round clears 5 waves -> ~5x longer
-const broodlineMaxHp = 16;
 const broodlineScreen = document.querySelector("#broodlineScreen");
 const broodlineChainEl = document.querySelector("#broodlineChain");
 const broodlineFormationStatusEl = document.querySelector("#broodlineFormationStatus");
@@ -828,13 +644,6 @@ const broodlineEndButton = document.querySelector("#broodlineEnd");
 const breakoutGrid = { columns: 18, rows: 18 };
 const sokobanGrid = { columns: 15, rows: 15 };
 const sokobanTickMs = 120;
-const breakoutConfig = {
-  basePaddleLength: 3,
-  paddleSpeed: 330 * gameplaySpeed,
-  ballSpeed: 258 * gameplaySpeed,
-  powerupDropChance: 0.18,
-  powerupFallSpeed: 92 * gameplaySpeed
-};
 const sokobanLevels = [
   {
     name: "First Push",
@@ -972,29 +781,6 @@ const sokobanLevels = [
     gates: []
   }
 ];
-const mazeLayouts = [
-  [
-    [7, 14, 7, 11], [7, 11, 3, 11], [3, 11, 3, 7], [3, 7, 7, 7], [7, 7, 7, 3], [7, 3, 7, 0],
-    [7, 11, 11, 11], [11, 11, 11, 13], [3, 7, 1, 7], [7, 7, 11, 7], [11, 7, 11, 5], [11, 5, 13, 5], [7, 3, 5, 3], [5, 3, 5, 1]
-  ],
-  [
-    [7, 14, 7, 13], [7, 13, 11, 13], [11, 13, 11, 9], [11, 9, 5, 9], [5, 9, 5, 5], [5, 5, 9, 5], [9, 5, 9, 1], [9, 1, 7, 1], [7, 1, 7, 0],
-    [7, 13, 3, 13], [3, 13, 3, 11], [11, 9, 13, 9], [13, 9, 13, 7], [5, 9, 1, 9], [1, 9, 1, 5], [5, 5, 5, 3], [5, 3, 3, 3], [9, 5, 13, 5]
-  ],
-  [
-    [7, 14, 7, 11], [7, 11, 9, 11], [9, 11, 9, 7], [9, 7, 3, 7], [3, 7, 3, 3], [3, 3, 7, 3], [7, 3, 7, 0],
-    [7, 11, 5, 11], [5, 11, 5, 13], [9, 11, 13, 11], [13, 11, 13, 9], [9, 7, 11, 7], [11, 7, 11, 3], [3, 7, 1, 7], [7, 3, 9, 3], [9, 3, 9, 1]
-  ],
-  [
-    [7, 14, 7, 13], [7, 13, 5, 13], [5, 13, 5, 9], [5, 9, 11, 9], [11, 9, 11, 5], [11, 5, 7, 5], [7, 5, 7, 0],
-    [7, 13, 9, 13], [9, 13, 9, 11], [5, 9, 3, 9], [3, 9, 3, 5], [11, 9, 13, 9], [13, 9, 13, 13], [11, 5, 11, 1], [7, 5, 3, 5], [3, 5, 3, 1]
-  ],
-  [
-    [7, 14, 7, 11], [7, 11, 13, 11], [13, 11, 13, 7], [13, 7, 7, 7], [7, 7, 7, 5], [7, 5, 5, 5], [5, 5, 5, 1], [5, 1, 7, 1], [7, 1, 7, 0],
-    [7, 11, 1, 11], [1, 11, 1, 9], [13, 7, 13, 3], [7, 7, 3, 7], [3, 7, 3, 13], [7, 5, 11, 5], [11, 5, 11, 3], [5, 1, 1, 1]
-  ]
-];
-
 const snakebirdLevels = [
   {
     name: "First Perch",
@@ -1077,36 +863,16 @@ const snakebirdLevels = [
 
 snakebirdProgress = readSnakebirdProgress();
 
-// Snapshot of every persisted global, in the consolidated save shape. Used
-// for export and as the source of truth written to localStorage.
+// The session serializer is the single durable producer for storage, export,
+// backup, rollback, and import finalization.
 function gatherSaveState() {
-  return {
-    ...consolidatedSave,
-    saveVersion: SAVE_VERSION,
-    savedAt: Date.now(),
-    currencies: { seeds: seedsTotal, provisions: provisionsTotal, branches: branchesTotal },
-    upgrades: { ...upgrades },
-    board: { selectedBoardLevel, selectedDuelGridSize, mastery: { ...boardMastery } },
-    records: { best, crossingBest, mazeBest, breakoutBest, runnerBest, sokobanBest, centipedeBest },
-    settings: { snakeColors: { ...snakeColors } },
-    nursery: { ...nursery },
-    habitats: { ...habitats },
-    notables: { ...notablesState },
-    snakebird: { ...snakebirdProgress },
-    migration: latestSnapshot?.migration ? structuredClone(latestSnapshot.migration) : consolidatedSave.migration,
-    tradeRoutes: latestSnapshot?.tradeRoutes ? structuredClone(latestSnapshot.tradeRoutes) : consolidatedSave.tradeRoutes,
-    activeResupplyMissions: latestSnapshot?.activeResupplyMissions ? structuredClone(latestSnapshot.activeResupplyMissions) : consolidatedSave.activeResupplyMissions,
-    completedResupplyMissions: latestSnapshot?.completedResupplyMissions ? structuredClone(latestSnapshot.completedResupplyMissions) : consolidatedSave.completedResupplyMissions,
-    nextResupplyMissionId: latestSnapshot?.nextResupplyMissionId || consolidatedSave.nextResupplyMissionId,
-    routes: undefined
-  };
+  return session.serialize();
 }
 
-// Restores every persisted global from a save object (startup, or after a
-// successful import). Reuses the existing readX() clamp/fallback functions
-// by routing them through the now-populated consolidatedSave.
-function applySaveState(saved) {
-  consolidatedSave = normalizeSaveState(saved);
+// Refresh every legacy browser variable from an immutable session snapshot.
+// These values exist for rendering only and never feed durable reconstruction.
+function applySessionSnapshot(snapshot, savedAt = Date.now()) {
+  consolidatedSave = projectSaveForUi({ saveVersion: SAVE_VERSION, savedAt, session: snapshot });
   seedsTotal = Number(getSaveItem("seeds") || 0);
   provisionsTotal = Math.max(0, Number(consolidatedSave.currencies.provisions) || 0);
   branchesTotal = Math.max(0, Number(consolidatedSave.currencies.branches) || 0);
@@ -1127,15 +893,18 @@ function applySaveState(saved) {
   if (!Number.isFinite(runnerBest)) runnerBest = 0;
   centipedeBest = Number(getSaveItem("centipede-best") || 0);
   sokobanBest = Number(getSaveItem("sokoban-best") || 0);
+  battleshipBest = Number(getSaveItem("battleship-best") || 0);
+  if (!Number.isFinite(battleshipBest)) battleshipBest = 0;
   selectedDuelGridSize = readDuelGridSize();
   duelGrid = squareGrid(selectedDuelGridSize);
   snakebirdProgress = readSnakebirdProgress();
+  syncAccessibilityPreference();
+  syncMobileControlPreferences();
   syncHud();
   syncColorChoices();
   buildNurseryGrid();
   buildHabitatList();
   renderNotables();
-  render();
 }
 
 function freshGame() {
@@ -1151,6 +920,11 @@ function freshGame() {
     { x: centerX - 2, y: centerY }
   ];
   digestionAnimations = [];
+  crumbAnimations = [];
+  deathAnimation = null;
+  runSeedsEarned = 0;
+  clearTimeout(deathOverlayTimer);
+  deathOverlayTimer = null;
   // Build the ready snake run inside the session using the host's exact starting
   // layout/heading so gameplay is identical, then mirror it into render globals.
   const { snapshot } = session.dispatch({
@@ -1187,7 +961,11 @@ function readSnakeColors() {
 }
 
 function saveSnakeColors() {
-  setSaveItem("colors", JSON.stringify(snakeColors));
+  if (session) {
+    const result = session.dispatch({ type: "setCosmetics", cosmetics: { ...snakeColors } });
+    latestSnapshot = result.snapshot;
+  }
+  persistConsolidatedSave();
 }
 
 function buildColorChoices(container, type) {
@@ -1216,15 +994,26 @@ function syncColorChoices() {
   });
 }
 
+function syncLargeDpadPersonalizeButton() {
+  if (!largeDpadPersonalizeButton) return;
+  const personalizationOpen = !personalizationScreen.hidden || !saveDataScreen.hidden;
+  largeDpadPersonalizeButton.textContent = personalizationOpen ? "Back" : "Personalize";
+  largeDpadPersonalizeButton.setAttribute("aria-label", personalizationOpen ? "Back to game" : "Personalize");
+}
+
 function showPersonalization() {
   hideSnakebirdPicker();
+  saveDataScreen.hidden = true;
   personalizationScreen.hidden = false;
   overlay.classList.remove("visible");
   syncColorChoices();
+  syncAccessibilityPreference();
+  syncLargeDpadPersonalizeButton();
 }
 
 function hidePersonalization() {
   personalizationScreen.hidden = true;
+  syncLargeDpadPersonalizeButton();
 }
 
 function showSaveData() {
@@ -1233,11 +1022,13 @@ function showSaveData() {
   saveDataStatus.textContent = "";
   saveDataScreen.hidden = false;
   personalizationScreen.hidden = true;
+  syncLargeDpadPersonalizeButton();
 }
 
 function hideSaveData() {
   saveDataScreen.hidden = true;
   personalizationScreen.hidden = false;
+  syncLargeDpadPersonalizeButton();
 }
 
 async function copySaveData() {
@@ -1251,26 +1042,132 @@ async function copySaveData() {
 }
 
 function importSaveData() {
-  let parsed;
+  const checked = saveGuard.validateImportText(saveDataImportArea.value);
+  if (!checked.ok) { saveDataStatus.textContent = checked.message; return; }
+  const candidate = checked.value;
+  // Dry-run the exact session hydrator before changing memory or storage.
   try {
-    parsed = JSON.parse(saveDataImportArea.value);
-  } catch {
-    saveDataStatus.textContent = "Import failed: invalid save data.";
+    window.IdleSnakeSession.createGameSession({ save: candidate, now: Date.now(), rng: Math.random, mobileControlsDefault: defaultMobileControls() });
+  } catch (error) {
+    console.warn("IdleSnake import hydration failed.", error);
+    saveDataStatus.textContent = "Import failed: save could not be loaded.";
     return;
   }
-  if (!parsed || typeof parsed !== "object" || typeof parsed.saveVersion !== "number") {
-    saveDataStatus.textContent = "Import failed: invalid save data.";
+  const previousLive = gatherSaveState();
+  const primary = safeStorage("get", consolidatedSaveKey);
+  if (!primary.ok) { reportStorageFailure(primary.kind, true); return; }
+  let importedSession;
+  let importedSnapshot;
+  let canonicalCandidate;
+  try {
+    const now = Date.now();
+    importedSession = window.IdleSnakeSession.createGameSession({ save: candidate, now, rng: Math.random, mobileControlsDefault: defaultMobileControls() });
+    // Offline catch-up belongs to the live hydrated candidate and runs once.
+    importedSnapshot = importedSession.advanceOffline(now).snapshot;
+    canonicalCandidate = importedSession.serialize();
+  } catch (error) {
+    console.warn("IdleSnake import hydration failed.", error);
+    saveDataStatus.textContent = "Import failed: save could not be loaded.";
     return;
   }
-  applySaveState(parsed);
-  // Rebuild the session from the imported save (with offline catch-up) so
-  // seeds/eggs/habitats resume from the restored state, then reset to a fresh
-  // snake run (rebuilds the session's active run from the restored upgrades).
-  initIdleWorld();
-  freshGame();
-  localStorage.setItem(consolidatedSaveKey, JSON.stringify(consolidatedSave));
+  // Never replace a known-good backup with malformed primary content.
+  if (primary.value !== null && saveGuard.validateImportText(primary.value).ok) {
+    const backedUp = safeStorage("set", consolidatedBackupKey, primary.value);
+    if (!backedUp.ok) { reportStorageFailure(backedUp.kind, true); return; }
+  }
+  const serialized = JSON.stringify(canonicalCandidate);
+  const written = safeStorage("set", consolidatedSaveKey, serialized);
+  if (!written.ok) { reportStorageFailure(written.kind, true); return; }
+  try {
+    session = importedSession;
+    loadedSaveEnvelope = canonicalCandidate;
+    latestSnapshot = importedSnapshot;
+    applySessionSnapshot(importedSnapshot, canonicalCandidate.savedAt);
+    initializeSessionClocks(importedSnapshot);
+    freshGame();
+    const finalized = safeStorage("set", consolidatedSaveKey, JSON.stringify(gatherSaveState()));
+    if (!finalized.ok) throw Object.assign(new Error("storage finalization failed"), { storageKind: finalized.kind });
+  } catch (error) {
+    console.warn("IdleSnake import apply failed; rolling back.", error);
+    if (primary.value === null) safeStorage("remove", consolidatedSaveKey);
+    else safeStorage("set", consolidatedSaveKey, primary.value);
+    try {
+      session = window.IdleSnakeSession.createGameSession({ save: previousLive, now: Date.now(), rng: Math.random, mobileControlsDefault: defaultMobileControls() });
+      latestSnapshot = session.snapshot();
+      applySessionSnapshot(latestSnapshot, previousLive.savedAt);
+      initializeSessionClocks(latestSnapshot);
+      freshGame();
+    } catch (restoreError) { console.warn("IdleSnake live rollback failed.", restoreError); }
+    if (error.storageKind) reportStorageFailure(error.storageKind, true);
+    else saveDataStatus.textContent = "Import safely rolled back.";
+    return;
+  }
   saveDataExportArea.value = JSON.stringify(gatherSaveState(), null, 2);
   saveDataStatus.textContent = "Import successful.";
+}
+
+function savedReducedMotion() {
+  return Boolean((session ? session.snapshot() : latestSnapshot)?.reducedMotion ?? consolidatedSave?.accessibility?.reducedMotion);
+}
+
+function effectiveReducedMotion() {
+  return savedReducedMotion() || window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+}
+
+function syncAccessibilityPreference() {
+  const enabled = savedReducedMotion();
+  document.documentElement.dataset.reducedMotion = String(enabled);
+  if (reducedMotionButton) {
+    reducedMotionButton.setAttribute("aria-pressed", String(enabled));
+    reducedMotionButton.textContent = `Reduced motion: ${enabled ? "On" : "Off"}`;
+  }
+}
+
+function toggleReducedMotion() {
+  if (!session) return;
+  const result = session.dispatch({ type: "setReducedMotion", reducedMotion: !savedReducedMotion() });
+  latestSnapshot = result.snapshot;
+  persistConsolidatedSave();
+  syncAccessibilityPreference();
+  render();
+}
+
+function savedMobileControls() {
+  const fallback = defaultMobileControls();
+  const controls = (session ? session.snapshot() : latestSnapshot)?.mobileControls ?? consolidatedSave?.settings?.mobileControls;
+  return {
+    swipeControls: typeof controls?.swipeControls === "boolean" ? controls.swipeControls : fallback.swipeControls,
+    biggerDpad: typeof controls?.biggerDpad === "boolean" ? controls.biggerDpad : fallback.biggerDpad
+  };
+}
+
+function syncMobileControlPreferences() {
+  const controls = savedMobileControls();
+  phoneNavEl?.classList.toggle("is-large-dpad", controls.biggerDpad);
+  controlsEl?.classList.toggle("is-large-dpad-controls", controls.biggerDpad);
+  syncPrimaryActionButton();
+  if (!controls.biggerDpad) {
+    minigameKeypadEl?.classList.remove("is-open");
+    minimizedKeypadButton?.setAttribute("aria-expanded", "false");
+  }
+  if (swipeControlsButton) {
+    swipeControlsButton.setAttribute("aria-pressed", String(controls.swipeControls));
+    swipeControlsButton.textContent = `Swipe Controls: ${controls.swipeControls ? "On" : "Off"}`;
+  }
+  if (biggerDpadButton) {
+    biggerDpadButton.setAttribute("aria-pressed", String(controls.biggerDpad));
+    biggerDpadButton.textContent = `Bigger D-Pad: ${controls.biggerDpad ? "On" : "Off"}`;
+  }
+}
+
+function toggleMobileControl(control) {
+  if (!session || !["swipeControls", "biggerDpad"].includes(control)) return;
+  const current = savedMobileControls();
+  const result = session.dispatch({ type: "setMobileControls", mobileControls: { ...current, [control]: !current[control] } });
+  if (result.events.some((event) => event.type === "actionRejected")) return;
+  latestSnapshot = result.snapshot;
+  persistConsolidatedSave();
+  syncMobileControlPreferences();
 }
 
 function readSnakebirdProgress() {
@@ -1297,16 +1194,6 @@ function snakebirdKey(point) {
   return `${point.x},${point.y}`;
 }
 
-function parseSnakebirdLevel(levelIndex) {
-  const definition = snakebirdLevels[levelIndex];
-  const parsed = snakebirdEngine.parseLevel(definition.map);
-  return {
-    ...parsed,
-    levelIndex,
-    result: null
-  };
-}
-
 function hideSnakebirdPicker() {
   if (snakebirdScreen) snakebirdScreen.hidden = true;
 }
@@ -1325,7 +1212,10 @@ function loadSnakebirdLevel(levelIndex) {
   const safeIndex = Math.max(0, Math.min(snakebirdLevels.length - 1, levelIndex));
   snakebirdLastLevelIndex = safeIndex;
   gameMode = "snakebird";
-  snakebird = parseSnakebirdLevel(safeIndex);
+  const { snapshot } = session.dispatch({ type: "selectMode", mode: "snakebird", setup: { definition: snakebirdLevels[safeIndex], levelIndex: safeIndex, levelCount: snakebirdLevels.length } });
+  latestSnapshot = snapshot;
+  latestFrameSnapshot = snapshot;
+  projectSnakebirdSnapshot(snapshot);
   grid = { columns: snakebird.width, rows: snakebird.height };
   direction = "right";
   nextDirection = "right";
@@ -1348,85 +1238,30 @@ function launchSnakebird() {
   loadSnakebirdLevel(pickRandomSnakebirdLevel(snakebirdLastLevelIndex));
 }
 
-function snakebirdIsSolid(point) {
-  return snakebirdEngine.isSolid(snakebird, point);
-}
-
-function snakebirdBodyContains(point, body = snakebird.body) {
-  return snakebirdEngine.bodyContains(body, point);
-}
-
-function settleSnakebirdGravity() {
-  const settled = snakebirdEngine.settleGravity(snakebird);
-  snakebird = settled.state;
-  return !settled.fell;
-}
-
 function snakebirdMove(directionName) {
-  if (!snakebird || state !== "running" || !vectors[directionName]) return false;
+  if (!snakebird || !vectors[directionName]) return false;
   const previousBody = snakebird.body.map((part) => ({ ...part }));
-  const result = snakebirdEngine.applyMove(snakebird, directionName);
-  if (!result.accepted) return false;
-  snakebird = result.state;
+  const result = session.dispatch({ type: "direction", direction: directionName });
+  if (result.events.some((event) => event.type === "actionRejected")) return false;
+  latestSnapshot = result.snapshot;
+  latestFrameSnapshot = result.snapshot;
+  projectSnakebirdSnapshot(result.snapshot);
   direction = directionName;
   nextDirection = directionName;
   previousSnake = previousBody;
 
-  if (result.fell) {
-    endSnakebird(false, "Fell");
-    return true;
-  }
-
-  if (snakebirdEngine.isComplete(snakebird)) {
-    endSnakebird(true);
+  const ended = result.events.find((event) => event.type === "runEnded");
+  if (ended) {
+    if (ended.won) { saveSeeds(); saveSnakebirdProgress(); showOverlay(`Level ${snakebird.levelIndex + 1} Clear · +${formatNumber(ended.reward)} Seeds`); }
+    else showOverlay("Fell");
   }
   syncHud();
   render();
   return true;
 }
 
-function endSnakebird(won, failureReason = "") {
-  state = "gameover";
-  snakebird.result = won ? "won" : "lost";
-  if (won) {
-    const index = snakebird.levelIndex;
-    const level = snakebirdLevels[index];
-    const completion = snakebirdEngine.recordCompletion(
-      snakebirdProgress,
-      index,
-      snakebird.moves,
-      snakebirdLevels.length,
-      level.firstClearReward,
-      level.replayReward
-    );
-    snakebirdProgress = completion.progress;
-    const reward = completion.reward;
-    seedsTotal += reward;
-    saveSeeds();
-    saveSnakebirdProgress();
-    snakebird.nextLevelIndex = pickRandomSnakebirdLevel(index);
-    syncHud();
-    showOverlay(`Level ${index + 1} Clear · +${formatNumber(reward)} Seeds`);
-    setScreenHint(`Next level ready · Space / Start for Level ${snakebird.nextLevelIndex + 1}`);
-  } else {
-    syncHud();
-    showOverlay(failureReason || "Puzzle Failed");
-    setScreenHint("Reset to try the level again");
-  }
-}
-
 function sokobanKey(point) {
   return `${point.x},${point.y}`;
-}
-
-function cloneSokobanPoints(points) {
-  return points.map((point) => ({ ...point }));
-}
-
-function parseSokobanLevel(stageIndex) {
-  // Delegated to the headless engine (engine/sokoban.js); shape is identical to
-  // the previous inline builder, plus a totalPellets field for scoring.
-  return window.IdleSnakeSokoban.parseLevel(sokobanLevels[stageIndex], sokobanGrid, stageIndex);
 }
 
 function loadSokobanLevel(stageIndex) {
@@ -1434,7 +1269,10 @@ function loadSokobanLevel(stageIndex) {
   hideSnakebirdPicker();
   hidePersonalization();
   gameMode = "sokoban";
-  sokoban = parseSokobanLevel(safeIndex);
+  const { snapshot } = session.dispatch({ type: "selectMode", mode: "sokoban", setup: { definition: sokobanLevels[safeIndex], grid: sokobanGrid, levelIndex: safeIndex } });
+  latestSnapshot = snapshot;
+  latestFrameSnapshot = snapshot;
+  projectSokobanSnapshot(snapshot);
   grid = { ...sokobanGrid };
   direction = "right";
   nextDirection = "right";
@@ -1462,10 +1300,6 @@ function sokobanIsWall(point) {
   return point.x < 0 || point.x >= sokobanGrid.columns || point.y < 0 || point.y >= sokobanGrid.rows || sokoban.walls.has(sokobanKey(point));
 }
 
-function sokobanCrateAt(point) {
-  return sokoban.crates.find((crate) => crate.x === point.x && crate.y === point.y);
-}
-
 function sokobanSnakeContains(point, includeTail = true) {
   const body = includeTail ? sokoban.snake : sokoban.snake.slice(0, -1);
   return body.some((part) => part.x === point.x && part.y === point.y);
@@ -1480,11 +1314,6 @@ function sokobanPlateActive(id) {
   return Boolean(plate && sokobanSnakeContains(plate));
 }
 
-function sokobanIsOpen(point) {
-  const gate = sokobanGateAt(point);
-  return !sokobanIsWall(point) && (!gate || sokobanPlateActive(gate.id));
-}
-
 function sokobanIsGoal(point) {
   return sokoban.goals.some((goal) => goal.x === point.x && goal.y === point.y);
 }
@@ -1496,25 +1325,23 @@ function sokobanStatusHint() {
   return `Stage ${sokoban.stageIndex + 1} · Move ${sokoban.moves} · ${solved}/${sokoban.crates.length} crates${activePlates ? ` · ${activePlates} plate active` : ""}`;
 }
 
-function sokobanIsBraced(directionName) {
-  const vector = vectors[directionName];
-  const tail = sokoban.snake[sokoban.snake.length - 1];
-  if (!tail || !vector) return false;
-  return sokobanIsWall({ x: tail.x - vector.x, y: tail.y - vector.y });
-}
-
 function sokobanMove(directionName) {
-  if (!sokoban || state !== "running" || !vectors[directionName]) return false;
+  if (!sokoban || !vectors[directionName]) return false;
 
-  // Move logic delegated to the headless engine; host keeps direction facing,
-  // win handling, and the HUD/hint/render side-effects the engine omits.
-  const result = window.IdleSnakeSokoban.applyMove(sokoban, directionName);
-  if (!result.accepted) return false;
+  const result = session.dispatch({ type: "direction", direction: directionName });
+  if (result.events.some((event) => event.type === "actionRejected")) return false;
+  latestSnapshot = result.snapshot;
+  latestFrameSnapshot = result.snapshot;
+  projectSokobanSnapshot(result.snapshot);
 
   direction = directionName;
   nextDirection = directionName;
-  if (result.won) {
-    endSokoban(true);
+  const ended = result.events.find((event) => event.type === "runEnded");
+  if (ended?.won) {
+    sokobanBest = Math.max(sokobanBest, ended.score);
+    setSaveItem("sokoban-best", String(sokobanBest));
+    saveSeeds();
+    showOverlay(`Stage ${ended.stageIndex + 1} Clear · +${formatNumber(ended.reward)} Seeds`);
   } else {
     setScreenHint(sokobanStatusHint());
   }
@@ -1523,29 +1350,12 @@ function sokobanMove(directionName) {
   return true;
 }
 
-function endSokoban(won) {
-  state = "gameover";
-  sokoban.result = won ? "won" : "reset";
-  if (!won) return;
-
-  const reward = sokobanLevels[sokoban.stageIndex].reward;
-  sokobanBest = Math.max(sokobanBest, sokoban.score);
-  seedsTotal += reward;
-  saveSeeds();
-  setSaveItem("sokoban-best", String(sokobanBest));
-  syncHud();
-  showOverlay(`Stage ${sokoban.stageIndex + 1} Clear · +${formatNumber(reward)} Seeds`);
-  setScreenHint(sokoban.stageIndex < sokobanLevels.length - 1
-    ? "Start for the next stage · Reset to replay"
-    : "Campaign clear · Start to replay from stage 1");
-}
-
 // --- Battleship ("Venom Strike", phone key 8) --------------------------------
 // Classic battleship rules on a 10x10 board: the ships are snakes and the bombs
 // are venom strikes. The player manually places their fleet (with an 8-to-shuffle
-// random helper), then trades one strike per turn with a hunt/target AI. Rules,
-// placement and AI targeting live in engine/battleship.js; this host owns the
-// two-grid render, the d-pad/click input, the AI-fire delay and the reward.
+// random helper), then trades one strike per turn with a hunt/target AI. The
+// session owns every mutation and reward; this host only dispatches commands,
+// projects immutable snapshots, and renders the two grids.
 
 function launchBattleship() {
   hideSnakebirdPicker();
@@ -1555,29 +1365,15 @@ function launchBattleship() {
     if (battleship && battleship.phase === "placement") battleshipShuffle();
     return;
   }
-  const B = window.IdleSnakeBattleship;
   gameMode = "battleship";
   grid = { ...battleshipGrid };
-  battleship = {
-    phase: "placement",       // placement -> playing -> over
-    turn: "player",
-    enemy: B.randomFleet(Math.random, battleshipGrid.columns) || B.emptyFleet(),
-    player: B.emptyFleet(),
-    placement: { index: 0, orientation: "h", x: 0, y: 0 },
-    target: { x: Math.floor(battleshipGrid.columns / 2), y: Math.floor(battleshipGrid.rows / 2) },
-    ai: B.createAi(),
-    aiFireAt: null,
-    result: null,
-    lastPlayerShot: null,
-    lastAiShot: null
-  };
+  const result = session.dispatch({ type: "selectMode", mode: "battleship" });
+  latestSnapshot = result.snapshot;
+  latestFrameSnapshot = result.snapshot;
+  projectBattleshipSnapshot(result.snapshot);
   direction = "right";
   nextDirection = "right";
   directionQueue = [];
-  state = "running";
-  tickMs = 60;
-  elapsedMs = 0;
-  stepAccumulatorMs = 0;
   timerStarted = false;
   boardMetrics = getBoardMetrics();
   hideOverlay();
@@ -1587,7 +1383,7 @@ function launchBattleship() {
 }
 
 function battleshipCurrentDef() {
-  return window.IdleSnakeBattleship.FLEET[battleship.placement.index] || null;
+  return battleship ? window.IdleSnakeBattleship.FLEET[battleship.placement.index] || null : null;
 }
 
 function battleshipSetPlacementHint() {
@@ -1599,145 +1395,54 @@ function battleshipSetPlacementHint() {
   }
 }
 
-function battleshipClampAnchor() {
-  const def = battleshipCurrentDef();
-  if (!def) return;
-  const maxX = battleship.placement.orientation === "h" ? battleshipGrid.columns - def.length : battleshipGrid.columns - 1;
-  const maxY = battleship.placement.orientation === "v" ? battleshipGrid.rows - def.length : battleshipGrid.rows - 1;
-  battleship.placement.x = Math.max(0, Math.min(battleship.placement.x, maxX));
-  battleship.placement.y = Math.max(0, Math.min(battleship.placement.y, maxY));
-}
-
 function battleshipMoveCursor(directionName) {
-  const vector = vectors[directionName];
-  if (!battleship || !vector) return;
-  if (battleship.phase === "placement" && battleshipCurrentDef()) {
-    battleship.placement.x += vector.x;
-    battleship.placement.y += vector.y;
-    battleshipClampAnchor();
-    render();
-  } else if (battleship.phase === "playing" && battleship.turn === "player") {
-    battleship.target.x = Math.max(0, Math.min(battleshipGrid.columns - 1, battleship.target.x + vector.x));
-    battleship.target.y = Math.max(0, Math.min(battleshipGrid.rows - 1, battleship.target.y + vector.y));
-    render();
-  }
+  if (!battleship || !vectors[directionName]) return false;
+  return dispatchBattleship({ type: "direction", direction: directionName });
 }
 
 function battleshipRotate() {
-  if (!battleship || battleship.phase !== "placement" || !battleshipCurrentDef()) return;
-  battleship.placement.orientation = battleship.placement.orientation === "h" ? "v" : "h";
-  battleshipClampAnchor();
-  render();
+  return dispatchBattleship({ type: "battleshipRotate" });
 }
 
 function battleshipPlaceCurrent() {
-  const B = window.IdleSnakeBattleship;
-  const def = battleshipCurrentDef();
-  if (!def) return;
-  if (!B.placeShip(battleship.player, def, battleship.placement.x, battleship.placement.y, battleship.placement.orientation, battleshipGrid.columns)) {
-    setScreenHint("Snakes can't overlap — pick another spot");
-    return;
-  }
-  battleship.placement.index += 1;
-  battleshipClampAnchor();
-  battleshipSetPlacementHint();
-  render();
+  return dispatchBattleship({ type: "battleshipPlace" });
 }
 
 function battleshipPlaceAt(x, y) {
-  if (!battleship || battleship.phase !== "placement" || !battleshipCurrentDef()) return;
-  battleship.placement.x = x;
-  battleship.placement.y = y;
-  battleshipClampAnchor();
-  battleshipPlaceCurrent();
+  return dispatchBattleship({ type: "battleshipPlace", x, y });
 }
 
 function battleshipShuffle() {
-  const B = window.IdleSnakeBattleship;
-  const fleet = B.randomFleet(Math.random, battleshipGrid.columns);
-  if (!fleet) return;
-  battleship.player = fleet;
-  battleship.placement.index = B.FLEET.length;
-  battleshipSetPlacementHint();
-  render();
+  return dispatchBattleship({ type: "battleshipShuffle" });
 }
 
 function battleshipBeginBattle() {
-  battleship.phase = "playing";
-  battleship.turn = "player";
-  battleship.aiFireAt = null;
-  battleship.target = { x: Math.floor(battleshipGrid.columns / 2), y: Math.floor(battleshipGrid.rows / 2) };
+  if (!dispatchBattleship({ type: "battleshipStart" })) return false;
   timerStarted = true;
-  elapsedMs = 0;
   lastFrameAt = performance.now();
   stepAccumulatorMs = 0;
   hideOverlay();
   setScreenHint("Aim with arrows · Start (or tap the top grid) to launch a venom strike");
   syncHud();
   render();
+  return true;
 }
 
-function battleshipFire() {
-  if (!battleship || battleship.phase !== "playing" || battleship.turn !== "player") return;
-  const B = window.IdleSnakeBattleship;
-  const { x, y } = battleship.target;
-  const outcome = B.fireAt(battleship.enemy, x, y);
-  if (outcome.result === "repeat") {
-    setScreenHint("You already struck there — aim somewhere new");
-    return;
-  }
-  battleship.lastPlayerShot = { x, y, result: outcome.result };
-  if (outcome.result === "sunk") setScreenHint(`Venom sank the enemy ${outcome.ship.name}!`);
-  else setScreenHint(outcome.result === "hit" ? "Direct venom hit!" : "Venom splashed the water — miss");
-  if (B.allSunk(battleship.enemy)) {
-    endBattleship(true);
-    return;
-  }
-  battleship.turn = "ai";
-  battleship.aiFireAt = performance.now() + battleshipAiDelayMs;
-  syncHud();
-  render();
+function battleshipFire(x, y) {
+  const action = { type: "battleshipFire" };
+  if (Number.isInteger(x) && Number.isInteger(y)) Object.assign(action, { x, y });
+  return dispatchBattleship(action);
 }
 
-function stepBattleship(now) {
-  if (!battleship || battleship.phase !== "playing" || battleship.turn !== "ai") return;
-  if (battleship.aiFireAt && now < battleship.aiFireAt) return;
-  const B = window.IdleSnakeBattleship;
-  const { target, outcome } = B.aiFire(battleship.ai, battleship.player, Math.random, battleshipGrid.columns);
-  if (!target) {
-    battleship.turn = "player";
-    battleship.aiFireAt = null;
-    return;
-  }
-  battleship.lastAiShot = { x: target.x, y: target.y, result: outcome.result };
-  if (outcome.result === "sunk") setScreenHint(`Enemy venom sank your ${outcome.ship.name}!`);
-  else setScreenHint(outcome.result === "hit" ? "Your snake took a venom hit!" : "Enemy venom missed you");
-  if (B.allSunk(battleship.player)) {
-    endBattleship(false);
-    return;
-  }
-  battleship.turn = "player";
-  battleship.aiFireAt = null;
+function restartBattleship() {
+  if (!dispatchBattleship({ type: "restart" })) return false;
+  timerStarted = false;
+  elapsedMs = 0;
+  stepAccumulatorMs = 0;
+  hideOverlay();
+  battleshipSetPlacementHint();
   syncHud();
-}
-
-function endBattleship(won) {
-  battleship.phase = "over";
-  battleship.result = won ? "won" : "lost";
-  state = "gameover";
-  if (won) {
-    seedsTotal += battleshipReward;
-    saveSeeds();
-    battleshipBest += 1;
-    setSaveItem("battleship-best", String(battleshipBest));
-    showOverlay(`Victory · +${formatNumber(battleshipReward)} Seeds`);
-    setScreenHint("All enemy snakes sunk · Start to play again");
-  } else {
-    showOverlay("Fleet Lost");
-    setScreenHint("Your nest was wiped out · Start to try again");
-  }
-  syncHud();
-  render();
+  return true;
 }
 
 function returnToRegularSnake() {
@@ -1753,28 +1458,13 @@ function launchVsSnake() {
   gameMode = "duel";
   setScreenHint("");
   grid = { ...duelGrid };
-  const leftLane = Math.max(0, Math.floor(grid.columns / 2) - 1);
-  const rightLane = Math.min(grid.columns - 1, leftLane + 1);
-  duelPlayer = {
-    body: [{ x: leftLane, y: grid.rows - 3 }, { x: leftLane, y: grid.rows - 2 }, { x: leftLane, y: grid.rows - 1 }],
-    direction: "up",
-    color: snakeColors.head
-  };
-  duelOpponent = {
-    body: [{ x: rightLane, y: 2 }, { x: rightLane, y: 1 }, { x: rightLane, y: 0 }],
-    direction: "down",
-    color: "#fffdf0"
-  };
-  previousDuelPlayerBody = duelPlayer.body.map((part) => ({ ...part }));
-  previousDuelOpponentBody = duelOpponent.body.map((part) => ({ ...part }));
-  duelFoods = spawnDuelFoods(5);
-  duelScore = 0;
+  const result = session.dispatch({ type: "selectMode", mode: "duel", setup: { grid, tickMs: duelTickMs, foodCount: 5 } });
+  latestSnapshot = result.snapshot;
+  latestFrameSnapshot = result.snapshot;
+  duelPlayer = null;
+  duelOpponent = null;
+  projectDuelSnapshot(result.snapshot);
   duelWinner = null;
-  direction = "up";
-  directionQueue = [];
-  state = "ready";
-  tickMs = duelTickMs;
-  elapsedMs = 0;
   stepAccumulatorMs = 0;
   timerStarted = false;
   boardMetrics = getBoardMetrics();
@@ -1788,24 +1478,13 @@ function launchMaze() {
   if (gameMode === "maze" && state !== "gameover") return;
   gameMode = "maze";
   grid = { ...mazeGrid };
-  mazeLayoutIndex = Math.floor(Math.random() * mazeLayouts.length);
-  maze = buildNibblerBoard(mazeLayoutIndex);
-  mazePath = [{ x: mazeStart.x, y: mazeStart.y }, { x: mazeStart.x - 1, y: mazeStart.y }, { x: mazeStart.x - 2, y: mazeStart.y }];
-  previousSnake = mazePath.map((part) => ({ ...part }));
-  mazeDirection = null;
-  mazeScore = 0;
-  mazeTravelDirection = null;
-  mazeChoiceDirections = [];
-  mazePendingChoices = null;
-  mazePendingEnd = null;
-  snake = mazePath;
-  spawnMazeFood();
-  direction = "up";
-  directionQueue = [];
-  state = "ready";
-  tickMs = mazeTickMs;
-  elapsedMs = 0;
-  stepAccumulatorMs = 0;
+  const result = session.dispatch({ type: "selectMode", mode: "maze", setup: { grid, tickMs: mazeTickMs } });
+  latestSnapshot = result.snapshot;
+  latestFrameSnapshot = result.snapshot;
+  maze = null;
+  mazePath = [];
+  previousSnake = [];
+  projectMazeSnapshot(result.snapshot);
   timerStarted = false;
   boardMetrics = getBoardMetrics();
   syncHud();
@@ -1820,74 +1499,19 @@ function launchCrossing() {
   if (gameMode === "crossing" && state !== "gameover") return;
   gameMode = "crossing";
   grid = { ...crossingGrid };
-  crossingEntryColumn = Math.floor(crossingGrid.columns / 2);
-  crossingSnakeLength = 3;
-  crossingStage = 1;
-  crossingScore = 0;
-  crossingPhase = "playing";
-  crossingTransitionUntil = 0;
-  direction = "up";
-  nextDirection = "up";
-  directionQueue = [];
-  state = "ready";
-  tickMs = crossingTickMs;
-  elapsedMs = 0;
-  stepAccumulatorMs = 0;
+  const result = session.dispatch({ type: "selectMode", mode: "crossing", setup: { grid, tickMs: crossingTickMs } });
+  latestSnapshot = result.snapshot;
+  latestFrameSnapshot = result.snapshot;
+  crossingSnake = null;
+  previousCrossingSnake = null;
+  crossingCars = null;
+  projectCrossingSnapshot(result.snapshot);
   timerStarted = false;
-  resetCrossingStage();
   boardMetrics = getBoardMetrics();
   syncHud();
   render();
   showOverlay("Snakeger · Ready");
   setScreenHint("Arrow keys / D-pad: cross the road");
-}
-
-function resetCrossingStage() {
-  // Enter the road vertically: the head sits on the bottom bank while the body
-  // trails off-screen below it, so only the head shows until the snake climbs.
-  // Left/right on the bank slides this entry column before committing upward.
-  const entryX = Math.min(crossingGrid.columns - 1, Math.max(0, crossingEntryColumn));
-  // Carry the persistent length across stages (only stage clears grow it).
-  crossingSnake = Array.from({ length: crossingSnakeLength }, (_, index) => ({
-    x: entryX,
-    y: crossingGrid.rows - 1 + index
-  }));
-  previousCrossingSnake = crossingSnake.map((part) => ({ ...part }));
-  crossingCars = buildCrossingCars(crossingStage);
-  crossingPhase = "playing";
-  crossingTransitionUntil = 0;
-  direction = "up";
-  nextDirection = "up";
-  directionQueue = [];
-}
-
-function buildCrossingCars(stage) {
-  const cars = [];
-  const carCount = stage >= 5 ? 3 : stage >= 3 ? 2 : 1;
-  const speedMultiplier = 1 + Math.min(1.25, (stage - 1) * 0.14);
-  const carColors = ["#182413", "#4a5b3f", "#273425", "#697c58"];
-
-  for (let row = 1; row < crossingGrid.rows - 1; row += 1) {
-    const directionName = row % 2 === 0 ? "left" : "right";
-    const directionSign = directionName === "right" ? 1 : -1;
-    const baseSpeed = (0.11 + (row % 3) * 0.018) * speedMultiplier;
-
-    for (let index = 0; index < carCount; index += 1) {
-      const width = 1 + ((row + index + stage) % 3 === 0 ? 1 : 0);
-      const spacing = crossingGrid.columns / carCount;
-      const start = (row * 2.7 + index * spacing + stage * 1.35) % crossingGrid.columns;
-      cars.push({
-        row,
-        x: directionSign > 0 ? start - width : crossingGrid.columns - start,
-        width,
-        speed: baseSpeed * directionSign,
-        direction: directionName,
-        color: carColors[(row + index) % carColors.length]
-      });
-    }
-  }
-
-  return cars;
 }
 
 function launchBreakout() {
@@ -1898,32 +1522,16 @@ function launchBreakout() {
   boardMetrics = getBoardMetrics();
   const segmentSize = Math.max(18, Math.floor(boardMetrics.width / 16));
   const gap = Math.max(2, Math.floor(segmentSize * 0.08));
-  breakout = {
-    score: 0,
-    lives: 2,
-    segmentSize,
-    gap,
-    paddle: {
-      x: 0,
-      y: boardMetrics.height - segmentSize - 10,
-      length: breakoutConfig.basePaddleLength,
-      input: 0
-    },
-    balls: [],
-    bricks: buildBreakoutLevel(boardMetrics.width),
-    powerups: [],
-    seedBoosts: [],
-    heartsCollected: 0
-  };
-  breakout.paddle.x = (boardMetrics.width - breakoutPaddleWidth()) / 2;
-  breakout.paddle.y = boardMetrics.height - segmentSize - 10;
-  breakout.balls = [buildBreakoutBall(0)];
+  const result = session.dispatch({
+    type: "selectMode",
+    mode: "breakout",
+    setup: { width: boardMetrics.width, height: boardMetrics.height, segmentSize, gap }
+  });
+  latestSnapshot = result.snapshot;
+  latestFrameSnapshot = result.snapshot;
+  projectBreakoutSnapshot(result.snapshot);
   direction = "right";
   directionQueue = [];
-  state = "ready";
-  tickMs = 16;
-  elapsedMs = 0;
-  stepAccumulatorMs = 0;
   timerStarted = false;
   syncHud();
   render();
@@ -1938,12 +1546,12 @@ function launchRunner() {
   gameMode = "runner";
   grid = { columns: 18, rows: 18 };
   boardMetrics = getBoardMetrics();
-  runner = window.IdleSnakeRunner.createState(boardMetrics.width, boardMetrics.height);
+  const result = session.dispatch({ type: "selectMode", mode: "runner", setup: { width: boardMetrics.width, height: boardMetrics.height } });
+  latestSnapshot = result.snapshot;
+  latestFrameSnapshot = result.snapshot;
+  projectRunnerSnapshot(result.snapshot);
   direction = "right";
   directionQueue = [];
-  state = "ready";
-  tickMs = 16;
-  elapsedMs = 0;
   stepAccumulatorMs = 0;
   timerStarted = false;
   syncHud();
@@ -1954,133 +1562,14 @@ function launchRunner() {
 
 function runnerJump() {
   if (!runner || state === "gameover") return false;
-  if (state === "ready") startGame();
-  return window.IdleSnakeRunner.jump(runner);
-}
-
-function buildBreakoutLevel(boardWidth) {
-  const columns = 10;
-  const rows = 5;
-  const sideMargin = 14;
-  const gap = 4;
-  const brickWidth = (boardWidth - sideMargin * 2 - gap * (columns - 1)) / columns;
-  const brickHeight = 16;
-  const colors = ["#182413", "#29391f", "#38502a", "#496536", "#5c7840"];
-  const bricks = [];
-
-  for (let row = 0; row < rows; row += 1) {
-    for (let column = 0; column < columns; column += 1) {
-      bricks.push({
-        x: sideMargin + column * (brickWidth + gap),
-        y: 24 + row * (brickHeight + gap),
-        width: brickWidth,
-        height: brickHeight,
-        color: colors[row]
-      });
-    }
-  }
-  return bricks;
-}
-
-// These helpers delegate to the headless engine (engine/breakout.js) so setup,
-// rendering, and the physics step all share one implementation.
-function breakoutPaddleWidth() {
-  return breakout ? window.IdleSnakeBreakout.paddleWidth(breakout) : 0;
-}
-
-function setBreakoutPaddleLength(length) {
-  window.IdleSnakeBreakout.setPaddleLength(breakout, length, boardMetrics.width);
-}
-
-function buildBreakoutBall(index = 0) {
-  return window.IdleSnakeBreakout.buildBall(breakout, boardMetrics.width, index);
-}
-
-function createBreakoutPowerup(type, x, y) {
-  return window.IdleSnakeBreakout.createPowerup(breakout, type, x, y);
-}
-
-const breakoutMaxHeartsPerLevel = 2;
-const breakoutSeedBoostMs = 30000;
-
-function randomBreakoutPowerupType(heartsAllowed) {
-  return window.IdleSnakeBreakout.randomPowerupType(heartsAllowed, Math.random);
-}
-
-function buildNibblerBoard(layoutIndex = 0) {
-  const open = new Set();
-  let seed = [0x1f123bb5, 0x72a4d91c, 0xc3e87a61, 0x9b4f20de][layoutIndex % 4];
-  const random = () => {
-    seed = (seed * 1664525 + 1013904223) >>> 0;
-    return seed / 4294967296;
-  };
-  const key = (x, y) => `${x},${y}`;
-  const roomCount = 5;
-  const roomSize = 3;
-  const roomStride = 4;
-  const origin = (coordinate) => 1 + coordinate * roomStride;
-  const openRoom = (roomX, roomY) => {
-    for (let x = origin(roomX); x < origin(roomX) + roomSize; x += 1) {
-      for (let y = origin(roomY); y < origin(roomY) + roomSize; y += 1) open.add(key(x, y));
-    }
-  };
-  const connectRooms = (from, to) => {
-    if (from.x !== to.x) {
-      const wallX = Math.max(origin(from.x), origin(to.x)) - 1;
-      for (let y = origin(from.y); y < origin(from.y) + roomSize; y += 1) open.add(key(wallX, y));
-    } else {
-      const wallY = Math.max(origin(from.y), origin(to.y)) - 1;
-      for (let x = origin(from.x); x < origin(from.x) + roomSize; x += 1) open.add(key(x, wallY));
-    }
-  };
-  const visited = new Set();
-  const stack = [{ x: 0, y: 0 }];
-  visited.add(key(0, 0));
-  openRoom(0, 0);
-
-  while (stack.length) {
-    const current = stack[stack.length - 1];
-    const neighbors = [
-      { x: current.x + 1, y: current.y },
-      { x: current.x - 1, y: current.y },
-      { x: current.x, y: current.y + 1 },
-      { x: current.x, y: current.y - 1 }
-    ].filter((point) => point.x >= 0 && point.x < roomCount && point.y >= 0 && point.y < roomCount && !visited.has(key(point.x, point.y)));
-    if (!neighbors.length) {
-      stack.pop();
-      continue;
-    }
-    const next = neighbors[Math.floor(random() * neighbors.length)];
-    visited.add(key(next.x, next.y));
-    openRoom(next.x, next.y);
-    connectRooms(current, next);
-    stack.push(next);
-  }
-
-  // Add a few alternate routes so the boards have arcade-style loops.
-  for (let roomY = 0; roomY < roomCount; roomY += 1) {
-    for (let roomX = 0; roomX < roomCount; roomX += 1) {
-      if (roomX + 1 < roomCount && random() < 0.2) connectRooms({ x: roomX, y: roomY }, { x: roomX + 1, y: roomY });
-      if (roomY + 1 < roomCount && random() < 0.2) connectRooms({ x: roomX, y: roomY }, { x: roomX, y: roomY + 1 });
-    }
-  }
-
-  // The launch lane is always clear and points upward into the maze.
-  [[8, 15], [9, 15], [10, 15], [10, 14]].forEach(([x, y]) => open.add(key(x, y)));
-  return { open, food: null, level: 1, foodsEaten: 0 };
-}
-
-function spawnDuelFoods(count) {
-  const foodsToPlace = [];
-  while (foodsToPlace.length < count) {
-    const point = {
-      x: Math.floor(Math.random() * duelGrid.columns),
-      y: Math.floor(Math.random() * duelGrid.rows)
-    };
-    const occupied = [...duelPlayer.body, ...duelOpponent.body, ...foodsToPlace];
-    if (!occupied.some((part) => part.x === point.x && part.y === point.y)) foodsToPlace.push(point);
-  }
-  return foodsToPlace;
+  const result = session.dispatch({ type: "direction", direction: "up" });
+  if (result.events.some((event) => event.type === "actionRejected")) return false;
+  latestSnapshot = result.snapshot;
+  latestFrameSnapshot = result.snapshot;
+  projectRunnerSnapshot(result.snapshot);
+  timerStarted = true;
+  hideOverlay();
+  return true;
 }
 
 function squareGrid(size) {
@@ -2094,10 +1583,13 @@ function readDuelGridSize() {
 
 function setDuelGridSize(size) {
   const nextSize = Number(size);
-  if (!duelGridSizes.includes(nextSize)) return;
-  selectedDuelGridSize = nextSize;
+  if (!duelGridSizes.includes(nextSize) || !session) return;
+  const result = session.dispatch({ type: "setSelectedDuelGridSize", selectedDuelGridSize: nextSize });
+  if (result.events.some((event) => event.type === "actionRejected")) return;
+  latestSnapshot = result.snapshot;
+  selectedDuelGridSize = result.snapshot.selectedDuelGridSize;
   duelGrid = squareGrid(selectedDuelGridSize);
-  setSaveItem("duel-grid-size", String(selectedDuelGridSize));
+  persistConsolidatedSave();
   if (duelGridSelect) duelGridSelect.value = String(selectedDuelGridSize);
   if (gameMode === "duel") {
     state = "gameover";
@@ -2105,145 +1597,42 @@ function setDuelGridSize(size) {
   }
 }
 
-function broodlineKey(point) { return `${point.x},${point.y}`; }
-function broodlineRandomOpen(occupied = new Set()) {
-  for (let attempt = 0; attempt < 300; attempt += 1) {
-    const point = { x: 1 + Math.floor(Math.random() * 28), y: 1 + Math.floor(Math.random() * 28) };
-    if (!occupied.has(broodlineKey(point))) return point;
-  }
-  return { x: 15, y: 15 };
-}
 function broodlineSpeciesLabel(kind) {
   return ({ garden: "Garden Snake", cave: "Cave Snake", electric: "Electric Snake", lava: "Lava Snake", rattle: "Rattle Snake", body: "Body segment", egg: "Egg" })[kind] || kind;
 }
-function broodlineHatchling(kind) { return { kind, cooldown: 0, burn: 0, poison: 0 }; }
-function broodlineRoundSize() { return 4 + Math.floor((broodline.round - 1) * 1.35); }
-function broodlineSpawnWave() {
-  const occupied = new Set([broodlineKey(broodline.head), ...broodline.chain.map((part) => broodlineKey(part.pos))]);
-  broodline.enemies = [];
-  const rangedCount = Math.max(1, Math.round(broodlineRoundSize() / 4));
-  for (let i = 0; i < broodlineRoundSize(); i += 1) {
-    const pos = broodlineRandomOpen(occupied); occupied.add(broodlineKey(pos));
-    const ranged = i < rangedCount;
-    broodline.enemies.push({ type: ranged ? "ranged" : "melee", pos, hp: ranged ? 4 : 7, maxHp: ranged ? 4 : 7, cooldown: Math.random() * 5, stun: 0, burn: 0, poison: 0, target: null });
-  }
-}
-function broodlineSpawnRound() {
-  window.IdleSnakeBroodline.spawnRound(broodline, Math.random);
-  state = "ready";
-  hideBroodlineFormation();
-  setScreenHint("Steer · attacks are automatic");
-}
 function launchBroodline() {
   gameMode = "broodline";
-  grid = broodlineGrid;
+  grid = { ...broodlineGrid };
   tickMs = broodlineTickMs;
-  broodline = { round: 1, wave: 1, pendingSeeds: 0, kills: 0, hatchlingsCollected: 0, eggsHatched: 0, armor: 0, maxArmor: 0, hp: broodlineMaxHp, maxHp: broodlineMaxHp, phase: "combat", selected: 0,
-    head: { x: 15, y: 15 }, camera: { x: 15 - broodlineView / 2, y: 15 - broodlineView / 2 }, chain: [], headColor: snakeColors.head, enemies: [], pickups: [], effects: [], direction: "right", queue: [] };
-  broodlineSpawnRound();
-  broodline.chain.forEach((part) => { part.pos = { ...part.pos }; });
+  const result = session.dispatch({ type: "selectMode", mode: "broodline", setup: { grid } });
+  latestSnapshot = result.snapshot;
+  latestFrameSnapshot = result.snapshot;
+  projectBroodlineSnapshot(result.snapshot);
+  stepAccumulatorMs = 0;
+  timerStarted = false;
+  hideBroodlineFormation();
   syncBroodlineFormation();
   syncHud();
   showOverlay("Broodline · Round 1");
+  setScreenHint("Steer · attacks are automatic");
 }
-function broodlineAddDrop(enemy) {
-  const roll = Math.random();
-  const kind = roll < .5 ? "body" : roll < .76 ? "garden" : roll < .84 ? "egg" : roll < .9 ? "cave" : roll < .95 ? "rattle" : roll < .98 ? "electric" : "lava";
-  broodline.pickups.push({ kind, pos: { ...enemy.pos } });
-}
-function broodlineDamage(enemy, damage, label) {
-  if (!enemy || enemy.hp <= 0) return;
-  enemy.hp -= damage;
-  broodline.effects.push({ pos: { ...enemy.pos }, text: label, ttl: 650 });
-  if (enemy.hp <= 0) { broodline.kills += 1; broodline.pendingSeeds += 2; if (Math.random() < .65) broodlineAddDrop(enemy); }
-}
-function broodlineNearestEnemy(pos, range, forwardOnly = false) {
-  return broodline.enemies.filter((enemy) => enemy.hp > 0 && (!forwardOnly || ((enemy.pos.x - pos.x) * vectors[broodline.direction].x + (enemy.pos.y - pos.y) * vectors[broodline.direction].y >= range.min && Math.abs(enemy.pos.x - pos.x) + Math.abs(enemy.pos.y - pos.y) <= range.max))).filter((enemy) => Math.abs(enemy.pos.x - pos.x) + Math.abs(enemy.pos.y - pos.y) <= range.max).sort((a, b) => Math.abs(a.pos.x - pos.x) + Math.abs(a.pos.y - pos.y) - (Math.abs(b.pos.x - pos.x) + Math.abs(b.pos.y - pos.y)))[0];
-}
-function broodlineManhattan(a, b) { return Math.abs(a.x - b.x) + Math.abs(a.y - b.y); }
-function broodlineOpenEnemyCell(point, enemy, reserved = new Set()) {
-  if (point.x <= 0 || point.y <= 0 || point.x >= 29 || point.y >= 29) return false;
-  if (broodline.chain.some((part) => part.pos.x === point.x && part.pos.y === point.y)) return false;
-  if (reserved.has(broodlineKey(point))) return false;
-  return !broodline.enemies.some((other) => other !== enemy && other.hp > 0 && other.pos.x === point.x && other.pos.y === point.y);
-}
-function broodlineStepToward(enemy, target, reserved) {
-  const candidates = [];
-  const dx = Math.sign(target.x - enemy.pos.x); const dy = Math.sign(target.y - enemy.pos.y);
-  if (Math.abs(target.x - enemy.pos.x) >= Math.abs(target.y - enemy.pos.y)) {
-    if (dx) candidates.push({ x: enemy.pos.x + dx, y: enemy.pos.y });
-    if (dy) candidates.push({ x: enemy.pos.x, y: enemy.pos.y + dy });
-  } else {
-    if (dy) candidates.push({ x: enemy.pos.x, y: enemy.pos.y + dy });
-    if (dx) candidates.push({ x: enemy.pos.x + dx, y: enemy.pos.y });
-  }
-  candidates.push(...vectorsToPoints(enemy.pos));
-  const next = candidates.find((point) => broodlineOpenEnemyCell(point, enemy, reserved));
-  if (next) { enemy.pos = next; reserved.add(broodlineKey(next)); }
-}
-function vectorsToPoints(pos) {
-  return Object.values(vectors).map((vector) => ({ x: pos.x + vector.x, y: pos.y + vector.y }));
-}
-function broodlineClosestBodyTarget(pos) {
-  const body = broodline.chain
-    .map((part, index) => ({ part, index }))
-    .filter(({ part }) => part.kind === "body");
-  return body.sort((a, b) => broodlineManhattan(pos, a.part.pos) - broodlineManhattan(pos, b.part.pos))[0] || { part: broodline.head, index: -1 };
-}
-function broodlineMeleeTargetCell(head, enemy) {
-  return vectorsToPoints(head)
-    .filter((point) => broodlineOpenEnemyCell(point, enemy))
-    .sort((a, b) => broodlineManhattan(enemy.pos, a) - broodlineManhattan(enemy.pos, b))[0];
-}
-function broodlineStepAway(enemy, target, reserved) {
-  const next = vectorsToPoints(enemy.pos)
-    .filter((point) => broodlineOpenEnemyCell(point, enemy, reserved))
-    .sort((a, b) => broodlineManhattan(b, target) - broodlineManhattan(a, target))[0];
-  if (next) { enemy.pos = next; reserved.add(broodlineKey(next)); }
-}
-function broodlineCollect(growthPos = broodline.chain.at(-1)?.pos || broodline.head) {
-  const head = broodline.head;
-  const index = broodline.pickups.findIndex((drop) => drop.pos.x === head.x && drop.pos.y === head.y);
-  if (index < 0) return;
-  const drop = broodline.pickups.splice(index, 1)[0];
-  const tail = { ...growthPos };
-  if (drop.kind === "egg") broodline.chain.push({ kind: "egg", pos: { ...tail }, hatchAt: 30000 });
-  else if (drop.kind === "body") broodline.chain.push({ kind: "body", pos: { ...tail } });
-  else { broodline.chain.push({ kind: drop.kind, pos: { ...tail }, cooldown: 0 }); broodline.hatchlingsCollected += 1; broodline.pendingSeeds += 1; if (drop.kind === "cave") broodline.maxArmor += 1; }
-}
-function broodlineStep() {
-  if (!broodline || broodline.phase !== "combat") return;
-  // Combat simulation delegated to the headless engine (engine/broodline.js).
-  // Host interprets the returned events for the run-end reward, wave HUD, and
-  // the round-clear formation screen.
-  const { events } = window.IdleSnakeBroodline.step(broodline, { rng: Math.random });
-  for (const event of events) {
-    if (event.type === "endRun") { broodlineEndRun(event.reason); return; }
-    if (event.type === "wave") { syncHud(); }
-    if (event.type === "roundClear") { state = "paused"; showBroodlineFormation(); }
-  }
-}
-function broodlineTakeDamage(target = "head") {
-  if (broodline.armor > 0) { broodline.armor -= 1; broodline.effects.push({ pos: { ...broodline.head }, text: "ARMOR", ttl: 700 }); return; }
-  broodline.hp = Math.max(0, broodline.hp - 1);
-  const bodyIndexes = broodline.chain.map((part, i) => part.kind === "body" ? i : -1).filter((i) => i >= 0);
-  // Body segments still get bitten off when present; the shared health bar
-  // tracks overall condition and is what actually ends the run.
-  if (bodyIndexes.length) {
-    const targetIndex = typeof target === "number" && bodyIndexes.includes(target) ? target : bodyIndexes.at(-1);
-    broodline.chain.splice(targetIndex, 1);
-  }
-  broodline.effects.push({ pos: { ...broodline.head }, text: target === "head" ? "HEAD HIT" : "SEGMENT HIT", ttl: 800 });
-  if (broodline.hp <= 0) broodlineEndRun("Overwhelmed");
-}
-function broodlineEndRun(message) { broodline.phase = "ended"; state = "gameover"; seedsTotal += broodline.pendingSeeds; saveSeeds(); syncHud(); showOverlay(`${message} · +${formatNumber(broodline.pendingSeeds)} Seeds`); hideBroodlineFormation(); }
 function showBroodlineFormation() { syncBroodlineFormation(); broodlineScreen.hidden = false; broodlineFormationStatusEl.textContent = `Round ${broodline.round} clear · ${broodline.pendingSeeds} Seeds pending`; setScreenHint("Arrange the chain, then continue"); }
 function hideBroodlineFormation() { if (broodlineScreen) broodlineScreen.hidden = true; }
-function syncBroodlineFormation() { if (!broodlineChainEl || !broodline) return; broodlineChainEl.replaceChildren(...broodline.chain.map((part, index) => { const button = document.createElement("button"); button.className = `broodline-card${index === broodline.selected ? " is-selected" : ""}`; button.type = "button"; button.innerHTML = `<span>${broodlineSpeciesLabel(part.kind).toUpperCase()}</span><small>${part.kind === "egg" ? `${Math.ceil(part.hatchAt / 1000)}s` : "slot " + (index + 1)}</small>`; button.addEventListener("click", () => { broodline.selected = index; syncBroodlineFormation(); }); return button; })); }
-function broodlineStartNext() { if (!broodline || broodline.phase !== "formation") return; broodline.round += 1; broodline.armor = broodline.maxArmor; broodline.hp = broodline.maxHp; broodlineSpawnRound(); state = "ready"; showOverlay(`Broodline · Round ${broodline.round}`); syncHud(); }
+function dispatchBroodlineFormation(action) {
+  const result = session.dispatch(action);
+  if (result.events.some((event) => event.type === "actionRejected")) return false;
+  latestSnapshot = result.snapshot;
+  latestFrameSnapshot = result.snapshot;
+  projectBroodlineSnapshot(result.snapshot);
+  interpretSessionEvents(result.events);
+  syncBroodlineFormation();
+  syncHud();
+  return true;
+}
+function syncBroodlineFormation() { if (!broodlineChainEl || !broodline) return; broodlineChainEl.replaceChildren(...broodline.chain.map((part, index) => { const button = document.createElement("button"); button.className = `broodline-card${index === broodline.selected ? " is-selected" : ""}`; button.type = "button"; button.innerHTML = `<span>${broodlineSpeciesLabel(part.kind).toUpperCase()}</span><small>${part.kind === "egg" ? `${Math.ceil(part.hatchAt / 1000)}s` : "slot " + (index + 1)}</small>`; button.addEventListener("click", () => dispatchBroodlineFormation({ type: "broodlineSelect", index })); return button; })); }
 
 function isMinigameMode() {
-  return ["duel", "maze", "breakout", "runner", "crossing", "snakebird", "sokoban", "broodline", "battleship"].includes(gameMode);
+  return ["duel", "maze", "breakout", "runner", "crossing", "snakebird", "sokoban", "broodline", "battleship", "centipede"].includes(gameMode);
 }
 
 function restartCurrentMinigame() {
@@ -2263,7 +1652,9 @@ function restartCurrentMinigame() {
     state = "gameover";
     launchCrossing();
   } else if (gameMode === "snakebird") {
-    loadSnakebirdLevel(snakebird?.nextLevelIndex ?? snakebird?.levelIndex ?? 0);
+    loadSnakebirdLevel(snakebird?.result === "won"
+      ? pickRandomSnakebirdLevel(snakebird.levelIndex)
+      : snakebird?.levelIndex ?? 0);
   } else if (gameMode === "sokoban") {
     const nextStage = sokoban?.result === "won"
       ? (sokoban.stageIndex + 1) % sokobanLevels.length
@@ -2272,14 +1663,16 @@ function restartCurrentMinigame() {
   } else if (gameMode === "broodline") {
     launchBroodline();
   } else if (gameMode === "battleship") {
+    restartBattleship();
+  } else if (gameMode === "centipede") {
     state = "gameover";
-    launchBattleship();
+    launchCentipede();
   }
 }
 
 function startGame() {
   if (gameMode === "battleship") {
-    if (state === "gameover") { launchBattleship(); return; }
+    if (state === "gameover") { restartBattleship(); return; }
     if (!battleship) return;
     if (battleship.phase === "placement") {
       if (battleshipCurrentDef()) battleshipPlaceCurrent();
@@ -2291,8 +1684,12 @@ function startGame() {
   }
   if (gameMode === "snakebird") {
     if (state === "gameover") restartCurrentMinigame();
-    if (state !== "running") {
-      state = "running";
+    if (state === "ready") {
+      const result = session.dispatch({ type: "begin" });
+      if (result.events.some((event) => event.type === "actionRejected")) return;
+      latestSnapshot = result.snapshot;
+      latestFrameSnapshot = result.snapshot;
+      projectSnakebirdSnapshot(result.snapshot);
       timerStarted = true;
       lastFrameAt = performance.now();
       stepAccumulatorMs = 0;
@@ -2309,8 +1706,12 @@ function startGame() {
         : sokoban?.stageIndex || 0;
       loadSokobanLevel(nextStage);
     }
-    if (state !== "running") {
-      state = "running";
+    if (state === "ready") {
+      const result = session.dispatch({ type: "begin" });
+      if (result.events.some((event) => event.type === "actionRejected")) return;
+      latestSnapshot = result.snapshot;
+      latestFrameSnapshot = result.snapshot;
+      projectSokobanSnapshot(result.snapshot);
       timerStarted = true;
       lastFrameAt = performance.now();
       stepAccumulatorMs = 0;
@@ -2323,13 +1724,29 @@ function startGame() {
   if (gameMode === "broodline") {
     if (state === "gameover") launchBroodline();
     if (broodline?.phase === "formation") return;
-    if (state !== "running") { state = "running"; timerStarted = true; lastFrameAt = performance.now(); stepAccumulatorMs = 0; syncHud(); hideOverlay(); }
+    if (state === "ready") {
+      const result = session.dispatch({ type: "begin" });
+      if (result.events.some((event) => event.type === "actionRejected")) return;
+      latestSnapshot = result.snapshot;
+      latestFrameSnapshot = result.snapshot;
+      projectBroodlineSnapshot(result.snapshot);
+      timerStarted = true;
+      lastFrameAt = performance.now();
+      stepAccumulatorMs = 0;
+      syncHud();
+      hideOverlay();
+      setScreenHint("Steer · attacks are automatic");
+    }
     return;
   }
   if (gameMode === "breakout") {
     if (state === "gameover") launchBreakout();
-    if (state !== "running") {
-      state = "running";
+    if (state === "ready") {
+      const result = session.dispatch({ type: "begin" });
+      if (result.events.some((event) => event.type === "actionRejected")) return;
+      latestSnapshot = result.snapshot;
+      latestFrameSnapshot = result.snapshot;
+      projectBreakoutSnapshot(result.snapshot);
       timerStarted = true;
       lastFrameAt = performance.now();
       stepAccumulatorMs = 0;
@@ -2340,8 +1757,12 @@ function startGame() {
   }
   if (gameMode === "centipede") {
     if (state === "gameover") launchCentipede();
-    if (state !== "running") {
-      state = "running";
+    if (state === "ready") {
+      const result = session.dispatch({ type: "begin" });
+      if (result.events.some((event) => event.type === "actionRejected")) return;
+      latestSnapshot = result.snapshot;
+      latestFrameSnapshot = result.snapshot;
+      projectCentipedeSnapshot(result.snapshot);
       timerStarted = true;
       lastFrameAt = performance.now();
       stepAccumulatorMs = 0;
@@ -2353,8 +1774,12 @@ function startGame() {
   }
   if (gameMode === "runner") {
     if (state === "gameover") launchRunner();
-    if (state !== "running") {
-      state = "running";
+    if (state === "ready") {
+      const result = session.dispatch({ type: "begin" });
+      if (result.events.some((event) => event.type === "actionRejected")) return;
+      latestSnapshot = result.snapshot;
+      latestFrameSnapshot = result.snapshot;
+      projectRunnerSnapshot(result.snapshot);
       timerStarted = true;
       lastFrameAt = performance.now();
       stepAccumulatorMs = 0;
@@ -2365,21 +1790,28 @@ function startGame() {
   }
   if (gameMode === "crossing") {
     if (state === "gameover") launchCrossing();
-    if (state !== "running") {
-      state = "running";
-      timerStarted = true;
-      lastFrameAt = performance.now();
-      stepAccumulatorMs = 0;
-      syncHud();
-      hideOverlay();
-      setScreenHint("Reach the top bank");
-    }
+    if (state !== "ready") return;
+    const result = session.dispatch({ type: "begin" });
+    if (result.events.some((event) => event.type === "actionRejected")) return;
+    latestSnapshot = result.snapshot;
+    latestFrameSnapshot = result.snapshot;
+    projectCrossingSnapshot(result.snapshot);
+    timerStarted = true;
+    lastFrameAt = performance.now();
+    stepAccumulatorMs = 0;
+    syncHud();
+    hideOverlay();
+    setScreenHint("Reach the top bank");
     return;
   }
   if (gameMode === "maze") {
     if (state === "gameover") launchMaze();
-    if (state !== "running") {
-      state = "running";
+    if (state === "ready") {
+      const result = session.dispatch({ type: "begin" });
+      if (result.events.some((event) => event.type === "actionRejected")) return;
+      latestSnapshot = result.snapshot;
+      latestFrameSnapshot = result.snapshot;
+      projectMazeSnapshot(result.snapshot);
       timerStarted = true;
       lastFrameAt = performance.now();
       stepAccumulatorMs = 0;
@@ -2391,7 +1823,12 @@ function startGame() {
   }
   if (gameMode === "duel") {
     if (state === "gameover") launchVsSnake();
-    state = "running";
+    if (state !== "ready") return;
+    const result = session.dispatch({ type: "begin" });
+    if (result.events.some((event) => event.type === "actionRejected")) return;
+    latestSnapshot = result.snapshot;
+    latestFrameSnapshot = result.snapshot;
+    projectDuelSnapshot(result.snapshot);
     timerStarted = true;
     lastFrameAt = performance.now();
     stepAccumulatorMs = 0;
@@ -2403,8 +1840,13 @@ function startGame() {
     freshGame();
   }
   if (state !== "running") {
-    session.dispatch({ type: "begin" });
-    state = "running";
+    // Unlike steering, keypad Start does not provide a turn to react with.
+    // Give it half a movement tick of extra lead-in before the opening move.
+    const result = session.dispatch({ type: "begin", initialDelayMs: tickMs / 2 });
+    if (result.events.some((event) => event.type === "actionRejected")) return;
+    latestSnapshot = result.snapshot;
+    mirrorSnakeFromSnapshot(result.snapshot);
+    state = result.snapshot.phase;
     timerStarted = true;
     lastFrameAt = performance.now();
     stepAccumulatorMs = 0;
@@ -2450,6 +1892,7 @@ function readNursery() {
       })(),
       hatchlings,
       colonyCount: clampNumber(saved.colonyCount, 0, Number.MAX_SAFE_INTEGER, 0),
+      resupplyEggHolding: Math.floor(clampNumber(saved.resupplyEggHolding, 0, Number.MAX_SAFE_INTEGER, 0)),
       lastUpdatedAt: Number.isFinite(Number(saved.lastUpdatedAt)) ? Number(saved.lastUpdatedAt) : Date.now(),
       seedTickAccumulatorMs: clampNumber(saved.seedTickAccumulatorMs, 0, nurseryConfig.seedIntervalMs, 0),
       movementAccumulatorMs: clampNumber(saved.movementAccumulatorMs, 0, nurseryConfig.moveIntervalMs, 0)
@@ -2506,128 +1949,6 @@ function saveHabitats() {
   setSaveItem("habitats", JSON.stringify(habitats));
 }
 
-function updateNursery(now) {
-  if (!Number.isFinite(nursery.lastUpdatedAt)) {
-    nursery.lastUpdatedAt = now;
-    return false;
-  }
-
-  if (now <= nursery.lastUpdatedAt) return false;
-
-  let changed = false;
-  const previous = nursery.lastUpdatedAt;
-  const hatchAt = nursery.nestStartedAt === null
-    ? null
-    : nursery.nestStartedAt + nurseryConfig.eggHatchMs;
-
-  if (hatchAt !== null && hatchAt > previous && hatchAt <= now) {
-    changed = advanceNursery(hatchAt - previous) || changed;
-    if (nursery.hatchlings.length < nurseryConfig.capacity) {
-      nursery.hatchlings.push(createHatchling());
-    }
-    nursery.nestStartedAt = null;
-    nursery.seedTickAccumulatorMs = 0;
-    nursery.lastUpdatedAt = hatchAt;
-    changed = true;
-    changed = advanceNursery(now - hatchAt) || changed;
-  } else {
-    changed = advanceNursery(now - previous) || changed;
-  }
-
-  nursery.lastUpdatedAt = now;
-  if (changed) {
-    saveSeeds();
-    saveNursery();
-  }
-
-  return changed;
-}
-
-function advanceNursery(deltaMs) {
-  if (deltaMs <= 0) return false;
-
-  let changed = false;
-  if (nursery.hatchlings.length === 0) {
-    nursery.seedTickAccumulatorMs = 0;
-    nursery.movementAccumulatorMs = 0;
-    return false;
-  }
-
-  nursery.seedTickAccumulatorMs += deltaMs;
-  while (nursery.seedTickAccumulatorMs >= nurseryConfig.seedIntervalMs && nursery.hatchlings.length > 0) {
-    const activeCount = nursery.hatchlings.length;
-    if (seedsTotal < activeCount) {
-      nursery.seedTickAccumulatorMs = 0;
-      break;
-    }
-
-    seedsTotal -= activeCount;
-    nursery.seedTickAccumulatorMs -= nurseryConfig.seedIntervalMs;
-    nursery.hatchlings.forEach((hatchling) => {
-      hatchling.progressMs = Math.min(nurseryConfig.growthMs, hatchling.progressMs + nurseryConfig.seedIntervalMs);
-    });
-    changed = true;
-
-    const graduates = nursery.hatchlings.filter((hatchling) => hatchling.progressMs >= nurseryConfig.growthMs);
-    if (graduates.length > 0) {
-      nursery.colonyCount += graduates.length;
-      nursery.hatchlings = nursery.hatchlings.filter((hatchling) => hatchling.progressMs < nurseryConfig.growthMs);
-      changed = true;
-    }
-  }
-
-  if (nursery.hatchlings.length === 0) {
-    nursery.seedTickAccumulatorMs = 0;
-    nursery.movementAccumulatorMs = 0;
-    return changed;
-  }
-
-  nursery.movementAccumulatorMs += deltaMs;
-  let moveCount = 0;
-  while (nursery.movementAccumulatorMs >= nurseryConfig.moveIntervalMs && moveCount < 48) {
-    moveHatchlings();
-    nursery.movementAccumulatorMs -= nurseryConfig.moveIntervalMs;
-    moveCount += 1;
-    changed = true;
-  }
-
-  return changed;
-}
-
-function createHatchling() {
-  const index = nursery.hatchlings.length;
-  return {
-    id: `hatchling-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-    x: index === 0 ? 2 : nurseryConfig.columns - 3,
-    y: index === 0 ? 4 : nurseryConfig.rows - 5,
-    direction: index % 2 === 0 ? "right" : "left",
-    progressMs: 0
-  };
-}
-
-function moveHatchlings() {
-  nursery.hatchlings.forEach((hatchling) => {
-    const choices = Object.keys(vectors).filter((directionName) => {
-      const vector = vectors[directionName];
-      const point = { x: hatchling.x + vector.x, y: hatchling.y + vector.y };
-      return point.x >= 0 && point.x < nurseryConfig.columns && point.y >= 0 && point.y < nurseryConfig.rows;
-    });
-    if (choices.length === 0) return;
-
-    const currentVector = vectors[hatchling.direction];
-    const straight = currentVector
-      ? { x: hatchling.x + currentVector.x, y: hatchling.y + currentVector.y }
-      : null;
-    const canContinue = straight && straight.x >= 0 && straight.x < nurseryConfig.columns && straight.y >= 0 && straight.y < nurseryConfig.rows;
-    if (!canContinue || Math.random() < 0.24) {
-      hatchling.direction = choices[Math.floor(Math.random() * choices.length)];
-    }
-
-    const vector = vectors[hatchling.direction];
-    hatchling.x = Math.max(0, Math.min(nurseryConfig.columns - 1, hatchling.x + vector.x));
-    hatchling.y = Math.max(0, Math.min(nurseryConfig.rows - 1, hatchling.y + vector.y));
-  });
-}
 
 function buildNurseryGrid() {
   nurseryCells = [];
@@ -2687,6 +2008,7 @@ function hatchlingLength(progressMs) {
 }
 
 function buildHabitatList() {
+  habitatListEl.replaceChildren();
   habitatCardRefs = habitatConfig.habitats.map((habitat, index) => {
     const card = document.createElement("article");
     card.className = "habitat-card";
@@ -2749,43 +2071,11 @@ function habitatMultiplier(habitat, snakeCount) {
   }, 1);
 }
 
-function habitatIncomePerSecond(habitat, snakeCount) {
-  const foodMultiplier = habitatConfig.income.foodValueMultiplier ? currentFoodType().value : 1;
-  return habitatConfig.income.basePerSecond
-    * habitat.incomeMultiplier
-    * foodMultiplier
-    * habitatMultiplier(habitat, snakeCount);
-}
 
-function totalHabitatIncomePerSecond() {
-  return window.IdleSnakeEconomy.calculateHabitatActivation(
-    habitats.counts, currentFoodType().value, notablesState, habitats.upgradeLevels).incomePerSecond;
-}
-
-// The slice of total habitat income that also counts toward egg progress
-// (Provisions habitats only). The remainder is plain Seeds: income only.
 function totalProvisionsPerSecond() {
   return window.IdleSnakeEconomy.calculateHabitatActivation(
-    habitats.counts, currentFoodType().value, notablesState, habitats.upgradeLevels).provisionsProducedPerSecond;
-}
-
-function updateHabitatIncome(now) {
-  if (!Number.isFinite(habitats.lastUpdatedAt)) {
-    habitats.lastUpdatedAt = now;
-    saveHabitats();
-    return false;
-  }
-  if (now <= habitats.lastUpdatedAt) return false;
-
-  const deltaMs = now - habitats.lastUpdatedAt;
-  const income = totalHabitatIncomePerSecond() * deltaMs / 1000;
-  habitats.lastUpdatedAt = now;
-  if (income > 0) {
-    seedsTotal = Math.round((seedsTotal + income) * 10000) / 10000;
-    saveSeeds();
-  }
-  saveHabitats();
-  return income > 0;
+    habitats.counts, currentFoodType().value, notablesState, habitats.upgradeLevels
+  ).provisionsProducedPerSecond;
 }
 
 function renderHabitats() {
@@ -3009,11 +2299,9 @@ function syncHatchlingRows() {
 function layEgg() {
   if (!session) return;
   const now = Date.now();
-  if (seedsTotal !== sessionLastSeeds) session.dispatch({ type: "syncSeeds", seeds: seedsTotal });
   const { snapshot, events } = session.dispatch({ type: "layEgg" });
   if (events.some((e) => e.type === "actionRejected")) return;
   seedsTotal = snapshot.seeds;
-  sessionLastSeeds = seedsTotal;
   mirrorEconomyFromWorld(now, snapshot);
   saveSeeds();
   saveNursery();
@@ -3040,6 +2328,7 @@ function mirrorEconomyFromWorld(now, snapshot) {
   nursery.eggHatchDurationMs = en.eggHatchDurationMs;
   nursery.eggProgress = en.eggProgress;
   nursery.eggsStarted = en.eggsStarted;
+  nursery.resupplyEggHolding = en.resupplyEggHolding;
   nursery.nestStartedAt = en.eggElapsedMs == null ? null : now - en.eggElapsedMs;
   nursery.hatchlings = en.hatchlings;
   nursery.colonyCount = en.colonyCount;
@@ -3050,26 +2339,18 @@ function mirrorEconomyFromWorld(now, snapshot) {
   habitats.upgradeLevels = snap.habitats.upgradeLevels.slice();
   habitats.lastUpdatedAt = now;
   notablesState = window.IdleSnakeNotables.createState(snap.notables);
-  consolidatedSave.notables = { ...notablesState };
-  consolidatedSave.migration = structuredClone(snap.migration);
-  consolidatedSave.tradeRoutes = structuredClone(snap.tradeRoutes || []);
-  consolidatedSave.activeResupplyMissions = structuredClone(snap.activeResupplyMissions || []);
-  consolidatedSave.completedResupplyMissions = structuredClone(snap.completedResupplyMissions || []);
-  consolidatedSave.nextResupplyMissionId = snap.nextResupplyMissionId || 1;
   provisionsTotal = snap.provisions;
   branchesTotal = snap.branches;
   const upgradeStateChanged = JSON.stringify(upgrades) !== JSON.stringify(snap.upgrades);
   upgrades = { ...snap.upgrades };
   selectedBoardLevel = Math.min(upgrades.boardLevel, Math.max(0, Number(snap.selectedBoardLevel) || 0));
   if (upgradeStateChanged) boardOptionsBuiltForLevel = -1;
-  consolidatedSave.upgrades = { ...upgrades };
-  consolidatedSave.board = { ...consolidatedSave.board, selectedBoardLevel };
 }
 
 // Advance the idle economy on the unified clock. Called every frame from
 // gameLoop with the real wall-clock delta (so it also catches up after the tab
-// is throttled in the background); offline-across-reload is handled at load by
-// IdleSnakeSave.hydrate. Absorbs gameplay seed changes before ticking and
+// is throttled in the background); offline-across-reload is handled during
+// session initialization. Absorbs gameplay seed changes before ticking and
 // writes the result back, then mirrors to the UI globals.
 function tickIdleWorld() {
   if (!session) return [];
@@ -3077,32 +2358,20 @@ function tickIdleWorld() {
   const dt = idleLastWallAt == null ? 0 : now - idleLastWallAt;
   idleLastWallAt = now;
   if (dt <= 0) return [];
-  // Reconcile host-owned shared state into the session before ticking, but only
-  // when it actually changed (each dispatch clones a snapshot). Seeds are still
-  // awarded/spent by not-yet-migrated gameplay; upgrades are still purchased
-  // host-side (economy food value depends on them); best comes from gameplay.
-  // While a still-host-driven minigame is active, keep the session's snake run
-  // from stepping in the background (economy still ticks). Removed in Phase 1.4
-  // once every mode runs in the session.
-  if (gameMode !== "snake" && latestSnapshot && latestSnapshot.phase === "running") session.dispatch({ type: "pause" });
-  if (seedsTotal !== sessionLastSeeds) session.dispatch({ type: "syncSeeds", seeds: seedsTotal });
-  if (best !== sessionLastBest) { session.dispatch({ type: "syncBest", best }); sessionLastBest = best; }
-  const upgradesJson = JSON.stringify(upgrades);
-  if (upgradesJson !== sessionLastUpgradesJson) { session.dispatch({ type: "setUpgrades", upgrades }); sessionLastUpgradesJson = upgradesJson; }
-  const { snapshot, events } = session.tick(dt);
-  latestSnapshot = snapshot;
+  const { snapshot, events } = session.tick(dt, { snapshot: "frame" });
+  latestFrameSnapshot = snapshot;
   recordBoardMastery(snapshot);
   seedsTotal = snapshot.seeds;
   provisionsTotal = snapshot.provisions;
   branchesTotal = snapshot.branches;
-  sessionLastSeeds = seedsTotal;
   best = snapshot.best;
-  sessionLastBest = best;
-  mirrorEconomyFromWorld(now, snapshot);
   if (events.some((item) => item.type === "NOTABLE_GENERATED")) showNotablesMenu();
-  // Persist on the old ~250ms cadence (writes are debounced/coalesced anyway).
+  // Full snapshots and heavyweight browser mirrors share a bounded cadence;
+  // gameplay and the immediate HUD above still advance every animation frame.
   if (now - idleLastPersistAt >= 250) {
     idleLastPersistAt = now;
+    latestSnapshot = session.snapshot();
+    mirrorEconomyFromWorld(now, latestSnapshot);
     saveSeeds();
     saveProvisions();
     saveBranches();
@@ -3309,36 +2578,36 @@ function recordBoardMastery(snapshot) {
   mirrorEconomyFromWorld(Date.now(), reward.snapshot);
   if (reward.events.some((item) => item.type === "NOTABLE_GENERATED")) showNotablesMenu();
   boardMastery[size] = true;
-  consolidatedSave.board.mastery = { ...boardMastery };
   boardOptionsBuiltForLevel = -1;
   persistConsolidatedSave();
   syncUpgradeMenu();
 }
 
-// Rebuild the session from the current consolidatedSave (used at boot and after a
-// save import). createGameSession anchors the offline clock to the save's
-// savedAt; advanceOffline then credits idle income for the time the app was
-// closed. Finally mirror the economy into the UI globals.
-function initIdleWorld() {
-  if (!window.IdleSnakeSession) return;
-  session = window.IdleSnakeSession.createGameSession({ save: consolidatedSave, now: Date.now(), rng: Math.random });
-  const { snapshot } = session.advanceOffline(Date.now());
-  latestSnapshot = snapshot;
+function initializeSessionClocks(snapshot) {
   idleLastWallAt = Date.now();
   idleLastPersistAt = idleLastWallAt;
   seedsTotal = snapshot.seeds;
   provisionsTotal = snapshot.provisions;
   branchesTotal = snapshot.branches;
-  sessionLastSeeds = seedsTotal;
   best = snapshot.best;
-  sessionLastBest = best;
   mirrorEconomyFromWorld(idleLastWallAt, snapshot);
+}
+
+// Hydrate the authoritative envelope at boot and perform offline catch-up once.
+function initIdleWorld() {
+  if (!window.IdleSnakeSession) return;
+  const now = Date.now();
+  session = window.IdleSnakeSession.createGameSession({ save: loadedSaveEnvelope, now, rng: Math.random, mobileControlsDefault: defaultMobileControls() });
+  const { snapshot } = session.advanceOffline(now);
+  latestSnapshot = snapshot;
+  applySessionSnapshot(snapshot, loadedSaveEnvelope.savedAt);
+  initializeSessionClocks(snapshot);
   if (snapshot.notables.pending.length) showNotablesMenu();
 }
 
 // Copy the session's snake run into the legacy globals the renderer reads.
-// modeAccumulatorMs/elapsedMs come straight from the snapshot so the existing
-// interpolation (interpolatedPoint) and HUD timer keep working unchanged.
+// modeAccumulatorMs/elapsedMs come straight from the snapshot so the HUD timer
+// keeps working unchanged.
 function mirrorSnakeFromSnapshot(snap) {
   if (!snap || snap.mode !== "snake" || !snap.active) return;
   const a = snap.active;
@@ -3354,6 +2623,301 @@ function mirrorSnakeFromSnapshot(snap) {
   elapsedMs = snap.elapsedMs;
 }
 
+// Puzzle renderers keep their legacy-shaped display records, but those records
+// are projections rather than aliases of the authoritative session snapshot.
+// Sets must be rebuilt explicitly: JSON cloning would silently lose them.
+function clonePuzzlePoints(points) {
+  return Array.isArray(points) ? points.map((point) => ({ ...point })) : [];
+}
+
+function projectSnakebirdSnapshot(snap) {
+  if (!snap || snap.mode !== "snakebird" || !snap.active) return;
+  const active = snap.active;
+  snakebird = {
+    ...active,
+    body: clonePuzzlePoints(active.body),
+    fruits: new Set(active.fruits || []),
+    solids: new Set(active.solids || []),
+    exit: active.exit ? { ...active.exit } : null,
+    definition: active.definition ? { ...active.definition, map: [...(active.definition.map || [])] } : null
+  };
+  if (snap.snakebirdProgress) {
+    snakebirdProgress = {
+      ...snap.snakebirdProgress,
+      clearedLevels: [...(snap.snakebirdProgress.clearedLevels || [])],
+      bestMoves: [...(snap.snakebirdProgress.bestMoves || [])]
+    };
+  }
+  seedsTotal = snap.seeds;
+  state = snap.phase;
+  grid = { columns: snakebird.width, rows: snakebird.height };
+  elapsedMs = snap.elapsedMs;
+}
+
+function projectSokobanSnapshot(snap) {
+  if (!snap || snap.mode !== "sokoban" || !snap.active) return;
+  const active = snap.active;
+  sokoban = {
+    ...active,
+    walls: new Set(active.walls || []),
+    snake: clonePuzzlePoints(active.snake),
+    previousSnake: clonePuzzlePoints(active.previousSnake),
+    crates: clonePuzzlePoints(active.crates),
+    previousCrates: clonePuzzlePoints(active.previousCrates),
+    goals: clonePuzzlePoints(active.goals),
+    plates: clonePuzzlePoints(active.plates),
+    gates: clonePuzzlePoints(active.gates),
+    pellets: clonePuzzlePoints(active.pellets),
+    definition: active.definition ? { ...active.definition, map: [...(active.definition.map || [])], snake: clonePuzzlePoints(active.definition.snake), crates: clonePuzzlePoints(active.definition.crates), goals: clonePuzzlePoints(active.definition.goals), pellets: clonePuzzlePoints(active.definition.pellets), plates: clonePuzzlePoints(active.definition.plates), gates: clonePuzzlePoints(active.definition.gates) } : null
+  };
+  seedsTotal = snap.seeds;
+  state = snap.phase;
+  grid = { columns: sokoban.width, rows: sokoban.height };
+  elapsedMs = snap.elapsedMs;
+}
+
+function projectRunnerSnapshot(snap) {
+  if (!snap || snap.mode !== "runner" || !snap.active) return;
+  runner = {
+    ...snap.active,
+    player: { ...snap.active.player },
+    obstacles: (snap.active.obstacles || []).map((obstacle) => ({ ...obstacle }))
+  };
+  state = snap.phase;
+  elapsedMs = snap.elapsedMs;
+  tickMs = snap.active.tickMs || 16;
+  stepAccumulatorMs = snap.modeAccumulatorMs || 0;
+  seedsTotal = snap.seeds;
+  if (snap.records) {
+    const projectedBest = Math.max(0, Number(snap.records.runnerBest) || 0);
+    if (projectedBest !== runnerBest) {
+      runnerBest = projectedBest;
+      setSaveItem("runner-best", String(runnerBest));
+    }
+  }
+}
+
+function projectBattleshipSnapshot(snap) {
+  if (!snap || snap.mode !== "battleship" || !snap.active) return;
+  battleship = structuredClone(snap.active);
+  grid = { ...battleship.grid };
+  state = snap.phase;
+  elapsedMs = snap.elapsedMs;
+  stepAccumulatorMs = snap.modeAccumulatorMs || 0;
+  seedsTotal = snap.seeds;
+  if (snap.records) {
+    const projectedBest = Math.max(0, Number(snap.records.battleshipBest) || 0);
+    if (projectedBest !== battleshipBest) {
+      battleshipBest = projectedBest;
+      setSaveItem("battleship-best", String(battleshipBest));
+    }
+  }
+}
+
+function dispatchBattleship(action) {
+  if (!session || gameMode !== "battleship") return false;
+  const result = session.dispatch(action);
+  const rejected = result.events.find((event) => event.type === "actionRejected");
+  if (rejected) {
+    const hints = {
+      invalidPlacement: "Snakes can't overlap — pick another spot",
+      fleetIncomplete: "Place every snake before starting the battle",
+      repeatTarget: "You already struck there — aim somewhere new",
+      notPlayerTurn: "Wait for the enemy venom strike"
+    };
+    if (hints[rejected.reason]) setScreenHint(hints[rejected.reason]);
+    return false;
+  }
+  latestSnapshot = result.snapshot;
+  latestFrameSnapshot = result.snapshot;
+  projectBattleshipSnapshot(result.snapshot);
+  interpretSessionEvents(result.events);
+  if (battleship?.phase === "placement") battleshipSetPlacementHint();
+  syncHud();
+  render();
+  return true;
+}
+
+function projectBreakoutSnapshot(snap) {
+  if (!snap || snap.mode !== "breakout" || !snap.active) return;
+  const active = snap.active;
+  const brickColors = ["#182413", "#29391f", "#38502a", "#496536", "#5c7840"];
+  breakout = {
+    ...active,
+    board: { ...active.board },
+    paddle: { ...active.paddle },
+    balls: (active.balls || []).map((ball) => ({ ...ball })),
+    bricks: (active.bricks || []).map((brick) => ({
+      ...brick,
+      color: brick.color || brickColors[Math.max(0, Math.min(brickColors.length - 1, Math.round((brick.y - 58) / 20)))]
+    })),
+    powerups: (active.powerups || []).map((powerup) => ({ ...powerup })),
+    seedBoosts: (active.seedBoosts || []).map((boost) => ({ ...boost }))
+  };
+  state = snap.phase;
+  elapsedMs = snap.elapsedMs;
+  tickMs = 16;
+  stepAccumulatorMs = snap.modeAccumulatorMs || 0;
+  seedsTotal = snap.seeds;
+  if (snap.records) {
+    const projectedBest = Math.max(0, Number(snap.records.breakoutBest) || 0);
+    if (projectedBest !== breakoutBest) breakoutBest = projectedBest;
+  }
+}
+
+function setBreakoutAxis(value) {
+  if (!session || gameMode !== "breakout") return false;
+  const result = session.dispatch({ type: "setInputAxis", axis: "x", value });
+  if (result.events.some((event) => event.type === "actionRejected")) return false;
+  latestSnapshot = result.snapshot;
+  latestFrameSnapshot = result.snapshot;
+  projectBreakoutSnapshot(result.snapshot);
+  return true;
+}
+
+function projectDuelSnapshot(snap) {
+  if (!snap || snap.mode !== "duel" || !snap.active) return;
+  const active = snap.active;
+  const nextPlayerBody = (active.player?.body || []).map((part) => ({ ...part }));
+  const nextOpponentBody = (active.opponent?.body || []).map((part) => ({ ...part }));
+  const playerMoved = Boolean(duelPlayer) && (duelPlayer.body.length !== nextPlayerBody.length ||
+    (duelPlayer.body[0] && nextPlayerBody[0] && (duelPlayer.body[0].x !== nextPlayerBody[0].x || duelPlayer.body[0].y !== nextPlayerBody[0].y)));
+  if (playerMoved) {
+    previousDuelPlayerBody = duelPlayer.body.map((part) => ({ ...part }));
+    previousDuelOpponentBody = duelOpponent.body.map((part) => ({ ...part }));
+  } else if (!duelPlayer) {
+    previousDuelPlayerBody = nextPlayerBody.map((part) => ({ ...part }));
+    previousDuelOpponentBody = nextOpponentBody.map((part) => ({ ...part }));
+  }
+  duelPlayer = { ...active.player, body: nextPlayerBody, color: snakeColors.head };
+  duelOpponent = { ...active.opponent, body: nextOpponentBody, color: "#fffdf0" };
+  duelFoods = (active.foods || []).map((food) => ({ ...food }));
+  duelScore = active.score || 0;
+  direction = active.direction;
+  nextDirection = active.nextDirection;
+  directionQueue = [...(active.directionQueue || [])];
+  grid = { ...active.grid };
+  state = snap.phase;
+  elapsedMs = snap.elapsedMs;
+  tickMs = active.tickMs || duelTickMs;
+  stepAccumulatorMs = snap.modeAccumulatorMs || 0;
+  seedsTotal = snap.seeds;
+}
+
+function projectMazeSnapshot(snap) {
+  if (!snap || snap.mode !== "maze" || !snap.active) return;
+  const active = snap.active;
+  const nextPath = clonePuzzlePoints(active.path);
+  const moved = mazePath?.length > 0 && (mazePath.length !== nextPath.length ||
+    (mazePath[0] && nextPath[0] && (mazePath[0].x !== nextPath[0].x || mazePath[0].y !== nextPath[0].y)));
+  if (moved) previousSnake = clonePuzzlePoints(mazePath);
+  else if (!mazePath?.length) previousSnake = clonePuzzlePoints(nextPath);
+  mazePath = nextPath;
+  maze = {
+    open: new Set(active.open || []),
+    food: active.food ? { ...active.food } : null,
+    foodsEaten: active.foodsEaten,
+    level: active.level
+  };
+  snake = mazePath;
+  mazeScore = active.score || 0;
+  direction = active.direction;
+  nextDirection = active.directionQueue?.at(-1) || active.direction;
+  directionQueue = [...(active.directionQueue || [])];
+  grid = { ...active.grid };
+  state = snap.phase;
+  elapsedMs = snap.elapsedMs;
+  tickMs = active.tickMs || mazeTickMs;
+  stepAccumulatorMs = snap.modeAccumulatorMs || 0;
+  seedsTotal = snap.seeds;
+  if (snap.records) {
+    const projectedBest = Math.max(0, Number(snap.records.mazeBest) || 0);
+    if (projectedBest !== mazeBest) {
+      mazeBest = projectedBest;
+      setSaveItem("maze-best", String(mazeBest));
+    }
+  }
+}
+
+function projectCrossingSnapshot(snap) {
+  if (!snap || snap.mode !== "crossing" || !snap.active) return;
+  const active = snap.active;
+  const nextSnake = clonePuzzlePoints(active.snake);
+  const stageChanged = crossingStage != null && crossingStage !== active.stage;
+  const phaseChanged = crossingPhase != null && crossingPhase !== active.subphase;
+  const moved = crossingSnake?.length > 0 && (crossingSnake.length !== nextSnake.length ||
+    (crossingSnake[0] && nextSnake[0] && (crossingSnake[0].x !== nextSnake[0].x || crossingSnake[0].y !== nextSnake[0].y)));
+  // Stage boundaries and the clearing hold are intentional hard cuts. Within a
+  // playing stage, retain the old body only when a logical step actually lands.
+  if (stageChanged || phaseChanged || !crossingSnake?.length) previousCrossingSnake = clonePuzzlePoints(nextSnake);
+  else if (moved) previousCrossingSnake = clonePuzzlePoints(crossingSnake);
+  crossingSnake = nextSnake;
+  crossingCars = (active.cars || []).map((car) => ({ ...car }));
+  crossingStage = active.stage;
+  crossingScore = active.score || 0;
+  crossingPhase = active.subphase;
+  direction = active.direction;
+  nextDirection = active.nextDirection;
+  directionQueue = [...(active.directionQueue || [])];
+  grid = { ...active.grid };
+  state = snap.phase;
+  elapsedMs = snap.elapsedMs;
+  tickMs = active.tickMs || crossingTickMs;
+  stepAccumulatorMs = snap.modeAccumulatorMs || 0;
+  seedsTotal = snap.seeds;
+  if (snap.records) {
+    const projectedBest = Math.max(0, Number(snap.records.crossingBest) || 0);
+    if (projectedBest !== crossingBest) {
+      crossingBest = projectedBest;
+      setSaveItem("crossing-best", String(crossingBest));
+    }
+  }
+}
+
+function projectCentipedeSnapshot(snap) {
+  if (!snap || snap.mode !== "centipede" || !snap.active) return;
+  centipede = structuredClone(snap.active);
+  grid = { columns: centipede.cols, rows: centipede.rows };
+  state = snap.phase;
+  elapsedMs = snap.elapsedMs;
+  tickMs = centipede.tickMs || 70;
+  stepAccumulatorMs = snap.modeAccumulatorMs || 0;
+  seedsTotal = snap.seeds;
+  if (snap.records) {
+    const projectedBest = Math.max(0, Number(snap.records.centipedeBest) || 0);
+    if (projectedBest !== centipedeBest) {
+      centipedeBest = projectedBest;
+      setSaveItem("centipede-best", String(centipedeBest));
+    }
+  }
+}
+
+function projectBroodlineSnapshot(snap) {
+  if (!snap || snap.mode !== "broodline" || !snap.active) return;
+  const previousCamera = broodline?.camera;
+  broodline = structuredClone(snap.active);
+  broodline.camera = previousCamera
+    ? { ...previousCamera }
+    : { x: broodline.head.x - broodlineView / 2, y: broodline.head.y - broodlineView / 2 };
+  broodline.headColor = snakeColors.head;
+  grid = { ...broodline.grid };
+  state = snap.phase;
+  elapsedMs = snap.elapsedMs;
+  tickMs = broodline.tickMs || broodlineTickMs;
+  stepAccumulatorMs = snap.modeAccumulatorMs || 0;
+  seedsTotal = snap.seeds;
+}
+
+function setCentipedeAxis(axis, value) {
+  if (!session || gameMode !== "centipede") return false;
+  const result = session.dispatch({ type: "setInputAxis", axis, value });
+  if (result.events.some((event) => event.type === "actionRejected")) return false;
+  latestSnapshot = result.snapshot;
+  latestFrameSnapshot = result.snapshot;
+  projectCentipedeSnapshot(result.snapshot);
+  return true;
+}
+
 // Interpret events returned by a session tick. Economy events (hatch) refresh
 // the panels; snake events reproduce the HUD/save/overlay/animation side-effects
 // the engine deliberately omits (mirrors the old host step() event loop).
@@ -3365,11 +2929,109 @@ function interpretSessionEvents(events) {
     switch (event.type) {
       case "hatch":
       case "eggBoardHatched": idleLastPanelAt = 0; break;
-      case "eat": if (gameMode === "snake") startDigestionAnimation(); break;
+      case "eat": if (gameMode === "snake") { runSeedsEarned += Math.max(0, Number(event.value) || 0); startDigestionAnimation(); startCrumbAnimation(event.at); } break;
       case "shield": if (gameMode === "snake") saveUpgrades(); break;
       case "bestScore": if (gameMode === "snake") setSaveItem("best", String(best)); break;
-      case "gameOver": if (gameMode === "snake") { state = "gameover"; syncHud(); showOverlay("Game Over"); } break;
+      case "gameOver": if (gameMode === "snake") { state = "gameover"; startDeathAnimation(); syncHud(); showDeathOverlay("Game Over"); } break;
       case "win": if (gameMode === "snake") { state = "gameover"; syncHud(); showOverlay("Maxed"); } break;
+      case "runEnded":
+        if (event.mode === "runner") {
+          state = "gameover";
+          syncHud();
+          showOverlay(`Runner Down · +${formatNumber(event.reward || 0)} Seeds`);
+          setScreenHint("Start to run again");
+        } else if (event.mode === "duel") {
+          duelWinner = event.winner;
+          state = "gameover";
+          syncHud();
+          showOverlay(event.winner === "player" ? `Winner · +${formatNumber(event.reward || 0)} Seeds` : event.winner === "opponent" ? "Defeated" : "Draw");
+        } else if (event.mode === "centipede") {
+          state = "gameover";
+          syncHud();
+          showOverlay(event.reward > 0 ? `Game Over · +${formatNumber(event.reward)} Seeds` : "Game Over");
+        } else if (event.mode === "maze") {
+          state = "gameover";
+          syncHud();
+          showOverlay(`Nibbled the wall · +${formatNumber(event.reward || 0)} Seeds`);
+          setScreenHint("Start to explore again");
+        } else if (event.mode === "crossing") {
+          state = "gameover";
+          syncHud();
+          showOverlay(`Roadkill · Stage ${crossingStage}`);
+          setScreenHint("Start to cross again");
+        } else if (event.mode === "breakout") {
+          state = "gameover";
+          syncHud();
+          showOverlay(event.reward > 0 ? `Level Clear · +${formatNumber(event.reward)} Seeds` : "Game Over");
+          setScreenHint("Start to build another paddle");
+        } else if (event.mode === "broodline") {
+          state = "gameover";
+          hideBroodlineFormation();
+          syncHud();
+          showOverlay(`${event.reason || "Run ended"} · +${formatNumber(event.reward || 0)} Seeds`);
+          setScreenHint("Start to begin a new Broodline");
+        } else if (event.mode === "battleship") {
+          state = "gameover";
+          syncHud();
+          showOverlay(event.won ? `Victory · +${formatNumber(event.reward || 0)} Seeds` : "Fleet Lost");
+          setScreenHint(event.won ? "All enemy snakes sunk · Start to play again" : "Your nest was wiped out · Start to try again");
+        }
+        break;
+      case "battleshipShot":
+        if (event.actor === "player") {
+          setScreenHint(event.result === "sunk" ? `Venom sank the enemy ${event.ship}!` : event.result === "hit" ? "Direct venom hit!" : "Venom splashed the water — miss");
+        } else {
+          setScreenHint(event.result === "sunk" ? `Enemy venom sank your ${event.ship}!` : event.result === "hit" ? "Your snake took a venom hit!" : "Enemy venom missed you");
+        }
+        break;
+      case "runReady":
+        if (event.mode === "breakout" && event.reason === "ballLost") {
+          state = "ready";
+          syncHud();
+          showOverlay(`Ball Lost · ${event.lives} ${event.lives === 1 ? "life" : "lives"} left`);
+          setScreenHint("Left / right to move · catch seeds to grow");
+        } else if (event.mode === "broodline" && event.round) {
+          hideBroodlineFormation();
+          state = "ready";
+          timerStarted = false;
+          syncHud();
+          showOverlay(`Broodline · Round ${event.round}`);
+          setScreenHint("Steer · attacks are automatic");
+        }
+        break;
+      case "roundClear":
+        if (gameMode === "broodline") {
+          projectBroodlineSnapshot(latestFrameSnapshot || latestSnapshot);
+          timerStarted = false;
+          showBroodlineFormation();
+          syncHud();
+        }
+        break;
+      case "levelUp":
+        if (gameMode === "maze") {
+          showOverlay(`Round ${event.level - 1} Clear · +${formatNumber(event.reward)} Seeds`);
+          window.setTimeout(() => { if (state === "running" && gameMode === "maze") hideOverlay(); }, 700);
+        }
+        break;
+      case "stageClear":
+        if (gameMode === "crossing") {
+          showOverlay(`Stage ${crossingStage} Clear · +${formatNumber(event.reward)} Seeds`);
+          setScreenHint("Next road loading");
+        }
+        break;
+      case "stageStarted":
+        if (gameMode === "crossing") {
+          hideOverlay();
+          setScreenHint(`Stage ${event.stage}: reach the top bank`);
+        }
+        break;
+      case "playerHit":
+        if (gameMode === "centipede") {
+          syncHud();
+          showOverlay(`Hit! · ${event.lives} ${event.lives === 1 ? "life" : "lives"} left`);
+          setScreenHint("Arrows to move · you auto-fire upward");
+        }
+        break;
       case "migrationStopReached": setScreenHint("A migration convoy is waiting at a stop."); idleLastPanelAt = 0; break;
       case "migrationFailed": setScreenHint("A migration expedition was lost."); idleLastPanelAt = 0; break;
       case "settlementEstablished": setScreenHint("A new settlement is fully established."); idleLastPanelAt = 0; break;
@@ -3379,12 +3041,6 @@ function interpretSessionEvents(events) {
   }
 }
 
-function runNurseryClock() {
-  const now = Date.now();
-  tickIdleWorld();
-  setText(seedsTotalEl, padSeeds(seedsTotal));
-  syncPanels(now);
-}
 
 function formatDuration(ms) {
   const totalSeconds = Math.max(0, Math.ceil(ms / 1000));
@@ -3406,15 +3062,67 @@ function togglePause() {
     return;
   }
   if (state === "paused") {
-    state = "running";
+    if (sessionOwnedModes.has(gameMode)) {
+      // A throttled/background browser may not have delivered animation frames
+      // during the pause. Credit that wall time to the idle world while the
+      // session is still paused, so resuming cannot feed it into gameplay.
+      interpretSessionEvents(tickIdleWorld());
+      const result = session.dispatch({ type: "resume" });
+      if (result.events.some((event) => event.type === "actionRejected")) return;
+      latestSnapshot = result.snapshot;
+      latestFrameSnapshot = result.snapshot;
+      state = result.snapshot.phase;
+      if (gameMode === "snake") { mirrorSnakeFromSnapshot(result.snapshot); previousSnake = snake.map((part) => ({ ...part })); }
+      else if (gameMode === "snakebird") projectSnakebirdSnapshot(result.snapshot);
+      else if (gameMode === "sokoban") projectSokobanSnapshot(result.snapshot);
+      else if (gameMode === "runner") projectRunnerSnapshot(result.snapshot);
+      else if (gameMode === "maze") projectMazeSnapshot(result.snapshot);
+      else if (gameMode === "crossing") projectCrossingSnapshot(result.snapshot);
+      else if (gameMode === "breakout") projectBreakoutSnapshot(result.snapshot);
+      else if (gameMode === "broodline") projectBroodlineSnapshot(result.snapshot);
+      else if (gameMode === "battleship") projectBattleshipSnapshot(result.snapshot);
+    } else {
+      state = "running";
+    }
     lastFrameAt = performance.now();
     stepAccumulatorMs = 0;
     syncHud();
     hideOverlay();
   } else if (state === "running") {
-    state = "paused";
+    if (sessionOwnedModes.has(gameMode)) {
+      const result = session.dispatch({ type: "pause" });
+      if (result.events.some((event) => event.type === "actionRejected")) return;
+      latestSnapshot = result.snapshot;
+      latestFrameSnapshot = result.snapshot;
+      state = result.snapshot.phase;
+      if (gameMode === "snake") mirrorSnakeFromSnapshot(result.snapshot);
+      else if (gameMode === "snakebird") projectSnakebirdSnapshot(result.snapshot);
+      else if (gameMode === "sokoban") projectSokobanSnapshot(result.snapshot);
+      else if (gameMode === "runner") projectRunnerSnapshot(result.snapshot);
+      else if (gameMode === "maze") projectMazeSnapshot(result.snapshot);
+      else if (gameMode === "crossing") projectCrossingSnapshot(result.snapshot);
+      else if (gameMode === "breakout") projectBreakoutSnapshot(result.snapshot);
+      else if (gameMode === "broodline") projectBroodlineSnapshot(result.snapshot);
+      else if (gameMode === "battleship") projectBattleshipSnapshot(result.snapshot);
+    } else {
+      state = "paused";
+    }
     syncHud();
     showOverlay("Paused");
+  }
+}
+
+function activatePrimaryAction() {
+  if (!controlsEl?.classList.contains("is-large-dpad-controls")) {
+    togglePause();
+    return;
+  }
+  if (state === "gameover") {
+    resetGame();
+  } else if (state === "ready") {
+    startGame();
+  } else {
+    togglePause();
   }
 }
 
@@ -3430,7 +3138,7 @@ let idleLastPanelAt = 0;
 function gameLoop(now) {
   // Idle economy advances on the SAME clock as gameplay, every frame, whatever
   // the gameplay phase (menu/ready/running/paused/gameover). This replaces the
-  // old separate setInterval(runNurseryClock, 250).
+  // the former separate nursery interval.
   // Core snake now runs inside the session (stepped by tickIdleWorld). Remember
   // the pre-step body so the smooth interpolation has a "from" position — but
   // only adopt it as previousSnake on frames where a step actually lands. The
@@ -3443,6 +3151,16 @@ function gameLoop(now) {
 
   const sessionEvents = tickIdleWorld();
   interpretSessionEvents(sessionEvents);
+  if (gameMode === "snakebird") projectSnakebirdSnapshot(latestFrameSnapshot || latestSnapshot);
+  if (gameMode === "sokoban") projectSokobanSnapshot(latestFrameSnapshot || latestSnapshot);
+  if (gameMode === "runner") projectRunnerSnapshot(latestFrameSnapshot || latestSnapshot);
+  if (gameMode === "duel") projectDuelSnapshot(latestFrameSnapshot || latestSnapshot);
+  if (gameMode === "maze") projectMazeSnapshot(latestFrameSnapshot || latestSnapshot);
+  if (gameMode === "crossing") projectCrossingSnapshot(latestFrameSnapshot || latestSnapshot);
+  if (gameMode === "breakout") projectBreakoutSnapshot(latestFrameSnapshot || latestSnapshot);
+  if (gameMode === "centipede") projectCentipedeSnapshot(latestFrameSnapshot || latestSnapshot);
+  if (gameMode === "broodline") projectBroodlineSnapshot(latestFrameSnapshot || latestSnapshot);
+  if (gameMode === "battleship") projectBattleshipSnapshot(latestFrameSnapshot || latestSnapshot);
   setText(seedsTotalEl, padSeeds(seedsTotal));
   const wallNow = Date.now();
   if (wallNow - idleLastPanelAt >= 200) {
@@ -3452,7 +3170,7 @@ function gameLoop(now) {
 
   if (gameMode === "snake") {
     // The session advanced (or held) the snake; mirror it into the render globals.
-    if (latestSnapshot) mirrorSnakeFromSnapshot(latestSnapshot);
+    if (latestFrameSnapshot || latestSnapshot) mirrorSnakeFromSnapshot(latestFrameSnapshot || latestSnapshot);
     if (state === "running") {
       // A step landed iff the head moved (or the body grew). Only then does the
       // pre-step body become the interpolation origin; otherwise previousSnake
@@ -3460,191 +3178,11 @@ function gameLoop(now) {
       if (snakeBeforeStep && snakeStepped(snakeBeforeStep, snake)) previousSnake = snakeBeforeStep;
       syncHud();
     }
-  } else if (state === "running") {
-    const deltaMs = Math.min(100, now - lastFrameAt);
-    elapsedMs += deltaMs;
-    stepAccumulatorMs += deltaMs;
-    while (stepAccumulatorMs >= tickMs && state === "running" && gameMode !== "broodline") {
-      if (gameMode === "breakout") stepBreakout(tickMs);
-      else if (gameMode === "runner") stepRunner(tickMs);
-      else if (gameMode === "centipede") stepCentipede();
-      else if (gameMode === "crossing") stepCrossing(now);
-      else if (gameMode === "duel") stepVsSnake();
-      else if (gameMode === "snakebird") {
-        stepAccumulatorMs = 0;
-        break;
-      }
-      else if (gameMode === "sokoban") {
-        stepAccumulatorMs = 0;
-        break;
-      }
-      else if (gameMode === "battleship") {
-        stepBattleship(now);
-        stepAccumulatorMs = 0;
-        break;
-      }
-      else if (gameMode === "broodline") broodlineStep();
-      else if (gameMode === "maze") {
-        if (!stepMaze()) {
-          stepAccumulatorMs = 0;
-          break;
-        }
-      }
-      stepAccumulatorMs -= tickMs;
-    }
-    if (gameMode === "broodline") {
-      while (stepAccumulatorMs >= broodlineTickMs && state === "running") {
-        broodlineStep();
-        stepAccumulatorMs -= broodlineTickMs;
-      }
-    }
-    syncHud();
   }
 
   lastFrameAt = now;
   render();
   animationId = requestAnimationFrame(gameLoop);
-}
-
-function stepCrossing(now) {
-  if (!crossingSnake || !crossingCars) return;
-
-  if (crossingPhase === "clearing") {
-    previousCrossingSnake = crossingSnake.map((part) => ({ ...part }));
-    if (now < crossingTransitionUntil) return;
-    crossingStage += 1;
-    resetCrossingStage();
-    hideOverlay();
-    setScreenHint(`Stage ${crossingStage}: reach the top bank`);
-    syncHud();
-    return;
-  }
-
-  // Active-phase step delegated to the headless engine (engine/crossing.js).
-  // Host keeps the previousCrossingSnake anti-flicker snapshots, death handling,
-  // and the stage-clear rewards/overlay/phase transition.
-  const snapshot = crossingSnake.map((part) => ({ ...part }));
-  const sim = {
-    grid: crossingGrid, snake: crossingSnake, cars: crossingCars, score: crossingScore,
-    stage: crossingStage, snakeLength: crossingSnakeLength, entryColumn: crossingEntryColumn,
-    direction, nextDirection, directionQueue
-  };
-  const { events, alive } = window.IdleSnakeCrossing.stepCrossing(sim);
-
-  crossingSnake = sim.snake;
-  crossingCars = sim.cars;
-  crossingScore = sim.score;
-  crossingSnakeLength = sim.snakeLength;
-  crossingEntryColumn = sim.entryColumn;
-  direction = sim.direction;
-  nextDirection = sim.nextDirection;
-  previousCrossingSnake = snapshot;
-
-  if (!alive) {
-    endCrossing();
-    return;
-  }
-
-  for (const event of events) {
-    if (event.type === "stageClear") {
-      crossingBest = Math.max(crossingBest, crossingScore);
-      seedsTotal += event.reward;
-      saveSeeds();
-      setSaveItem("crossing-best", String(crossingBest));
-      // Snap the snapshot to match so the clearing pause doesn't replay the
-      // final hop's interpolation (the end-of-stage flicker).
-      previousCrossingSnake = crossingSnake.map((part) => ({ ...part }));
-      crossingPhase = "clearing";
-      crossingTransitionUntil = now + 500;
-      syncHud();
-      showOverlay(`Stage ${crossingStage} Clear · +${formatNumber(event.reward)} Seeds`);
-      setScreenHint("Next road loading");
-    }
-  }
-}
-
-function updateCrossingCars() {
-  crossingCars.forEach((car) => {
-    car.x += car.speed;
-    while (car.x >= crossingGrid.columns) car.x -= crossingGrid.columns;
-    while (car.x + car.width <= 0) car.x += crossingGrid.columns;
-  });
-}
-
-function isCrossingCarHit() {
-  // Shrink the collision box inward to match the car's visual inset
-  // (drawCrossingCar insets by ~0.12 cell on each side) instead of using
-  // the full logical width, which felt too wide horizontally.
-  const carMargin = 0.18;
-  return crossingSnake.some((part) => crossingCars.some((car) => {
-    if (car.row !== part.y) return false;
-    return [-crossingGrid.columns, 0, crossingGrid.columns].some((offset) => {
-      const left = car.x + offset + carMargin;
-      const right = car.x + offset + car.width - carMargin;
-      return part.x + 1 > left && part.x < right;
-    });
-  }));
-}
-
-function endCrossing() {
-  state = "gameover";
-  crossingPhase = "gameover";
-  directionQueue = [];
-  crossingBest = Math.max(crossingBest, crossingScore);
-  setSaveItem("crossing-best", String(crossingBest));
-  setScreenHint("");
-  syncHud();
-  showOverlay(`Roadkill · Stage ${crossingStage}`);
-}
-
-function stepBreakout(deltaMs) {
-  if (!breakout) return;
-  // Physics simulation delegated to the headless engine (engine/breakout.js).
-  // Host passes the canvas-derived board dimensions and interprets win/loss/
-  // ball-lost events.
-  const { events } = window.IdleSnakeBreakout.step(breakout, {
-    deltaMs, boardWidth: boardMetrics.width, boardHeight: boardMetrics.height,
-    elapsedMs, rng: Math.random
-  });
-  for (const event of events) {
-    if (event.type === "win") { endBreakout(true); return; }
-    if (event.type === "gameOver") { endBreakout(false); return; }
-    if (event.type === "ballLost") {
-      state = "ready";
-      syncHud();
-      showOverlay(`Ball Lost · ${event.lives} ${event.lives === 1 ? "life" : "lives"} left`);
-      setScreenHint("Left / right to move · catch seeds to grow");
-    }
-  }
-}
-
-function endBreakout(won) {
-  state = "gameover";
-  breakoutBest = Math.max(breakoutBest, breakout.score);
-  setSaveItem("breakout-best", String(breakoutBest));
-  if (won) {
-    seedsTotal += 500;
-    saveSeeds();
-  }
-  syncHud();
-  showOverlay(won ? "Level Clear · +500 Seeds" : "Game Over");
-}
-
-function stepRunner(deltaMs) {
-  if (!runner) return;
-  const { events } = window.IdleSnakeRunner.step(runner, { deltaMs, rng: Math.random });
-  for (const event of events) {
-    if (event.type !== "gameOver") continue;
-    state = "gameover";
-    runnerBest = Math.max(runnerBest, event.score);
-    setSaveItem("runner-best", String(runnerBest));
-    seedsTotal += event.reward;
-    saveSeeds();
-    syncHud();
-    showOverlay(`Runner Down · +${formatNumber(event.reward)} Seeds`);
-    setScreenHint("Start to run again");
-    return;
-  }
 }
 
 // Centipede (minigame 9). A villain centipede winds down a mushroom field; the
@@ -3658,17 +3196,13 @@ function launchCentipede() {
   gameMode = "centipede";
   grid = { ...centipedeGrid };
   boardMetrics = getBoardMetrics();
-  centipede = window.IdleSnakeCentipede.createState({
-    cols: centipedeGrid.columns,
-    rows: centipedeGrid.rows,
-    rng: Math.random
-  });
+  const result = session.dispatch({ type: "selectMode", mode: "centipede", setup: { grid, tickMs: 70 } });
+  latestSnapshot = result.snapshot;
+  latestFrameSnapshot = result.snapshot;
+  projectCentipedeSnapshot(result.snapshot);
   direction = "right";
   nextDirection = "right";
   directionQueue = [];
-  state = "ready";
-  tickMs = 70;
-  elapsedMs = 0;
   stepAccumulatorMs = 0;
   timerStarted = false;
   syncHud();
@@ -3677,164 +3211,12 @@ function launchCentipede() {
   setScreenHint("Arrows to move · you auto-fire upward");
 }
 
-function stepCentipede() {
-  if (!centipede) return;
-  const { events, alive } = window.IdleSnakeCentipede.step(centipede, { rng: Math.random });
-  for (const event of events) {
-    if (event.type === "gameOver") { endCentipede(); return; }
-    if (event.type === "playerHit" && alive) {
-      // Pause after a hit so the player can regroup before the next life.
-      state = "ready";
-      syncHud();
-      showOverlay(`Hit! · ${event.lives} ${event.lives === 1 ? "life" : "lives"} left`);
-      setScreenHint("Arrows to move · you auto-fire upward");
-      return;
-    }
-  }
-  syncHud();
-}
-
-function endCentipede() {
-  state = "gameover";
-  centipedeBest = Math.max(centipedeBest, centipede.score);
-  setSaveItem("centipede-best", String(centipedeBest));
-  const reward = 40 * centipede.wavesCleared + Math.floor(centipede.score / 20);
-  if (reward > 0) {
-    seedsTotal += reward;
-    saveSeeds();
-  }
-  syncHud();
-  showOverlay(reward > 0 ? `Game Over · +${formatNumber(reward)} Seeds` : "Game Over");
-}
-
-// Core snake step, delegated to the headless engine (engine/snake.js). The host
-// keeps the purely-visual concerns — the previousSnake snapshot for smooth
-// interpolation and the digestion animation — and turns the engine's returned
-// events into the HUD/save/overlay side-effects the engine deliberately omits.
-function step() {
-  previousSnake = snake.map((part) => ({ ...part }));
-  const SnakeEngine = window.IdleSnakeSnake;
-
-  // A state view over the live globals. Arrays (snake/foods/directionQueue) are
-  // mutated in place by the engine; scalars are read back afterwards.
-  const sim = {
-    grid, snake, foods, direction, nextDirection, directionQueue,
-    score, tickMs, upgrades, seeds: seedsTotal, best
-  };
-  const { events } = SnakeEngine.stepSnake(sim, { rng: Math.random });
-
-  snake = sim.snake;
-  foods = sim.foods;
-  direction = sim.direction;
-  nextDirection = sim.nextDirection;
-  directionQueue = sim.directionQueue;
-  score = sim.score;
-  tickMs = sim.tickMs;
-  seedsTotal = sim.seeds;
-  best = sim.best;
-
-  for (const event of events) {
-    switch (event.type) {
-      case "eat": startDigestionAnimation(); break;
-      case "seedsChanged": saveSeeds(); break;
-      case "shield": saveUpgrades(); break;
-      case "bestScore": setSaveItem("best", String(best)); break;
-      case "hudDirty": syncHud(); break;
-      case "gameOver": state = "gameover"; syncHud(); showOverlay("Game Over"); break;
-      case "win": state = "gameover"; syncHud(); showOverlay("Maxed"); break;
-    }
-  }
-}
-
-function endGame() {
-  state = "gameover";
-  if (score > best) {
-    best = score;
-    setSaveItem("best", String(best));
-  }
-  syncHud();
-  showOverlay("Game Over");
-}
-
-function winGame() {
-  state = "gameover";
-  best = Math.max(best, score);
-  setSaveItem("best", String(best));
-  syncHud();
-  showOverlay("Maxed");
-}
-
-function placeFood() {
-  const occupied = new Set([
-    ...snake.map((part) => `${part.x},${part.y}`),
-    ...foods.map((snack) => `${snack.x},${snack.y}`)
-  ]);
-  const open = [];
-
-  for (let y = 0; y < grid.rows; y += 1) {
-    for (let x = 0; x < grid.columns; x += 1) {
-      if (!occupied.has(`${x},${y}`)) {
-        open.push({ x, y });
-      }
-    }
-  }
-
-  if (open.length === 0) {
-    return null;
-  }
-
-  return open[Math.floor(Math.random() * open.length)];
-}
-
-function spawnFoods() {
-  const spawned = [];
-  foods = spawned;
-  while (spawned.length < foodCount()) {
-    const snack = placeFood();
-    if (!snack) break;
-    spawned.push(snack);
-  }
-  return spawned;
-}
-
-function findShieldRedirect() {
-  if (upgrades.shieldLevel <= 0) return null;
-
-  const turnDirections = direction === "up" || direction === "down"
-    ? ["left", "right"]
-    : ["up", "down"];
-  const candidates = turnDirections
-    .map((candidateDirection) => {
-      const vector = vectors[candidateDirection];
-      const point = {
-        x: snake[0].x + vector.x,
-        y: snake[0].y + vector.y
-      };
-      return {
-        direction: candidateDirection,
-        point,
-        clearance: obstacleClearance(point, vector)
-      };
-    })
-    .filter((candidate) => !isWallHit(candidate.point) && !isSnakeHit(candidate.point, false));
-
-  if (candidates.length === 0) return null;
-  candidates.sort((a, b) => b.clearance - a.clearance);
-  return candidates[0];
-}
-
-function obstacleClearance(point, vector) {
-  let distance = 0;
-  let probe = point;
-  while (!isWallHit(probe) && !isSnakeHit(probe, false)) {
-    distance += 1;
-    probe = { x: probe.x + vector.x, y: probe.y + vector.y };
-  }
-  return distance;
-}
-
 function queueDirection(next) {
   if (!vectors[next]) return;
+  if (state === "gameover") {
+    resetGame();
+    return;
+  }
   if (gameMode === "snakebird") {
     queueSnakebirdDirection(next);
     return;
@@ -3845,16 +3227,20 @@ function queueDirection(next) {
   }
   if (gameMode === "broodline") {
     if (state === "ready") startGame();
-    if (state !== "running" || broodline.queue.length >= 2) return;
-    const queuedFrom = broodline.queue.at(-1) || broodline.direction;
-    if (vectors[queuedFrom].x + vectors[next].x === 0 && vectors[queuedFrom].y + vectors[next].y === 0) return;
-    broodline.queue.push(next);
+    if (state !== "running" || broodline?.phase !== "combat") return;
+    const result = session.dispatch({ type: "direction", direction: next });
+    if (result.events.some((event) => event.type === "actionRejected")) return;
+    latestSnapshot = result.snapshot;
+    latestFrameSnapshot = result.snapshot;
+    projectBroodlineSnapshot(result.snapshot);
+    timerStarted = true;
+    hideOverlay();
     return;
   }
   if (gameMode === "breakout") {
     if (next === "left" || next === "right") {
       if (state === "ready") startGame();
-      if (state !== "gameover" && breakout) breakout.paddle.input = next === "left" ? -1 : 1;
+      if (state !== "gameover" && breakout) setBreakoutAxis(next === "left" ? -1 : 1);
     }
     return;
   }
@@ -3864,12 +3250,11 @@ function queueDirection(next) {
   }
   if (gameMode === "centipede") {
     if (state === "ready") startGame();
-    if (state !== "gameover" && centipede) {
-      if (next === "left") centipede.player.inputX = -1;
-      else if (next === "right") centipede.player.inputX = 1;
-      else if (next === "up") centipede.player.inputY = -1;
-      else if (next === "down") centipede.player.inputY = 1;
-    }
+    if (state === "gameover" || !centipede) return;
+    if (next === "left") setCentipedeAxis("x", -1);
+    else if (next === "right") setCentipedeAxis("x", 1);
+    else if (next === "up") setCentipedeAxis("y", -1);
+    else if (next === "down") setCentipedeAxis("y", 1);
     return;
   }
   if (gameMode === "crossing") {
@@ -3896,70 +3281,47 @@ function queueDirection(next) {
 
 function queueSnakebirdDirection(next) {
   if (snakebirdScreen && !snakebirdScreen.hidden) return;
-  if (state === "ready") startGame();
-  if (state !== "running") return;
   snakebirdMove(next);
 }
 
 function queueSokobanDirection(next) {
-  if (state === "ready") startGame();
-  if (state !== "running") return;
   sokobanMove(next);
 }
 
 function queueCrossingDirection(next) {
-  if (state === "gameover" || state === "paused" || crossingPhase !== "playing") return;
-  if (state === "ready") startGame();
-
-  const queuedFrom = directionQueue.length > 0
-    ? directionQueue[directionQueue.length - 1]
-    : direction;
-
-  const currentVector = vectors[queuedFrom];
-  const nextVector = vectors[next];
-  const reversing =
-    currentVector.x + nextVector.x === 0 &&
-    currentVector.y + nextVector.y === 0;
-  // Backing down off the bank is blocked, but repeating forward/side is allowed
-  // so the snake can advance every step (forward or to the side).
-  if (reversing && crossingSnake.length > 1) return;
-
-  if (directionQueue.length >= maxQueuedDirections) directionQueue.shift();
-  directionQueue.push(next);
-  nextDirection = next;
+  if (state === "gameover" || state === "paused") return;
+  const result = session.dispatch({ type: "direction", direction: next });
+  if (result.events.some((event) => event.type === "actionRejected")) return;
+  latestSnapshot = result.snapshot;
+  latestFrameSnapshot = result.snapshot;
+  projectCrossingSnapshot(result.snapshot);
+  timerStarted = true;
+  lastFrameAt = performance.now();
+  hideOverlay();
+  setScreenHint("Reach the top bank");
 }
 
 function queueDuelDirection(next) {
   if (state === "gameover" || state === "paused") return;
-  if (state === "ready") startGame();
-
-  const queuedFrom = directionQueue.length > 0
-    ? directionQueue[directionQueue.length - 1]
-    : duelPlayer.direction;
-  if (next === queuedFrom) return;
-
-  const currentVector = vectors[queuedFrom];
-  const nextVector = vectors[next];
-  if (currentVector.x + nextVector.x === 0 && currentVector.y + nextVector.y === 0) return;
-
-  if (directionQueue.length >= maxQueuedDirections) {
-    directionQueue.shift();
-  }
-
-  directionQueue.push(next);
-  nextDirection = next;
+  const result = session.dispatch({ type: "direction", direction: next });
+  if (result.events.some((event) => event.type === "actionRejected")) return;
+  latestSnapshot = result.snapshot;
+  latestFrameSnapshot = result.snapshot;
+  projectDuelSnapshot(result.snapshot);
+  timerStarted = true;
+  hideOverlay();
 }
 
 function queueMazeDirection(next) {
   if (state === "gameover" || state === "paused") return;
   if (state === "ready") startGame();
-  if (!vectors[next]) return;
-  const current = directionQueue.length ? directionQueue[directionQueue.length - 1] : direction;
-  const currentVector = vectors[current];
-  const nextVector = vectors[next];
-  if (currentVector.x + nextVector.x === 0 && currentVector.y + nextVector.y === 0) return;
-  directionQueue = [next];
-  nextDirection = next;
+  const result = session.dispatch({ type: "direction", direction: next });
+  if (result.events.some((event) => event.type === "actionRejected")) return;
+  latestSnapshot = result.snapshot;
+  latestFrameSnapshot = result.snapshot;
+  projectMazeSnapshot(result.snapshot);
+  timerStarted = true;
+  hideOverlay();
 }
 
 function updateDirectionButtonPressed(directionName) {
@@ -3967,11 +3329,11 @@ function updateDirectionButtonPressed(directionName) {
   if (!button) return;
 
   const keyIsPressed = [...activeDirectionKeys].some((key) => keyMap[key] === directionName);
-  button.classList.toggle("is-pressed", keyIsPressed || activeDirectionClicks.has(directionName));
+  button.classList.toggle("is-pressed", !effectiveReducedMotion() && (keyIsPressed || activeDirectionClicks.has(directionName)));
 }
 
 function animateDirectionClick(directionName, elapsedMs) {
-  if (elapsedMs >= minimumDirectionClickMs) return;
+  if (effectiveReducedMotion() || elapsedMs >= minimumDirectionClickMs) return;
 
   clearTimeout(directionClickTimers.get(directionName));
   activeDirectionClicks.add(directionName);
@@ -3989,199 +3351,12 @@ function isWallHit(point) {
   return point.x < 0 || point.x >= grid.columns || point.y < 0 || point.y >= grid.rows;
 }
 
-function isSnakeHit(point, willGrow) {
-  const body = willGrow ? snake : snake.slice(0, -1);
-  return body.some((part) => part.x === point.x && part.y === point.y);
-}
-
-function duelContains(body, point) {
-  return body.some((part) => part.x === point.x && part.y === point.y);
-}
-
-function duelNextHead(snakeRef) {
-  const vector = vectors[snakeRef.direction];
-  return { x: snakeRef.body[0].x + vector.x, y: snakeRef.body[0].y + vector.y };
-}
-
-function duelSafeDirections(snakeRef, otherRef) {
-  return Object.keys(vectors).filter((candidate) => {
-    const vector = vectors[candidate];
-    if (vector.x + vectors[snakeRef.direction].x === 0 && vector.y + vectors[snakeRef.direction].y === 0) return false;
-    const point = { x: snakeRef.body[0].x + vector.x, y: snakeRef.body[0].y + vector.y };
-    return !isWallHit(point) && !duelContains(snakeRef.body, point) && !duelContains(otherRef.body, point);
-  });
-}
-
-function chooseOpponentDirection() {
-  const safe = duelSafeDirections(duelOpponent, duelPlayer);
-  if (safe.length === 0) return;
-  const target = duelFoods.reduce((closest, food) => {
-    const distance = Math.abs(food.x - duelOpponent.body[0].x) + Math.abs(food.y - duelOpponent.body[0].y);
-    return !closest || distance < closest.distance ? { food, distance } : closest;
-  }, null);
-  safe.sort((a, b) => {
-    const av = vectors[a];
-    const bv = vectors[b];
-    const aPoint = { x: duelOpponent.body[0].x + av.x, y: duelOpponent.body[0].y + av.y };
-    const bPoint = { x: duelOpponent.body[0].x + bv.x, y: duelOpponent.body[0].y + bv.y };
-    if (!target) return 0;
-    return (Math.abs(aPoint.x - target.food.x) + Math.abs(aPoint.y - target.food.y)) -
-      (Math.abs(bPoint.x - target.food.x) + Math.abs(bPoint.y - target.food.y));
-  });
-  duelOpponent.direction = safe[0];
-}
-
-function stepVsSnake() {
-  previousDuelPlayerBody = duelPlayer.body.map((part) => ({ ...part }));
-  previousDuelOpponentBody = duelOpponent.body.map((part) => ({ ...part }));
-
-  // Duel simulation (movement, simultaneous collision, opponent AI, food)
-  // delegated to the headless engine (engine/duel.js). Host keeps the
-  // previous-body snapshots and the win reward/overlay via endVsSnake.
-  const sim = {
-    grid: duelGrid, player: duelPlayer, opponent: duelOpponent, foods: duelFoods,
-    score: duelScore, directionQueue, direction, nextDirection
-  };
-  const { alive, winner } = window.IdleSnakeDuel.stepVsSnake(sim, { rng: Math.random });
-
-  duelFoods = sim.foods;
-  duelScore = sim.score;
-  direction = sim.direction;
-  nextDirection = sim.nextDirection;
-
-  if (!alive) {
-    duelWinner = winner;
-    endVsSnake(winner);
-  }
-}
-
-function endVsSnake(winner) {
-  state = "gameover";
-  const reward = winner === "player" ? Math.max(5, best * 5) : 0;
-  if (reward) {
-    seedsTotal += reward;
-    saveSeeds();
-  }
-  syncHud();
-  showOverlay(winner === "player" ? `You Win · +${formatNumber(reward)} Seeds` : winner === "opponent" ? "White Snake Wins" : "Draw");
-}
-
 function mazeKey(point) {
   return `${point.x},${point.y}`;
 }
 
 function isMazeOpen(point) {
   return !isWallHit(point) && maze?.open.has(mazeKey(point));
-}
-
-function isMazeExit(point) {
-  return point.x === mazeExit.x && point.y === mazeExit.y;
-}
-
-function oppositeDirection(name) {
-  const vector = vectors[name];
-  return Object.keys(vectors).find((candidate) => {
-    const candidateVector = vectors[candidate];
-    return candidateVector.x + vector.x === 0 && candidateVector.y + vector.y === 0;
-  });
-}
-
-function mazeDirectionsFrom(point, previousDirection = mazeDirection) {
-  const reverse = previousDirection ? oppositeDirection(previousDirection) : null;
-  return Object.keys(vectors).filter((candidate) => {
-    if (candidate === reverse) return false;
-    const vector = vectors[candidate];
-    return isMazeOpen({ x: point.x + vector.x, y: point.y + vector.y });
-  });
-}
-
-function spawnMazeFood() {
-  const candidates = [];
-  for (const cell of maze.open) {
-    const [x, y] = cell.split(",").map(Number);
-    if (!mazePath.some((part) => part.x === x && part.y === y)) candidates.push({ x, y });
-  }
-  maze.food = candidates[Math.floor(Math.random() * candidates.length)] || null;
-}
-
-function showMazeChoices(readyChoices = null) {
-  if (state !== "running") return;
-  const choices = readyChoices || mazeDirectionsFrom(mazePath[mazePath.length - 1]);
-  if (choices.length === 0) {
-    endMaze(false);
-    return;
-  }
-  mazeChoiceDirections = choices;
-  mazeTravelDirection = null;
-  hideOverlay();
-  setScreenHint(`Choose: ${choices.map((choice) => choice.toUpperCase()).join(" / ")}`);
-}
-
-function moveThroughMaze(startDirection) {
-  const choices = mazeChoiceDirections.length ? mazeChoiceDirections : mazeDirectionsFrom(mazePath[mazePath.length - 1]);
-  if (!choices.includes(startDirection)) return;
-
-  mazeTravelDirection = startDirection;
-  mazeChoiceDirections = [];
-  stepAccumulatorMs = 0;
-  hideOverlay();
-  setScreenHint("");
-}
-
-function stepMaze() {
-  if (!maze || state !== "running") return false;
-
-  // Step logic delegated to the headless engine (engine/maze.js). Host keeps the
-  // previousSnake snapshot (only on a surviving move, as before), the round-clear
-  // overlay/timeout, and death handling.
-  const snapshot = mazePath.map((part) => ({ ...part }));
-  const sim = {
-    grid: mazeGrid, open: maze.open, path: mazePath, food: maze.food,
-    foodsEaten: maze.foodsEaten, level: maze.level, score: mazeScore,
-    tickMs, direction, directionQueue
-  };
-  const { events, alive } = window.IdleSnakeMaze.stepMaze(sim, { rng: Math.random });
-
-  mazePath = sim.path;
-  maze.food = sim.food;
-  maze.foodsEaten = sim.foodsEaten;
-  maze.level = sim.level;
-  mazeScore = sim.score;
-  tickMs = sim.tickMs;
-  direction = sim.direction;
-
-  if (!alive) {
-    endMaze(false);
-    return true;
-  }
-
-  previousSnake = snapshot;
-  snake = mazePath;
-  for (const event of events) {
-    if (event.type === "levelUp") {
-      showOverlay(`Round ${event.level - 1} Clear · +${formatNumber(event.reward)} Seeds`);
-      window.setTimeout(() => { if (state === "running") hideOverlay(); }, 700);
-    }
-  }
-  return true;
-}
-
-function endMaze(won) {
-  state = "gameover";
-  mazeTravelDirection = null;
-  mazeChoiceDirections = [];
-  mazePendingChoices = null;
-  mazePendingEnd = null;
-  setScreenHint("");
-  const reward = won ? Math.max(10, mazeScore) : Math.floor(mazeScore / 4);
-  mazeBest = Math.max(mazeBest, mazeScore);
-  setSaveItem("maze-best", String(mazeBest));
-  if (reward) {
-    seedsTotal += reward;
-    saveSeeds();
-  }
-  syncHud();
-  showOverlay(won ? `Snake Forever Clear · +${formatNumber(reward)} Seeds` : `Nibbled the wall · +${formatNumber(reward)} Seeds`);
 }
 
 function drawBroodlinePickup(drop, x, y, cell) {
@@ -4302,6 +3477,7 @@ function render() {
     else {
       drawFood();
       drawSnake();
+      drawCrumbs();
     }
   }
   drawScanlines();
@@ -4991,24 +4167,11 @@ function snakeStepped(before, after) {
     || before[0].y !== after[0].y;
 }
 
-// How far ahead of the logic clock the visual slide runs. The snake visibly
-// commits to a move a hair before the next step is computed, which reads as
-// snappier/more responsive input.
-const MOVE_VISUAL_LEAD_MS = 20;
-
 function interpolatedPoint(previous, current, index = 0) {
-  // Quick, step-wise hop: reach the next tile in ~40% of the tick, then hold.
-  // A shorter transition (vs sliding most of the tick) makes movement read as
-  // crisp tile-to-tile steps rather than a long glide.
-  const transitionMs = Math.min(80, tickMs * 0.4);
-  const rawProgress = Math.min(1, Math.max(0, (stepAccumulatorMs + MOVE_VISUAL_LEAD_MS) / transitionMs));
-  // Ease out so a newly accepted turn starts moving immediately.
-  const progress = 1 - Math.pow(1 - rawProgress, 3);
-  const segmentProgress = Math.max(0, progress - Math.min(0.06, index * 0.012));
-  return {
-    x: previous.x + (current.x - previous.x) * segmentProgress,
-    y: previous.y + (current.y - previous.y) * segmentProgress
-  };
+  // Snake positions always render at their logical grid cell. This keeps the
+  // crisp reduced-motion movement while leaving eating's body-bulge effect
+  // independent of the movement preference.
+  return { x: current.x, y: current.y };
 }
 
 function interpolatedCellRect(point, inset = 0) {
@@ -5058,6 +4221,14 @@ function drawSnake() {
   pruneDigestionAnimations();
   const now = performance.now();
   const cell = boardMetrics.cellSize;
+
+  if (deathAnimation && state === "gameover") {
+    if (effectiveReducedMotion()) deathAnimation = null;
+    else {
+      drawDeathAnimation(now);
+      return;
+    }
+  }
 
   // Interpolated cell-space point for every segment (head included), reused by
   // both the connecting spine and the distinct blocks below.
@@ -5114,6 +4285,180 @@ function drawSnake() {
   // Aim the eyes at the direction the next step will actually move, so a fresh
   // turn shows on the head the instant it's pressed instead of a tick later.
   drawEyes(headRect.x, headRect.y, headRect.size, pendingHeadDirection());
+}
+
+// On collision, the body breaks into its individual tiles in a head-to-tail
+// cascade. Each tile hops first, then drops below the display and fades away.
+// Cap the whole stagger at 1.2 seconds so very long snakes do not leave the
+// player waiting an unreasonable amount of time before the effect completes.
+const DEATH_TILE_DURATION_MS = 820;
+const DEATH_CONNECTOR_DURATION_MS = 980;
+const DEATH_SEED_DURATION_MS = 920;
+const DEATH_MAX_STAGGER_MS = 1200;
+const DEATH_TILE_DELAY_MS = 70;
+
+function startDeathAnimation() {
+  if (effectiveReducedMotion() || !snake?.length) {
+    deathAnimation = null;
+    return;
+  }
+  deathAnimation = {
+    startedAt: performance.now(),
+    direction,
+    segments: snake.map((part) => ({ ...part })),
+    seeds: buildDeathSeedParticles(runSeedsEarned),
+    delayMs: Math.min(DEATH_TILE_DELAY_MS, DEATH_MAX_STAGGER_MS / Math.max(1, snake.length - 1))
+  };
+}
+
+function buildDeathSeedParticles(seedsEarned) {
+  // Particle quantity follows actual eat-event payouts for this run. Square
+  // root scaling keeps large late-game earnings celebratory but bounded.
+  const count = Math.min(18, 3 + Math.ceil(Math.sqrt(Math.max(0, seedsEarned)) * 1.7));
+  const energy = 0.85 + Math.min(0.55, Math.log10(Math.max(0, seedsEarned) + 1) * 0.22);
+  return Array.from({ length: count }, (_, index) => {
+    // Canvas Y increases downward, so this fixed upper-half fan always bursts
+    // toward the top of the screen rather than following the snake's facing.
+    const spread = count === 1 ? 0.5 : index / (count - 1);
+    return {
+      angle: -Math.PI * 0.82 + spread * Math.PI * 0.64,
+      distance: energy * (1.25 + (index % 4) * 0.16),
+      size: 0.16 + (index % 3) * 0.025,
+      spin: (index % 2 === 0 ? -1 : 1) * (1.4 + (index % 5) * 0.25)
+    };
+  });
+}
+
+function drawDeathAnimation(now) {
+  const animation = deathAnimation;
+  if (!animation) return;
+  const cell = boardMetrics.cellSize;
+  const elapsed = now - animation.startedAt;
+
+  // The pale necks are their own debris pieces. Keep each one in place until
+  // the headward tile releases it, then give it a lower hop, a slower fall,
+  // sideways drift, and a tumble so the breakup does not feel too uniform.
+  // Draw these first so unreleased connectors still sit underneath the tiles.
+  animation.segments.slice(0, -1).forEach((part, index) => {
+    const nextPart = animation.segments[index + 1];
+    const rawLocal = (elapsed - (index + 0.45) * animation.delayMs) / DEATH_CONNECTOR_DURATION_MS;
+    if (rawLocal >= 1) return;
+    const local = Math.max(0, rawLocal);
+    const startX = boardMetrics.x + ((part.x + nextPart.x) / 2 + 0.5) * cell;
+    const startY = boardMetrics.y + ((part.y + nextPart.y) / 2 + 0.5) * cell;
+    const angle = Math.atan2(nextPart.y - part.y, nextPart.x - part.x);
+    const jumpEnd = 0.28;
+    const jumpHeight = cell * 0.42;
+    const fall = local <= jumpEnd ? 0 : (local - jumpEnd) / (1 - jumpEnd);
+    const offsetY = local <= jumpEnd
+      ? -Math.sin((local / jumpEnd) * Math.PI / 2) * jumpHeight
+      : -jumpHeight + fall * fall * (canvas.height - startY + cell * 1.4);
+    const driftDirection = index % 2 === 0 ? -1 : 1;
+    const offsetX = driftDirection * cell * (local * 0.16 + fall * fall * 0.58);
+    const rotation = driftDirection * local * Math.PI * 0.72;
+    const fade = local < 0.72 ? 1 : 1 - (local - 0.72) / 0.28;
+    const length = cell * 0.46;
+    const thickness = Math.max(2, cell * 0.22);
+
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, fade);
+    ctx.translate(startX + offsetX, startY + offsetY);
+    ctx.rotate(angle + rotation);
+    const connectorShadowOffset = Math.max(1.5, cell * 0.055);
+    ctx.fillStyle = "rgba(24, 36, 19, 0.28)";
+    ctx.beginPath();
+    ctx.roundRect(-length / 2 + connectorShadowOffset, -thickness / 2 + connectorShadowOffset, length, thickness, thickness / 2);
+    ctx.fill();
+    ctx.fillStyle = lightenColor(snakeColors.body, 0.25);
+    ctx.beginPath();
+    ctx.roundRect(-length / 2, -thickness / 2, length, thickness, thickness / 2);
+    ctx.fill();
+    ctx.restore();
+  });
+
+  animation.segments.forEach((part, index) => {
+    const rawLocal = (elapsed - index * animation.delayMs) / DEATH_TILE_DURATION_MS;
+    if (rawLocal >= 1) return;
+    const local = Math.max(0, rawLocal);
+
+    const baseInset = Math.max(3, cell * (index === 0 ? 0.105 : 0.135));
+    const rect = cellRect(part, baseInset);
+    const jumpEnd = 0.34;
+    const jumpHeight = cell * 0.72;
+    let offsetY;
+    if (local <= jumpEnd) {
+      offsetY = -Math.sin((local / jumpEnd) * Math.PI / 2) * jumpHeight;
+    } else {
+      const fall = (local - jumpEnd) / (1 - jumpEnd);
+      const distanceBelowScreen = canvas.height - rect.y + cell;
+      offsetY = -jumpHeight + fall * fall * distanceBelowScreen;
+    }
+    const fade = local < 0.78 ? 1 : 1 - (local - 0.78) / 0.22;
+    const y = rect.y + offsetY;
+
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, fade);
+    const shadowOffset = Math.max(2, cell * 0.08);
+    const isTail = index === animation.segments.length - 1 && index !== 0;
+    ctx.fillStyle = "rgba(24, 36, 19, 0.32)";
+    if (isTail) {
+      drawTail({ ...rect, x: rect.x + shadowOffset, y: y + shadowOffset }, part, animation.segments[index - 1]);
+    } else {
+      drawRoundedRect(rect.x + shadowOffset, y + shadowOffset, rect.size, rect.size);
+    }
+    ctx.fillStyle = index === 0 ? snakeColors.head : snakeColors.body;
+    if (isTail) {
+      const previousPart = animation.segments[index - 1];
+      drawTail({ ...rect, y }, part, previousPart);
+    } else {
+      drawRoundedRect(rect.x, y, rect.size, rect.size);
+      ctx.fillStyle = "rgba(156, 172, 119, 0.22)";
+      ctx.fillRect(rect.x + 3, y + 3, Math.max(1, rect.size - 6), Math.max(2, rect.size * 0.12));
+    }
+    if (index === 0) drawEyes(rect.x, y, rect.size, animation.direction);
+    ctx.restore();
+  });
+
+  drawDeathSeedBurst(animation, elapsed, cell);
+}
+
+function drawDeathSeedBurst(animation, elapsed, cell) {
+  const head = animation.segments[0];
+  if (!head || elapsed < 0 || elapsed >= DEATH_SEED_DURATION_MS) return;
+  const progress = elapsed / DEATH_SEED_DURATION_MS;
+  const originX = boardMetrics.x + (head.x + 0.5) * cell;
+  const originY = boardMetrics.y + (head.y + 0.5) * cell;
+  const fade = progress < 0.62 ? 1 : 1 - (progress - 0.62) / 0.38;
+
+  animation.seeds.forEach((seed, index) => {
+    const distance = seed.distance * cell * progress;
+    const x = originX + Math.cos(seed.angle) * distance;
+    // Give the burst a clearly readable ascent instead of relying on a short
+    // ballistic curve whose apex was easy to miss at phone scale. Every seed
+    // rises for nearly half the effect, then drops past its starting point.
+    const ascentEnd = 0.44;
+    const riseHeight = cell * (0.9 + seed.distance * 0.32);
+    const y = progress <= ascentEnd
+      ? originY - Math.sin((progress / ascentEnd) * Math.PI / 2) * riseHeight
+      : originY - riseHeight
+        + Math.pow((progress - ascentEnd) / (1 - ascentEnd), 2) * (riseHeight + cell * 3);
+    const size = Math.max(3, cell * seed.size);
+    const shadowOffset = Math.max(1, size * 0.18);
+
+    ctx.save();
+    ctx.globalAlpha = Math.max(0, fade);
+    ctx.translate(x, y);
+    ctx.rotate(seed.spin * progress + index * 0.12);
+    ctx.fillStyle = "rgba(24, 36, 19, 0.28)";
+    ctx.fillRect(-size / 2 + shadowOffset, -size / 2 + shadowOffset, size, size);
+    ctx.fillStyle = "#182413";
+    const cut = size * 0.3;
+    ctx.fillRect(-size / 2, -size / 2, size, cut);
+    ctx.fillRect(-size / 2, size / 2 - cut, size, cut);
+    ctx.fillRect(-size / 2, -size / 2 + cut, cut, size - cut * 2);
+    ctx.fillRect(size / 2 - cut, -size / 2 + cut, cut, size - cut * 2);
+    ctx.restore();
+  });
 }
 
 // The heading the next standard-snake step will use: the imminent queued turn if
@@ -5190,27 +4535,136 @@ function startDigestionAnimation() {
   digestionAnimations.push({ startedAt: performance.now(), snakeLength: snake.length });
 }
 
+const CRUMB_DURATION_MS = 1440;
+const CRUMB_MAX_DURATION_MS = CRUMB_DURATION_MS * 1.35;
+const CRUMBS_PER_BITE = 6;
+const CRUMB_DIRECTION_VECTORS = {
+  up: { x: 0, y: -1 },
+  down: { x: 0, y: 1 },
+  left: { x: -1, y: 0 },
+  right: { x: 1, y: 0 }
+};
+const CRUMB_SHAPES = [
+  [[0, 0]],
+  [[0, 0], [1, 0], [2, 0], [3, 0]],
+  [[0, 0], [1, 0], [0, 1], [1, 1]],
+  [[0, 0], [1, 0], [2, 0], [1, 1]],
+  [[0, 0], [0, 1], [0, 2], [1, 2]],
+  [[1, 0], [1, 1], [1, 2], [0, 2]],
+  [[1, 0], [2, 0], [0, 1], [1, 1]],
+  [[0, 0], [1, 0], [1, 1], [2, 1]]
+];
+
+function crumbDirectionForBite(head) {
+  const previousHead = snake?.[0];
+  const x = head.x - (previousHead?.x ?? head.x);
+  const y = head.y - (previousHead?.y ?? head.y);
+  return Math.abs(x) + Math.abs(y) === 1
+    ? { x, y }
+    : { ...(CRUMB_DIRECTION_VECTORS[direction] || CRUMB_DIRECTION_VECTORS.right) };
+}
+
+function startCrumbAnimation(head) {
+  if (effectiveReducedMotion() || !head) return;
+  crumbAnimations.push({
+    startedAt: performance.now(),
+    head: { ...head },
+    direction: crumbDirectionForBite(head),
+    particles: Array.from({ length: CRUMBS_PER_BITE }, (_, index) => ({
+      drift: (Math.random() - 0.5) * (0.7 + index * 0.08),
+      drop: 2.1 + Math.random() * 1.6,
+      forward: 0.12 + Math.random() * 0.16,
+      size: 0.07 + Math.random() * 0.04,
+      delay: index * 22,
+      duration: CRUMB_DURATION_MS * (0.65 + Math.random() * 0.7),
+      shape: CRUMB_SHAPES[Math.floor(Math.random() * CRUMB_SHAPES.length)],
+      rotation: Math.floor(Math.random() * 4),
+      tumbles: 1 + Math.floor(Math.random() * 3),
+      spinDirection: Math.random() < 0.5 ? -1 : 1
+    }))
+  });
+}
+
+function drawCrumbShape(crumb, blockSize, color) {
+  const width = Math.max(...crumb.shape.map(([x]) => x)) + 1;
+  const height = Math.max(...crumb.shape.map(([, y]) => y)) + 1;
+  const pixelSize = blockSize > 2 ? blockSize - 1 : blockSize;
+  const left = -width * blockSize / 2;
+  const top = -height * blockSize / 2;
+
+  ctx.fillStyle = "rgba(24, 36, 19, 0.28)";
+  crumb.shape.forEach(([blockX, blockY]) => {
+    ctx.fillRect(left + blockX * blockSize + 1, top + blockY * blockSize + 1, pixelSize, pixelSize);
+  });
+  ctx.fillStyle = color;
+  crumb.shape.forEach(([blockX, blockY]) => {
+    ctx.fillRect(left + blockX * blockSize, top + blockY * blockSize, pixelSize, pixelSize);
+  });
+}
+
+function drawCrumbs() {
+  if (effectiveReducedMotion()) {
+    crumbAnimations = [];
+    return;
+  }
+
+  const now = performance.now();
+  const cell = boardMetrics.cellSize;
+  crumbAnimations = crumbAnimations.filter((animation) => now - animation.startedAt < CRUMB_MAX_DURATION_MS + CRUMBS_PER_BITE * 22);
+
+  crumbAnimations.forEach((animation) => {
+    const originX = boardMetrics.x + (animation.head.x + 0.5) * cell;
+    const originY = boardMetrics.y + (animation.head.y + 0.58) * cell;
+    animation.particles.forEach((crumb, index) => {
+      const elapsed = now - animation.startedAt - crumb.delay;
+      if (elapsed < 0 || elapsed >= crumb.duration) return;
+      const progress = elapsed / crumb.duration;
+      const directionalX = animation.direction.x * crumb.forward;
+      const directionalY = animation.direction.y * crumb.forward * 0.65;
+      const x = originX + (crumb.drift + directionalX) * cell * progress;
+      const y = originY + cell * (crumb.drop * progress * progress + directionalY * progress + index * 0.025 * progress);
+      const blockSize = Math.max(2, Math.round(cell * crumb.size));
+      const fade = progress < 0.65 ? 1 : 1 - (progress - 0.65) / 0.35;
+      const completedTurns = Math.min(crumb.tumbles, Math.floor(progress * (crumb.tumbles + 1)));
+
+      ctx.save();
+      ctx.globalAlpha = Math.max(0, fade);
+      ctx.translate(Math.round(x), Math.round(y));
+      ctx.rotate((crumb.rotation + completedTurns * crumb.spinDirection) * Math.PI / 2);
+      drawCrumbShape(crumb, blockSize, index % 3 === 0 ? "#4b562f" : "#182413");
+      ctx.restore();
+    });
+  });
+}
+
 // The "swallowed seed" bulge occupies mainly ONE block at a time and hops down
 // the body, one segment every DIGESTION_SEGMENT_DELAY ms, until it reaches the
-// tail and vanishes. Lower the delay to send the lump down faster. The segment
-// on each side of the active one gets a small fraction of the bulge (a soft
-// shoulder) so the lump doesn't look like it's snapping between blocks.
-const DIGESTION_SEGMENT_DELAY = 70;
+// tail and vanishes. Its pace is proportional to the snake's tick interval,
+// retaining the former 70 ms / 190 ms visual relationship: it starts slower
+// with the snake and accelerates as the run speeds up. The segment on each
+// side of the active one gets a small fraction of the bulge (a soft shoulder)
+// so the lump doesn't look like it's snapping between blocks.
+const DIGESTION_SEGMENT_DELAY_RATIO = 70 / 190;
 const DIGESTION_NEIGHBOR_SHARE = 0.15;
 // The bulge shrinks as it nears the tail, bottoming out at this fraction of
 // full size right at the last segment (rather than vanishing/popping there).
 const DIGESTION_TAIL_TAPER_FLOOR = 0.35;
 
+function digestionSegmentDelay() {
+  return tickMs * DIGESTION_SEGMENT_DELAY_RATIO;
+}
+
 function pruneDigestionAnimations() {
   const now = performance.now();
+  const segmentDelay = digestionSegmentDelay();
   digestionAnimations = digestionAnimations.filter((animation) => {
     // Done once the lump has passed the last segment.
-    return now - animation.startedAt < animation.snakeLength * DIGESTION_SEGMENT_DELAY;
+    return now - animation.startedAt < animation.snakeLength * segmentDelay;
   });
 }
 
 function digestionPulseForSegment(index, now) {
-  const segmentDelay = DIGESTION_SEGMENT_DELAY;
+  const segmentDelay = digestionSegmentDelay();
   return digestionAnimations.reduce((strongestPulse, animation) => {
     const elapsed = now - animation.startedAt;
     if (elapsed < 0) return strongestPulse;
@@ -5233,7 +4687,7 @@ function digestionPulseForSegment(index, now) {
 
 function drawFood() {
   const foodType = currentFoodType();
-  const pulse = state === "running" ? Math.sin(performance.now() / 130) * boardMetrics.cellSize * 0.05 : 0;
+  const pulse = state === "running" && !effectiveReducedMotion() ? Math.sin(performance.now() / 130) * boardMetrics.cellSize * 0.05 : 0;
 
   foods.forEach((snack) => {
     const inset = Math.max(4, Math.floor(boardMetrics.cellSize * 0.18) - pulse);
@@ -5284,6 +4738,7 @@ function drawScanlines() {
 }
 
 function syncHud() {
+  syncPrimaryActionButton();
   const isSnakebird = gameMode === "snakebird";
   const isSokoban = gameMode === "sokoban";
   if (gameMode === "battleship" && battleship) {
@@ -5354,6 +4809,18 @@ function syncHud() {
   // syncHud() runs every animation frame; the idle panels only change on the
   // 250ms nursery clock and on discrete actions, which refresh them via
   // syncPanels(). Keeping them out of the per-frame path is the main perf fix.
+}
+
+function syncPrimaryActionButton() {
+  if (!pauseButton) return;
+  const usesLargeDpad = controlsEl?.classList.contains("is-large-dpad-controls");
+  const label = !usesLargeDpad ? "Pause"
+    : state === "gameover" ? "Reset"
+    : state === "ready" ? "Start"
+    : state === "paused" ? "Resume"
+    : "Pause";
+  pauseButton.textContent = label;
+  pauseButton.removeAttribute("aria-label");
 }
 
 // Refresh the idle/upgrade panels. Called from the 250ms nursery clock and from
@@ -5519,7 +4986,7 @@ function renderTradeNetwork(settlements, routes) {
   settlements.forEach((settlement, index) => { const angle = -Math.PI / 2 + index * Math.PI * 2 / count; points.set(settlement.id, { x: 160 + Math.cos(angle) * 105, y: 90 + Math.sin(angle) * 62 }); });
   routes.forEach((route) => { const a = points.get(route.settlementAId); const b = points.get(route.settlementBId); if (!a || !b) return;
     const line = document.createElementNS(ns, "line"); line.setAttribute("x1", a.x); line.setAttribute("y1", a.y); line.setAttribute("x2", b.x); line.setAttribute("y2", b.y); line.classList.add("trade-network-edge");
-    if (route.id === selectedTradeRouteId) line.classList.add("is-selected"); line.dataset.routeId = route.id; line.setAttribute("role", "button"); line.setAttribute("aria-label", `Manage route ${route.id}`); tradeRouteNetworkEl.append(line);
+    if (route.id === selectedTradeRouteId) line.classList.add("is-selected"); line.dataset.routeId = route.id; line.setAttribute("role", "button"); line.setAttribute("tabindex", "0"); line.setAttribute("aria-pressed", String(route.id === selectedTradeRouteId)); line.setAttribute("aria-label", `Manage trade route between ${settlements.find((item) => item.id === route.settlementAId)?.name || route.settlementAId} and ${settlements.find((item) => item.id === route.settlementBId)?.name || route.settlementBId}`); tradeRouteNetworkEl.append(line);
   });
   settlements.forEach((settlement) => { const point = points.get(settlement.id); const group = document.createElementNS(ns, "g"); group.classList.add("trade-network-node"); if (settlement.status === "founding") group.classList.add("is-founding");
     const circle = document.createElementNS(ns, "circle"); circle.setAttribute("cx", point.x); circle.setAttribute("cy", point.y); circle.setAttribute("r", 17);
@@ -5712,7 +5179,9 @@ function syncUpgradeMenu() {
   minigamesNameEl.textContent = minigamesMaxed ? "All unlocked" : unlockedMinigame ? `Game ${unlockedMinigame}` : "None unlocked";
   minigamesLevelEl.textContent = `LV ${upgrades.minigamesLevel}`;
   minigamesCurrentEl.textContent = upgrades.minigamesLevel ? `${upgrades.minigamesLevel} phone game${upgrades.minigamesLevel === 1 ? "" : "s"} unlocked` : "Unlock phone game 1";
-  minigamesNextEl.textContent = minigamesMaxed ? "Next: Maximum games" : `Next: phone game ${nextMinigame}`;
+  minigamesNextEl.textContent = activeSettlementIsFounding()
+    ? "Unavailable while founding"
+    : minigamesMaxed ? "Next: Maximum games" : `Next: phone game ${nextMinigame}`;
   updateUpgradeButton("minigames", minigamesMaxed ? null : upgradeCost(upgradeConfig.minigames, upgrades.minigamesLevel));
   syncMinigameKeys();
 
@@ -5728,7 +5197,7 @@ function syncMinigameKeys() {
     const unlocked = Number(key.dataset.minigame) === 0
       ? true
       : Number(key.dataset.minigame) <= upgrades.minigamesLevel;
-    key.disabled = false;
+    key.disabled = !unlocked;
     key.classList.toggle("is-locked", !unlocked);
     key.setAttribute("aria-disabled", String(!unlocked));
     key.title = Number(key.dataset.minigame) === 0
@@ -5765,8 +5234,15 @@ function updateUpgradeButton(type, cost) {
   const button = upgradeButtons[type];
   if (!button) return;
   const maxed = cost === null;
-  button.disabled = maxed || seedsTotal < cost;
-  button.textContent = maxed ? "Maxed" : `Buy ${formatNumber(cost)}`;
+  const unavailableWhileFounding = type === "minigames" && activeSettlementIsFounding();
+  button.disabled = unavailableWhileFounding || maxed || seedsTotal < cost;
+  button.textContent = unavailableWhileFounding ? "Unavailable while founding" : maxed ? "Maxed" : `Buy ${formatNumber(cost)}`;
+  button.title = unavailableWhileFounding ? "Minigame upgrades are unavailable while this settlement is founding." : "";
+}
+
+function activeSettlementIsFounding() {
+  const migrationState = latestSnapshot?.migration;
+  return migrationState?.settlements?.find((item) => item.id === migrationState.activeSettlementId)?.status === "founding";
 }
 
 function grantMinigameFunds() {
@@ -5774,7 +5250,9 @@ function grantMinigameFunds() {
     (total, _level, level) => total + upgradeCost(upgradeConfig.minigames, level),
     0
   );
-  seedsTotal += grant;
+  const result = session.dispatch({ type: "addSeeds", amount: grant });
+  latestSnapshot = result.snapshot;
+  seedsTotal = result.snapshot.seeds;
   saveSeeds();
   syncHud();
   syncPanels();
@@ -5805,11 +5283,8 @@ function purchaseUpgrade(type) {
   if (events.some((event) => event.type === "actionRejected")) return;
   latestSnapshot = snapshot;
   seedsTotal = snapshot.seeds;
-  sessionLastSeeds = seedsTotal;
   best = snapshot.best;
-  sessionLastBest = best;
   mirrorEconomyFromWorld(now, snapshot);
-  sessionLastUpgradesJson = JSON.stringify(upgrades);
   saveSeeds();
   saveUpgrades();
 
@@ -5917,12 +5392,44 @@ function setText(el, value) {
 }
 
 function showOverlay(text) {
-  stateText.textContent = text;
+  stateLabel.textContent = text;
+  if (readyStartPrompt) {
+    const resetPrompt = state === "gameover";
+    readyStartPrompt.hidden = !(resetPrompt || (gameMode === "snake" && text === "Ready"));
+    readyStartPrompt.textContent = resetPrompt ? "Press any control to reset." : "Press any control to begin.";
+  }
   overlay.classList.add("visible");
+  if (gameStatus) gameStatus.textContent = `${gameMode === "snake" ? "Snake Forever" : gameMode}: ${text}`;
+  if (canvas) canvas.setAttribute("aria-label", `${gameMode === "snake" ? "Snake Forever" : gameMode} play field: ${text}`);
+}
+
+function showDeathOverlay(text) {
+  clearTimeout(deathOverlayTimer);
+  deathOverlayTimer = null;
+  if (effectiveReducedMotion() || !deathAnimation) {
+    showOverlay(text);
+    return;
+  }
+
+  // Publish the state immediately for assistive technology, but keep the
+  // centered panel out of the way until the seed burst reaches its apex.
+  showOverlay(text);
+  overlay.classList.remove("visible");
+  if (readyStartPrompt) readyStartPrompt.hidden = true;
+  const animationAtDeath = deathAnimation;
+  deathOverlayTimer = window.setTimeout(() => {
+    deathOverlayTimer = null;
+    if (state === "gameover" && gameMode === "snake" && deathAnimation === animationAtDeath) showOverlay(text);
+  }, DEATH_SEED_DURATION_MS * 0.46);
 }
 
 function hideOverlay() {
   overlay.classList.remove("visible");
+  if (readyStartPrompt) readyStartPrompt.hidden = true;
+  if (state === "running") {
+    if (gameStatus) gameStatus.textContent = `${gameMode === "snake" ? "Snake Forever" : gameMode}: Running`;
+    if (canvas) canvas.setAttribute("aria-label", `${gameMode === "snake" ? "Snake Forever" : gameMode} play field: Running`);
+  }
 }
 
 function setScreenHint(text) {
@@ -5948,26 +5455,38 @@ function setMenuTab(activeTab) {
   if (activeTab === "migration") showSettleOverview();
 }
 
+function isLocalDevelopmentMode(locationLike = window.location) {
+  const hostname = String(locationLike?.hostname || "").replace(/^\[|\]$/g, "").toLowerCase();
+  const loopback = hostname === "localhost" || hostname === "127.0.0.1" || hostname === "::1";
+  return loopback && new URLSearchParams(locationLike?.search || "").get("dev") === "1";
+}
+
 document.addEventListener("keydown", (event) => {
+  if (state === "gameover" && event.code === "Escape") {
+    event.preventDefault();
+    resetGame();
+    return;
+  }
+
   if (event.code === "Escape") {
     event.preventDefault();
     returnToRegularSnake();
     return;
   }
 
-  if (event.code === "KeyG" && event.shiftKey) {
+  if (isLocalDevelopmentMode() && event.code === "KeyG" && event.shiftKey) {
     event.preventDefault();
     grantMinigameFunds();
     return;
   }
 
-  if (event.code === "KeyH" && event.shiftKey) {
+  if (isLocalDevelopmentMode() && event.code === "KeyH" && event.shiftKey) {
     event.preventDefault();
     if (!event.repeat) grantAdultSnakes();
     return;
   }
 
-  if (event.code === "KeyN" && event.shiftKey) {
+  if (isLocalDevelopmentMode() && event.code === "KeyN" && event.shiftKey) {
     event.preventDefault();
     if (!event.repeat) {
       setMenuTab("colony");
@@ -6019,14 +5538,14 @@ document.addEventListener("keyup", (event) => {
 
   if (gameMode === "centipede" && centipede) {
     const released = keyMap[event.code];
-    if (released === "left" || released === "right") centipede.player.inputX = 0;
-    else if (released === "up" || released === "down") centipede.player.inputY = 0;
+    if (released === "left" || released === "right") setCentipedeAxis("x", 0);
+    else if (released === "up" || released === "down") setCentipedeAxis("y", 0);
     return;
   }
 
   if (gameMode !== "breakout" || !breakout) return;
   if (event.code === "ArrowLeft" || event.code === "KeyA" || event.code === "ArrowRight" || event.code === "KeyD") {
-    breakout.paddle.input = 0;
+    setBreakoutAxis(0);
   }
 });
 
@@ -6034,12 +5553,14 @@ window.addEventListener("blur", () => {
   activeDirectionKeys.clear();
   activeDirectionClicks.clear();
   directionPointerStarts.clear();
+  swipePointerStarts.clear();
   directionClickTimers.forEach((timer) => clearTimeout(timer));
   directionClickTimers.clear();
   document.querySelectorAll("[data-direction]").forEach((button) => {
     button.classList.remove("is-pressed");
   });
-  if (gameMode === "centipede" && centipede) { centipede.player.inputX = 0; centipede.player.inputY = 0; }
+  if (gameMode === "breakout" && breakout) setBreakoutAxis(0);
+  if (gameMode === "centipede" && centipede) { setCentipedeAxis("x", 0); setCentipedeAxis("y", 0); }
   flushPendingSaves();
 });
 
@@ -6052,13 +5573,13 @@ document.querySelectorAll("[data-direction]").forEach((button) => {
     });
   });
   button.addEventListener("pointerup", () => {
-    if (gameMode === "breakout" && breakout) breakout.paddle.input = 0;
-    if (gameMode === "centipede" && centipede) { centipede.player.inputX = 0; centipede.player.inputY = 0; }
+    if (gameMode === "breakout" && breakout) setBreakoutAxis(0);
+    if (gameMode === "centipede" && centipede) { setCentipedeAxis("x", 0); setCentipedeAxis("y", 0); }
   });
   button.addEventListener("pointercancel", (event) => {
     directionPointerStarts.delete(event.pointerId);
-    if (gameMode === "breakout" && breakout) breakout.paddle.input = 0;
-    if (gameMode === "centipede" && centipede) { centipede.player.inputX = 0; centipede.player.inputY = 0; }
+    if (gameMode === "breakout" && breakout) setBreakoutAxis(0);
+    if (gameMode === "centipede" && centipede) { setCentipedeAxis("x", 0); setCentipedeAxis("y", 0); }
   });
 });
 document.addEventListener("pointerup", (event) => {
@@ -6068,13 +5589,56 @@ document.addEventListener("pointerup", (event) => {
     animateDirectionClick(pointerStart.directionName, performance.now() - pointerStart.startedAt);
   }
 
-  if (gameMode === "breakout" && breakout) breakout.paddle.input = 0;
-  if (gameMode === "centipede" && centipede) { centipede.player.inputX = 0; centipede.player.inputY = 0; }
+  if (gameMode === "breakout" && breakout) setBreakoutAxis(0);
+  if (gameMode === "centipede" && centipede) { setCentipedeAxis("x", 0); setCentipedeAxis("y", 0); }
 });
 
+// Swipes are intentionally limited to the continuously moving Snake mode.
+// Other minigames either need held-axis input or already use the board itself.
+canvas.addEventListener("pointerdown", (event) => {
+  if (!savedMobileControls().swipeControls || gameMode !== "snake") return;
+  swipePointerStarts.set(event.pointerId, { x: event.clientX, y: event.clientY });
+  canvas.setPointerCapture?.(event.pointerId);
+});
+canvas.addEventListener("pointerup", (event) => {
+  const start = swipePointerStarts.get(event.pointerId);
+  if (!start) return;
+  swipePointerStarts.delete(event.pointerId);
+  const deltaX = event.clientX - start.x;
+  const deltaY = event.clientY - start.y;
+  if (Math.max(Math.abs(deltaX), Math.abs(deltaY)) < 20) return;
+  queueDirection(Math.abs(deltaX) > Math.abs(deltaY)
+    ? (deltaX > 0 ? "right" : "left")
+    : (deltaY > 0 ? "down" : "up"));
+});
+canvas.addEventListener("pointercancel", (event) => swipePointerStarts.delete(event.pointerId));
+
 startButton.addEventListener("click", startGame);
-pauseButton.addEventListener("click", togglePause);
+pauseButton.addEventListener("click", activatePrimaryAction);
 resetButton.addEventListener("click", resetGame);
+reducedMotionButton?.addEventListener("click", toggleReducedMotion);
+swipeControlsButton?.addEventListener("click", () => toggleMobileControl("swipeControls"));
+biggerDpadButton?.addEventListener("click", () => toggleMobileControl("biggerDpad"));
+minimizedKeypadButton?.addEventListener("click", () => {
+  const open = !minigameKeypadEl?.classList.contains("is-open");
+  minigameKeypadEl?.classList.toggle("is-open", open);
+  minimizedKeypadButton.setAttribute("aria-expanded", String(open));
+});
+largeDpadPersonalizeButton?.addEventListener("click", () => {
+  if (personalizationScreen.hidden && saveDataScreen.hidden) {
+    showPersonalization();
+    return;
+  }
+  personalizationScreen.hidden = true;
+  saveDataScreen.hidden = true;
+  syncLargeDpadPersonalizeButton();
+});
+reducedMotionButton?.addEventListener("keydown", (event) => {
+  if (!["Enter", " "].includes(event.key)) return;
+  event.preventDefault();
+  event.stopPropagation();
+  if (!event.repeat) toggleReducedMotion();
+});
 
 // Battleship supports pointer play: click your nest to place a snake during
 // setup, click enemy waters to launch a venom strike on your turn.
@@ -6087,8 +5651,7 @@ canvas.addEventListener("click", (event) => {
   } else if (battleship.phase === "placement" && cell.board === "enemy" && !battleshipCurrentDef()) {
     battleshipBeginBattle();
   } else if (battleship.phase === "playing" && battleship.turn === "player" && cell.board === "enemy") {
-    battleship.target = { x: cell.x, y: cell.y };
-    battleshipFire();
+    battleshipFire(cell.x, cell.y);
   }
 });
 personalizationBackButton.addEventListener("click", hidePersonalization);
@@ -6127,10 +5690,12 @@ function startResetHold() {
     if (animationId) cancelAnimationFrame(animationId);
     if (saveFlushTimer !== null) { clearTimeout(saveFlushTimer); saveFlushTimer = null; }
     pendingSaveProducers.clear();
-    localStorage.removeItem(consolidatedSaveKey);
+    const removedPrimary = safeStorage("remove", consolidatedSaveKey);
+    const removedBackup = safeStorage("remove", consolidatedBackupKey);
+    if (!removedPrimary.ok || !removedBackup.ok) { reportStorageFailure((!removedPrimary.ok ? removedPrimary : removedBackup).kind); resettingProgress = false; return; }
     saveKeysLegacyList.forEach((key) => {
-      localStorage.removeItem(`${savePrefix}${key}`);
-      localStorage.removeItem(`${legacySavePrefix}${key}`);
+      safeStorage("remove", `${savePrefix}${key}`);
+      safeStorage("remove", `${legacySavePrefix}${key}`);
     });
     location.reload();
   }, RESET_HOLD_MS);
@@ -6186,7 +5751,18 @@ createTradeRouteButtonEl?.addEventListener("click", () => {
   const result = commitTradeAction({ type: "createTradeRoute", settlementAId: tradeSettlementAEl.value, settlementBId: tradeSettlementBEl.value });
   const created = result?.events.find((item) => item.type === "tradeRouteCreated"); if (created) { selectedTradeRouteId = created.routeId; syncTradeRoutesPanel(result.snapshot.migration); setScreenHint("Permanent trade route constructed."); }
 });
-tradeRouteNetworkEl?.addEventListener("click", (event) => { const routeId = event.target.dataset.routeId; if (!routeId) return; selectedTradeRouteId = routeId; syncTradeRoutesPanel(latestSnapshot.migration); });
+function selectTradeRoute(routeId, focus = false) {
+  if (!routeId || !latestSnapshot?.migration || selectedTradeRouteId === routeId) return;
+  selectedTradeRouteId = routeId;
+  syncTradeRoutesPanel(latestSnapshot.migration);
+  if (focus) tradeRouteNetworkEl?.querySelector(`[data-route-id="${CSS.escape(routeId)}"]`)?.focus();
+}
+tradeRouteNetworkEl?.addEventListener("click", (event) => selectTradeRoute(event.target.dataset.routeId));
+tradeRouteNetworkEl?.addEventListener("keydown", (event) => {
+  if (!event.target.dataset.routeId || !["Enter", " ", "Spacebar"].includes(event.key)) return;
+  event.preventDefault();
+  selectTradeRoute(event.target.dataset.routeId, true);
+});
 tradeRouteManagementEl?.addEventListener("click", (event) => {
   const button = event.target.closest("[data-trade-action]"); if (!button || !selectedTradeRouteId) return;
   const action = button.dataset.tradeAction; const direction = button.dataset.direction;
@@ -6234,10 +5810,10 @@ boardSizeSelect.addEventListener("change", () => {
 duelGridSelect?.addEventListener("change", () => {
   setDuelGridSize(duelGridSelect.value);
 });
-broodlineMoveUpButton?.addEventListener("click", () => { if (!broodline || broodline.selected <= 0) return; const index = broodline.selected; [broodline.chain[index - 1], broodline.chain[index]] = [broodline.chain[index], broodline.chain[index - 1]]; broodline.selected -= 1; syncBroodlineFormation(); });
-broodlineMoveDownButton?.addEventListener("click", () => { if (!broodline || broodline.selected >= broodline.chain.length - 1) return; const index = broodline.selected; [broodline.chain[index + 1], broodline.chain[index]] = [broodline.chain[index], broodline.chain[index + 1]]; broodline.selected += 1; syncBroodlineFormation(); });
-broodlineContinueButton?.addEventListener("click", () => broodlineStartNext());
-broodlineEndButton?.addEventListener("click", () => broodlineEndRun("Run ended"));
+broodlineMoveUpButton?.addEventListener("click", () => dispatchBroodlineFormation({ type: "broodlineMove", direction: "up" }));
+broodlineMoveDownButton?.addEventListener("click", () => dispatchBroodlineFormation({ type: "broodlineMove", direction: "down" }));
+broodlineContinueButton?.addEventListener("click", () => dispatchBroodlineFormation({ type: "broodlineContinue" }));
+broodlineEndButton?.addEventListener("click", () => dispatchBroodlineFormation({ type: "broodlineEnd" }));
 upgradeButtons.board.addEventListener("click", () => purchaseUpgrade("board"));
 upgradeButtons.foodType.addEventListener("click", () => purchaseUpgrade("foodType"));
 upgradeButtons.foodCount.addEventListener("click", () => purchaseUpgrade("foodCount"));
@@ -6245,7 +5821,13 @@ upgradeButtons.shield.addEventListener("click", () => purchaseUpgrade("shield"))
 upgradeButtons.minigames.addEventListener("click", () => purchaseUpgrade("minigames"));
 minigameKeys.forEach((key) => {
   key.addEventListener("click", () => {
+    if (state === "gameover") {
+      resetGame();
+      return;
+    }
     const gameNumber = Number(key.dataset.minigame);
+    // Intentional hidden route: key 9 normally starts Centipede, but from Duel
+    // it launches Runner. Runner is not an additional paid unlock.
     if (gameNumber === 9 && gameMode === "duel") {
       launchRunner();
       return;
@@ -6258,7 +5840,7 @@ minigameKeys.forEach((key) => {
       }
       return;
     }
-    const unlocked = gameNumber === 0 ? upgrades.minigamesLevel >= 10 : gameNumber <= upgrades.minigamesLevel;
+    const unlocked = gameNumber === 0 || gameNumber <= upgrades.minigamesLevel;
     if (!unlocked) return;
     if (gameNumber === 1) launchVsSnake();
     else if (gameNumber === 2) launchMaze();
@@ -6291,6 +5873,7 @@ buildHabitatList();
 // creates the snake run inside it. Then let gameLoop drive both on one clock.
 initIdleWorld();
 freshGame();
+if (startupStorageNotice) setScreenHint(startupStorageNotice);
 syncPanels(Date.now());
 cancelAnimationFrame(animationId);
 animationId = requestAnimationFrame((now) => {

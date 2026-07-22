@@ -13,7 +13,7 @@
   };
   const key = (point) => `${point.x},${point.y}`;
 
-  const TICK_MS = 150;   // 30% slower; matches game.js mazeTickMs
+  const TICK_MS = 105;   // authoritative browser and engine starting cadence
   const MIN_TICK_MS = 89;
 
   function isOpen(state, point) {

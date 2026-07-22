@@ -290,9 +290,9 @@
           </div>
 
           <div class="screen-bezel">
-            <canvas id="game" width="504" height="504" aria-label="Snake Forever play field"></canvas>
+            <canvas id="game" width="504" height="504" role="img" aria-label="Snake Forever play field: Ready" aria-describedby="gameStatus"></canvas>
             <div class="screen-overlay" id="overlay">
-              <p id="stateText">Ready</p>
+              <p id="stateText"><span id="stateLabel">Ready</span><span class="ready-start-prompt" id="readyStartPrompt" hidden>Press any control to begin.</span></p>
             </div>
             <section class="personalization-screen" id="personalizationScreen" hidden aria-label="Snake personalization">
               <div class="personalization-heading">
@@ -304,10 +304,16 @@
                 <span class="color-choice-label">BODY</span>
                 <div class="color-swatches" id="bodyColorChoices" role="group" aria-label="Snake body color"></div>
               </div>
+              <button class="personalization-back" id="reducedMotionButton" type="button" aria-pressed="false">Reduced motion: Off</button>
               <div class="color-choice-group">
                 <span class="color-choice-label">HEAD</span>
                 <div class="color-swatches" id="headColorChoices" role="group" aria-label="Snake head color"></div>
               </div>
+              <section class="mobile-controls-settings" aria-labelledby="mobileControlsHeading">
+                <h2 id="mobileControlsHeading">Mobile Controls</h2>
+                <button class="mobile-control-toggle" id="swipeControlsButton" type="button" aria-pressed="false">Swipe Controls: Off</button>
+                <button class="mobile-control-toggle" id="biggerDpadButton" type="button" aria-pressed="false">Bigger D-Pad: Off</button>
+              </section>
               <button class="personalization-back" id="openSaveDataButton" type="button">Save data</button>
               <button class="personalization-back" id="personalizationBackButton" type="button">Back to game</button>
             </section>
@@ -337,18 +343,19 @@
             </section>
           </div>
           <p class="screen-hint" id="screenHint" aria-live="polite"></p>
+          <p class="visually-hidden" id="gameStatus" aria-live="polite" aria-atomic="true"></p>
         </section>
 
         <section class="controls" aria-label="Game controls">
           <div class="phone-nav" aria-label="Directional controls">
-            <button class="nav-key nav-up" type="button" data-direction="up" aria-label="Up">▲</button>
-            <button class="nav-key nav-left" type="button" data-direction="left" aria-label="Left">◀</button>
-            <button class="nav-key nav-right" type="button" data-direction="right" aria-label="Right">▶</button>
-            <button class="nav-key nav-down" type="button" data-direction="down" aria-label="Down">▼</button>
+            <button class="nav-key nav-up" type="button" data-direction="up" aria-label="Up"><span class="nav-chevron">⌃</span></button>
+            <button class="nav-key nav-left" type="button" data-direction="left" aria-label="Left"><span class="nav-chevron">‹</span></button>
+            <button class="nav-key nav-right" type="button" data-direction="right" aria-label="Right"><span class="nav-chevron">›</span></button>
+            <button class="nav-key nav-down" type="button" data-direction="down" aria-label="Down"><span class="nav-chevron">⌄</span></button>
           </div>
 
           <div class="keypad" aria-label="Phone keypad controls">
-            <div class="minigame-keypad" aria-label="Minigame keypad">
+            <div class="minigame-keypad" id="minigameKeypad" aria-label="Minigame keypad">
               <button class="phone-key minigame-key" type="button" data-minigame="1" aria-label="Minigame 1">1</button>
               <button class="phone-key minigame-key" type="button" data-minigame="2" aria-label="Snake Forever" title="Snake Forever">2</button>
               <button class="phone-key minigame-key" type="button" data-minigame="3" aria-label="Minigame 3">3</button>
@@ -360,6 +367,8 @@
               <button class="phone-key minigame-key" type="button" data-minigame="9" aria-label="Minigame 9">9</button>
               <button class="phone-key minigame-key personalization-key" type="button" data-minigame="0" aria-label="Personalization">0</button>
             </div>
+            <button class="minimized-keypad-button" id="minimizedKeypadButton" type="button" aria-expanded="false" aria-controls="minigameKeypad">Games</button>
+            <button class="large-dpad-personalize-button" id="largeDpadPersonalizeButton" type="button">Personalize</button>
             <button id="startButton" class="action-key" type="button">Start</button>
             <button id="pauseButton" class="action-key" type="button">Pause</button>
             <button id="resetButton" class="action-key" type="button">Reset</button>
@@ -385,11 +394,8 @@
     <script src="engine/battleship.js"></script>
     <script src="engine/centipede.js"></script>
     <script src="snakebird-engine.js"></script>
-    <script src="engine/world.js"></script>
-    <script src="engine/index.js"></script>
-    <script src="engine/save.js"></script>
+    <script src="engine/save-guard.js"></script>
     <script src="engine/session.js"></script>
-    <script src="engine/simulate.js"></script>
     <script src="game.js"></script>
   </body>
 </html>

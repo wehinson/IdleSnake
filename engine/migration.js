@@ -9,8 +9,17 @@
   const clone = (value) => JSON.parse(JSON.stringify(value));
   const nonnegative = (value) => Math.max(0, Number(value) || 0);
   const integer = (value) => Math.max(0, Math.floor(Number(value) || 0));
+  const historyInteger = (value) => Math.max(0, Math.min(Number.MAX_SAFE_INTEGER, Math.floor(Number(value) || 0)));
   const roundPoints = (value) => Math.round(nonnegative(value) * 1000) / 1000;
+  const historyLimit = Math.max(1, integer(config.historyRetentionConfig?.migrationPerOutcome) || 50);
   const upgradeDefaults = { boardLevel: 0, foodTypeLevel: 0, foodCountLevel: 0, shieldLevel: 0, minigamesLevel: 0 };
+  function retainLatest(items) { return items.length > historyLimit ? items.slice(-historyLimit) : items; }
+  function historyCount(savedTotal, items) { return Math.max(historyInteger(savedTotal), items.length); }
+  function recordHistory(migration, key, totalKey, expedition) {
+    migration[key].push(clone(expedition));
+    migration.historyTotals[totalKey] = historyInteger(historyInteger(migration.historyTotals[totalKey]) + 1);
+    if (migration[key].length > historyLimit) migration[key].splice(0, migration[key].length - historyLimit);
+  }
   function normalizeUpgrades(raw) {
     return Object.fromEntries(Object.keys(upgradeDefaults).map((key) => [key, integer(raw?.[key])]));
   }
@@ -50,15 +59,24 @@
       ? saved.settlements.map(normalizeSettlement)
       : [blankSettlement("grasslands", "Grasslands", "Grasslands", now)];
     if (!settlements.some((item) => item.id === "grasslands")) settlements.unshift(blankSettlement("grasslands", "Grasslands", "Grasslands", now));
+    const completedMigrations = Array.isArray(saved.completedMigrations) ? clone(saved.completedMigrations) : [];
+    const failedMigrations = Array.isArray(saved.failedMigrations) ? clone(saved.failedMigrations) : [];
+    const returnedMigrations = Array.isArray(saved.returnedMigrations) ? clone(saved.returnedMigrations) : [];
     return {
       availablePoints: roundPoints(saved.availablePoints ?? saved.globalMigrationPoints),
       totalEarned: roundPoints(saved.totalEarned ?? saved.lifetimeMigrationPointsEarned),
       totalSpent: roundPoints(saved.totalSpent ?? saved.lifetimeMigrationPointsSpent),
       contributions: saved.contributions && typeof saved.contributions === "object" ? clone(saved.contributions) : clone(saved.settlementContributionRecords || {}),
       activeExpeditions: Array.isArray(saved.activeExpeditions) ? clone(saved.activeExpeditions) : [],
-      completedMigrations: Array.isArray(saved.completedMigrations) ? clone(saved.completedMigrations) : [],
-      failedMigrations: Array.isArray(saved.failedMigrations) ? clone(saved.failedMigrations) : [],
-      returnedMigrations: Array.isArray(saved.returnedMigrations) ? clone(saved.returnedMigrations) : [],
+      completedMigrations: retainLatest(completedMigrations),
+      failedMigrations: retainLatest(failedMigrations),
+      returnedMigrations: retainLatest(returnedMigrations),
+      historyTotals: {
+        ...(saved.historyTotals && typeof saved.historyTotals === "object" && !Array.isArray(saved.historyTotals) ? clone(saved.historyTotals) : {}),
+        completed: historyCount(saved.historyTotals?.completed, completedMigrations),
+        failed: historyCount(saved.historyTotals?.failed, failedMigrations),
+        returned: historyCount(saved.historyTotals?.returned, returnedMigrations)
+      },
       settlements,
       activeSettlementId: settlements.some((item) => item.id === saved.activeSettlementId) ? saved.activeSettlementId : "grasslands",
       nextExpeditionId: Math.max(1, integer(saved.nextExpeditionId) || 1),
@@ -243,7 +261,7 @@
     const migration = state.migration; const survived = rng() < cfg.journey.notableSurvivalChance;
     if (survived) returnNotable(migration, expedition.originSettlementId, expedition.notable);
     expedition.currentManifest = { adults: 0, eggs: 0, seeds: 0, branches: 0, provisions: 0 }; expedition.state = "failed"; expedition.outcome = survived ? "failed-notable-returned" : "failed-notable-lost"; expedition.arrivalTime = now; expedition.notableSurvived = survived;
-    removeActive(migration, expedition); migration.failedMigrations.push(clone(expedition));
+    removeActive(migration, expedition); recordHistory(migration, "failedMigrations", "failed", expedition);
     if (migration.activeSettlementId === expedition.originSettlementId) loadEconomyIntoState(state, migration.settlements.find((item) => item.id === expedition.originSettlementId).economy);
   }
   function reachStop(state, expedition, now, rng) {
@@ -286,14 +304,14 @@
     origin.economy.seeds += m.seeds; origin.economy.branches += m.branches; origin.economy.provisions += m.provisions; origin.economy.nursery.colonyCount = integer(origin.economy.nursery.colonyCount) + m.adults;
     origin.economy.nursery.nestEggs = origin.economy.nursery.nestEggs || []; for (let i = 0; i < m.eggs; i += 1) origin.economy.nursery.nestEggs.push({ elapsedMs: 0, hatchDurationMs: config.nurseryConfig.eggHatchMs });
     returnNotable(migration, origin.id, expedition.notable); const refund = roundPoints(expedition.migrationPointCost * cfg.journey.returnRefundRate); migration.availablePoints = roundPoints(migration.availablePoints + refund);
-    expedition.state = "returned"; expedition.outcome = "returned"; expedition.arrivalTime = now; expedition.refund = refund; removeActive(migration, expedition); migration.returnedMigrations.push(clone(expedition));
+    expedition.state = "returned"; expedition.outcome = "returned"; expedition.arrivalTime = now; expedition.refund = refund; removeActive(migration, expedition); recordHistory(migration, "returnedMigrations", "returned", expedition);
     if (migration.activeSettlementId === origin.id) loadEconomyIntoState(state, origin.economy);
     return { accepted: true, refund };
   }
   function arrive(state, expedition, now) {
     const migration = state.migration; const id = `settlement-${migration.nextSettlementId++}`; const settlement = blankSettlement(id, expedition.destination, expedition.destination, now); const m = expedition.currentManifest;
     settlement.economy = normalizeEconomy({ seeds: m.seeds, branches: m.branches, provisions: m.provisions, upgrades: upgradeDefaults, selectedBoardLevel: 0, nursery: { colonyCount: m.adults, nestEggs: Array.from({ length: m.eggs }, () => ({ elapsedMs: 0, hatchDurationMs: config.nurseryConfig.eggHatchMs })) }, habitats: {}, notables: { retained: [{ ...expedition.notable, status: "INACTIVE", assignedHabitatId: null }] } });
-    migration.settlements.push(settlement); expedition.state = "founding"; expedition.outcome = "arrived"; expedition.arrivalTime = now; expedition.settlementId = id; removeActive(migration, expedition); migration.completedMigrations.push(clone(expedition)); return "founding";
+    migration.settlements.push(settlement); expedition.state = "founding"; expedition.outcome = "arrived"; expedition.arrivalTime = now; expedition.settlementId = id; removeActive(migration, expedition); recordHistory(migration, "completedMigrations", "completed", expedition); return "founding";
   }
   function recordSnakeSeeds(state, amount) {
     const settlement = state.migration.settlements.find((item) => item.id === state.migration.activeSettlementId); const seeds = nonnegative(amount);

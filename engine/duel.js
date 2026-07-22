@@ -91,11 +91,14 @@
       contains(playerBodyAfterMove, playerHead) || contains(opponentBodyAfterMove, playerHead);
     const opponentCollision = isWallHit(state.grid, opponentHead) ||
       contains(opponentBodyAfterMove, opponentHead) || contains(playerBodyAfterMove, opponentHead);
-    const headOn = playerHead.x === opponentHead.x && playerHead.y === opponentHead.y;
+    const sameCellHeadOn = playerHead.x === opponentHead.x && playerHead.y === opponentHead.y;
+    const headSwap = playerHead.x === state.opponent.body[0].x && playerHead.y === state.opponent.body[0].y &&
+      opponentHead.x === state.player.body[0].x && opponentHead.y === state.player.body[0].y;
+    const headToHead = sameCellHeadOn || headSwap;
 
-    if (playerCollision || opponentCollision || headOn) {
+    if (playerCollision || opponentCollision || headToHead) {
       let winner;
-      if (headOn && !playerCollision && !opponentCollision) {
+      if (headToHead && !playerCollision && !opponentCollision) {
         winner = state.player.body.length > state.opponent.body.length ? "player"
           : state.opponent.body.length > state.player.body.length ? "opponent" : null;
       } else {

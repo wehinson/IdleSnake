@@ -10,7 +10,32 @@
   const clone = (value) => JSON.parse(JSON.stringify(value));
   const integer = (value) => Math.max(0, Math.min(Number.MAX_SAFE_INTEGER, Math.floor(Number(value) || 0)));
   const number = (value) => Math.max(0, Number(value) || 0);
+  const historyLimit = Math.max(1, integer(config.historyRetentionConfig?.completedResupplyMissions) || 50);
   const directions = new Set(["AToB", "BToA"]);
+  const blankTotals = () => ({ completedMissions: 0, notablesDelivered: 0, adultsDelivered: 0, eggsDelivered: 0, provisionsConsumed: 0 });
+  function missionTotals(missions) {
+    return missions.reduce((totals, mission) => {
+      totals.completedMissions += 1;
+      totals.notablesDelivered += Array.isArray(mission?.notableIds) ? mission.notableIds.length : 0;
+      totals.adultsDelivered += integer(mission?.adultCount);
+      totals.eggsDelivered += integer(mission?.eggCount);
+      totals.provisionsConsumed += integer(mission?.provisionsConsumed);
+      return totals;
+    }, blankTotals());
+  }
+  function normalizeTotals(saved, completed) {
+    const derived = missionTotals(completed); const raw = saved && typeof saved === "object" ? saved : {};
+    return { ...clone(raw), ...Object.fromEntries(Object.keys(derived).map((key) => [key, Math.max(integer(raw[key]), integer(derived[key]))])) };
+  }
+  function recordCompletion(state, mission) {
+    state.completedResupplyMissions.push(clone(mission));
+    state.resupplyTotals.completedMissions = integer(state.resupplyTotals.completedMissions) + 1;
+    state.resupplyTotals.notablesDelivered = integer(state.resupplyTotals.notablesDelivered) + mission.notableIds.length;
+    state.resupplyTotals.adultsDelivered = integer(state.resupplyTotals.adultsDelivered) + integer(mission.adultCount);
+    state.resupplyTotals.eggsDelivered = integer(state.resupplyTotals.eggsDelivered) + integer(mission.eggCount);
+    state.resupplyTotals.provisionsConsumed = integer(state.resupplyTotals.provisionsConsumed) + integer(mission.provisionsConsumed);
+    if (state.completedResupplyMissions.length > historyLimit) state.completedResupplyMissions.splice(0, state.completedResupplyMissions.length - historyLimit);
+  }
   function findRoute(state, id) { return state.tradeRoutes.find((route) => route.id === id); }
   function settlement(state, id) { return state.migration?.settlements?.find((item) => item.id === id); }
   function lane(route, direction) { return direction === "AToB" ? route.directionAToB : direction === "BToA" ? route.directionBToA : null; }
@@ -59,7 +84,7 @@
     active.forEach((mission) => { const route = findRoute(state, mission.routeId); lane(route, mission.directionId).resupplyMissionId = mission.id; const source = settlement(state, mission.sourceSettlementId); if (source?.economy?.notables?.retained) source.economy.notables.retained = source.economy.notables.retained.filter((item) => !mission.notableIds.includes(item.id)); });
     const completed = Array.isArray(saved.completedResupplyMissions) ? saved.completedResupplyMissions.map(clone) : [];
     completed.forEach((mission) => { const match = /^resupply-(\d+)$/.exec(String(mission?.id || "")); if (match) highest = Math.max(highest, Number(match[1])); });
-    return { activeResupplyMissions: active, completedResupplyMissions: completed, nextResupplyMissionId: Math.max(highest + 1, integer(saved.nextResupplyMissionId) || 1) };
+    return { activeResupplyMissions: active, completedResupplyMissions: completed.slice(-historyLimit), resupplyTotals: normalizeTotals(saved.resupplyTotals, completed), nextResupplyMissionId: Math.max(highest + 1, integer(saved.nextResupplyMissionId) || 1) };
   }
   function dispatch(state, action, now) {
     const route = findRoute(state, action.routeId); const direction = lane(route, action.direction);
@@ -89,7 +114,7 @@
       cargo.forEach((item) => { item.assignedHabitatId = null; item.status = "INACTIVE"; if (destination.economy.notables.retained.length < notables.capacity(destination.economy.notables, destination.economy.habitats.counts)) destination.economy.notables.retained.push(item); else { item.status = "PENDING"; destination.economy.notables.pending.push(item); } });
       destination.economy.nursery.colonyCount = integer(destination.economy.nursery.colonyCount) + mission.adultCount; addEggs(destination.economy.nursery, mission.eggCount);
       direction.resupplyMissionId = null; direction.nextShipmentAt = tradeRoutes.isOperable(route, direction) ? number(now) + tradeRoutes.interval(direction) : null;
-      mission.status = "ARRIVED"; mission.arrivalTime = number(now); state.activeResupplyMissions.splice(state.activeResupplyMissions.indexOf(mission), 1); state.completedResupplyMissions.push(clone(mission)); events.push({ type: "resupplyArrived", missionId: mission.id, routeId: route.id, direction: mission.directionId });
+      mission.status = "ARRIVED"; mission.arrivalTime = number(now); state.activeResupplyMissions.splice(state.activeResupplyMissions.indexOf(mission), 1); recordCompletion(state, mission); events.push({ type: "resupplyArrived", missionId: mission.id, routeId: route.id, direction: mission.directionId });
     }
     return { events };
   }

@@ -13,7 +13,7 @@
   const vectors = {
     up: { x: 0, y: -1 }, down: { x: 0, y: 1 }, left: { x: -1, y: 0 }, right: { x: 1, y: 0 }
   };
-  const TICK_MS = 314; // 30% slower than the original 220 ms cadence
+  const TICK_MS = 220; // authoritative browser and engine cadence
   const WAVES_PER_ROUND = 5;
   const MAX = 29; // walls at x/y <= 0 or >= 29 (playable 1..28)
 

@@ -1,7 +1,7 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
 const migration = require("./migration.js");
-const { migrationConfig } = require("./config.js");
+const { migrationConfig, historyRetentionConfig } = require("./config.js");
 const { createGameSession } = require("./session.js");
 
 function sequence(values, fallback = 0) { let index = 0; return () => index < values.length ? values[index++] : fallback; }
@@ -20,6 +20,25 @@ function saveForMigration(overrides = {}) {
 function departure(game, extra = {}) {
   return game.dispatch({ type: "startMigration", originSettlementId: "grasslands", destination: "Wetlands", notableId: "n1", manifest: { adults: 20, eggs: 2, seeds: 100, branches: 20, provisions: 400 }, now: 1, ...extra });
 }
+
+test("migration history keeps the newest details while preserving lifetime outcome totals", () => {
+  const limit = historyRetentionConfig.migrationPerOutcome;
+  const records = (prefix, count) => Array.from({ length: count }, (_, index) => ({ id: `${prefix}-${index + 1}` }));
+  const state = migration.createState({
+    completedMigrations: records("complete", limit + 7),
+    failedMigrations: records("failed", limit + 3),
+    returnedMigrations: records("returned", limit + 1),
+    historyTotals: { completed: limit + 20, failed: 2, returned: limit + 1 }
+  }, 0);
+
+  assert.equal(state.completedMigrations.length, limit);
+  assert.equal(state.completedMigrations[0].id, "complete-8");
+  assert.equal(state.failedMigrations.length, limit);
+  assert.equal(state.failedMigrations[0].id, "failed-4");
+  assert.equal(state.returnedMigrations.length, limit);
+  assert.equal(state.returnedMigrations[0].id, "returned-2");
+  assert.deepEqual(state.historyTotals, { completed: limit + 20, failed: limit + 3, returned: limit + 1 });
+});
 
 test("settlement high-water marks credit once and only award later increases", () => {
   const state = { best: 50, active: { score: 50 }, nursery: { colonyCount: 100, nestLevel: 0, nurseryLevel: 0 }, habitats: { counts: [10] }, notables: { retained: [notable("n")], pending: [], elders: [], dismissedCount: 0, masteryRewardsClaimed: {} } };
@@ -119,12 +138,12 @@ test("a failed pre-stop roll alone destroys cargo, spends no refund, and resolve
   const lowSave = saveForMigration(); lowSave.notables.retained = [notable("n1", 0), notable("n2", 0)];
   const game = createGameSession({ save: lowSave, now: 1, rng: sequence([0, 0, 0.999, 0.25], 0) });
   const started = game.dispatch({ type: "startMigration", originSettlementId: "grasslands", destination: "Wetlands", notableId: "n1", manifest: { adults: 5, eggs: 1, seeds: 10, branches: 5, provisions: 100 }, now: 1 }); const spent = started.snapshot.migration.totalSpent;
-  game.tick(migrationConfig.journey.travelTimePerLegMs); const snap = game.snapshot(); assert.equal(snap.migration.activeExpeditions.length, 0); assert.equal(snap.migration.failedMigrations.length, 1); assert.equal(snap.migration.failedMigrations[0].currentManifest.adults, 0); assert.equal(snap.migration.totalSpent, spent); assert.equal(snap.migration.failedMigrations[0].notableSurvived, true);
+  game.tick(migrationConfig.journey.travelTimePerLegMs); const snap = game.snapshot(); assert.equal(snap.migration.activeExpeditions.length, 0); assert.equal(snap.migration.failedMigrations.length, 1); assert.equal(snap.migration.historyTotals.failed, 1); assert.equal(snap.migration.failedMigrations[0].currentManifest.adults, 0); assert.equal(snap.migration.totalSpent, spent); assert.equal(snap.migration.failedMigrations[0].notableSurvived, true);
 });
 
 test("voluntary return restores survivors and refunds only the configured fraction", () => {
   const game = createGameSession({ save: saveForMigration(), now: 1, rng: () => 0 }); const before = game.snapshot(); departure(game); const exp = game.snapshot().migration.activeExpeditions[0]; game.dispatch({ type: "returnMigration", expeditionId: exp.id, now: 2 }); const after = game.snapshot();
-  assert.equal(after.nursery.colonyCount, before.nursery.colonyCount); assert.equal(after.notables.retained.length, before.notables.retained.length); assert.ok(Math.abs(after.migration.returnedMigrations[0].refund - exp.migrationPointCost * migrationConfig.journey.returnRefundRate) < 1e-9);
+  assert.equal(after.nursery.colonyCount, before.nursery.colonyCount); assert.equal(after.notables.retained.length, before.notables.retained.length); assert.equal(after.migration.historyTotals.returned, 1); assert.ok(Math.abs(after.migration.returnedMigrations[0].refund - exp.migrationPointCost * migrationConfig.journey.returnRefundRate) < 1e-9);
 });
 
 test("successful stops create a founding settlement whose timer advances offline and cannot lose inactivity", () => {

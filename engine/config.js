@@ -33,14 +33,18 @@
     foodCount: { baseCount: 1, baseCost: 160, costRatio: 3.75 },
     shield: { baseCost: 420, costRatio: 4.5 },
     minigames: {
-      levels: ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"],
+      levels: ["1", "2", "3", "4", "5", "6", "7", "8", "9"],
+      maxLevel: 9,
       baseCost: 700,
       costRatio: 2.6
     }
   };
 
   const snakeConfig = {
-    startTickMs: slowedTick(190),
+    // Start at 60% of the prior movement speed (190 ms per cell), which makes
+    // the opening cadence 40% slower while preserving the existing speed-up
+    // progression and minimum tick interval.
+    startTickMs: slowedTick(190 / 0.6),
     minTickMs: slowedTick(82),
     maxQueuedDirections: 2,
     eggBoardMinRuns: 100,
@@ -248,5 +252,10 @@
     resupplyMaxConcurrentPerDirection: 1
   };
 
-  return { gameplaySpeed, upgradeConfig, snakeConfig, nurseryConfig, habitatConfig, notableConfig, boardMasteryConfig, migrationConfig, tradeRouteConfig, resupplyConfig };
+  const historyRetentionConfig = {
+    migrationPerOutcome: 50,
+    completedResupplyMissions: 50
+  };
+
+  return { gameplaySpeed, upgradeConfig, snakeConfig, nurseryConfig, habitatConfig, notableConfig, boardMasteryConfig, migrationConfig, tradeRouteConfig, resupplyConfig, historyRetentionConfig };
 });

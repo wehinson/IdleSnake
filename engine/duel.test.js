@@ -53,6 +53,36 @@ test("running the player into a wall ends the duel in the opponent's favor", () 
   assert.equal(r.events.some((e) => e.type === "gameOver"), true);
 });
 
+function headSwapState(playerLength, opponentLength) {
+  const player = Array.from({ length: playerLength }, (_, index) => ({ x: 4 - index, y: 5 }));
+  // Block the AI's non-left alternatives so its existing direction produces the
+  // simultaneous exchange without changing opponent-AI production behavior.
+  const opponent = [{ x: 5, y: 5 }, { x: 5, y: 4 }, { x: 5, y: 6 }];
+  while (opponent.length < opponentLength) opponent.push({ x: 6 + opponent.length, y: 5 });
+  return state({ player: { body: player, direction: "right" }, opponent: { body: opponent, direction: "left" }, foods: [{ x: 0, y: 5 }] });
+}
+
+test("equal-length head swaps are a draw", () => {
+  const r = duel.stepVsSnake(headSwapState(3, 3), { rng: seededRng(4) });
+  assert.equal(r.alive, false);
+  assert.equal(r.winner, null);
+});
+
+test("head swaps use the existing longer-snake winner rule", () => {
+  assert.equal(duel.stepVsSnake(headSwapState(4, 3), { rng: seededRng(5) }).winner, "player");
+  assert.equal(duel.stepVsSnake(headSwapState(3, 4), { rng: seededRng(6) }).winner, "opponent");
+});
+
+test("adjacent snakes that do not swap heads do not falsely collide", () => {
+  const s = state({
+    player: { body: [{ x: 4, y: 5 }], direction: "right" },
+    opponent: { body: [{ x: 5, y: 5 }], direction: "up" },
+    foods: [{ x: 5, y: 0 }]
+  });
+  const r = duel.stepVsSnake(s, { rng: seededRng(7) });
+  assert.equal(r.alive, true);
+});
+
 test("the opponent AI steers toward the nearest food", () => {
   const s = state({
     opponent: { body: [{ x: 5, y: 5 }, { x: 5, y: 6 }], direction: "up" },
