@@ -353,7 +353,6 @@ const bestEl = document.querySelector("#best");
 const seedsTotalEl = document.querySelector("#seedsTotal");
 const overlay = document.querySelector("#overlay");
 const stateText = document.querySelector("#stateText");
-const stateLabel = document.querySelector("#stateLabel");
 const readyStartPrompt = document.querySelector("#readyStartPrompt");
 const screenHint = document.querySelector("#screenHint");
 const gameStatus = document.querySelector("#gameStatus");
@@ -5392,7 +5391,7 @@ function setText(el, value) {
 }
 
 function showOverlay(text) {
-  stateLabel.textContent = text;
+  stateText.textContent = text;
   if (readyStartPrompt) {
     const resetPrompt = state === "gameover";
     readyStartPrompt.hidden = !(resetPrompt || (gameMode === "snake" && text === "Ready"));

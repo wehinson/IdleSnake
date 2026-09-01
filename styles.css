@@ -1186,18 +1186,25 @@ canvas {
   opacity: 1;
 }
 
-.screen-overlay p {
-  margin: 0;
+.screen-plate {
   padding: 7px 10px 6px;
   border: 2px solid var(--screen-ink);
   border-radius: 4px;
   background: rgba(156, 172, 119, 0.78);
   color: var(--screen-ink);
+  box-shadow: 3px 3px 0 rgba(24,36,19,0.34);
+}
+
+.screen-overlay p {
+  margin: 0;
+}
+
+#stateText {
+  color: var(--screen-ink);
   font-size: clamp(0.9rem, 4.5vw, 1.42rem);
   font-weight: 700;
   line-height: 1;
   text-transform: uppercase;
-  box-shadow: 3px 3px 0 rgba(24,36,19,0.34);
 }
 
 .ready-start-prompt {
