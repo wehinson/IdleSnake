@@ -41,3 +41,13 @@ if (restoredReverseSyncActions.length) {
 }
 
 console.log(`Authority check passed: ${expectedModes.length} modes and canonical persistence are session-owned.`);
+
+const inlinePuzzleLevels = /const\s+(?:snakebirdLevels|sokobanLevels)\s*=\s*\[/;
+if (inlinePuzzleLevels.test(source)) throw new Error("Shipped puzzle levels must live in the engine.");
+if (/function\s+pickRandomSnakebirdLevel\s*\(/.test(source)) throw new Error("Snakebird selection must remain session-owned.");
+
+const copiedGameState = /^(?:let|var)\s+(?:gameMode|state|snake|foods|score|best|seedsTotal|provisionsTotal|branchesTotal|upgrades|nursery|habitats|notablesState|elapsedMs|tickMs|directionQueue|snakebird|sokoban|runner|breakout|centipede|battleship|broodline|runSeedsEarned)\s*(?:[;=,])/m;
+if (copiedGameState.test(source)) throw new Error("The UI must read game state through the engine reader.");
+if (/gameView\.[\w.\[\]]+\s*(?:=(?!=)|\+=|-=|\+\+|--)/.test(source)) throw new Error("The engine reader is read-only.");
+if (/gameView\.[\w.\[\]]+\.(?:push|pop|splice|sort|reverse|shift|unshift)\s*\(/.test(source)) throw new Error("The UI must not mutate engine collections.");
+if (/\bsetup\s*:/.test(source)) throw new Error("Browser game setup belongs in the engine.");

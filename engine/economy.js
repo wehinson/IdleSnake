@@ -54,6 +54,7 @@
           y: clampNumber(raw.y, 0, nurseryConfig.rows - 1, index === 0 ? 4 : nurseryConfig.rows - 5),
           direction: vectors[raw.direction] ? raw.direction : (index % 2 === 0 ? "right" : "left"),
           progressMs: clampNumber(raw.progressMs, 0, nurseryConfig.growthMs, 0),
+          tailWiggle: Boolean(raw.tailWiggle),
           temporary: Boolean(raw.temporary)
         }))
       : [];
@@ -189,6 +190,7 @@
       y: index === 0 ? 4 : nurseryConfig.rows - 5,
       direction: index % 2 === 0 ? "right" : "left",
       progressMs: 0,
+      tailWiggle: false,
       temporary: index >= (capacity == null ? nurseryConfig.capacity : capacity)
     };
   }
@@ -207,16 +209,38 @@
     return { type: "eggBoardHatched", temporary: hatchling.temporary };
   }
 
+  function addDevelopmentEgg(state) {
+    if (!canStartEgg(state.nursery)) return null;
+    const activation = calculateHabitatActivation(
+      state.habitats.counts, foodValueFromUpgrades(state.upgrades), state.notables, state.habitats.upgradeLevels);
+    const reductionMs = activation.eggHatchReductionSeconds * 1000;
+    startEgg(state.nursery, Math.max(0, nurseryConfig.eggHatchMs - reductionMs));
+    return { type: "developmentEggAdded" };
+  }
+
+  function addDevelopmentHatchling(state, rng) {
+    const capacity = nurseryCapacity(state.nursery);
+    if (state.nursery.hatchlings.length >= capacity) return null;
+    state.nursery.hatchlings.push(createHatchling(state.nursery.hatchlings, rng, capacity));
+    return { type: "developmentHatchlingAdded" };
+  }
+
   function moveHatchlings(nursery, rng) {
     nursery.hatchlings.forEach((hatchling) => {
+      hatchling.tailWiggle = false;
+      if (hatchlingLength(hatchling.progressMs) >= 2 && rng() < nurseryConfig.hatchlingTailWiggleChance) {
+        hatchling.tailWiggle = true;
+        return;
+      }
+      const currentVector = vectors[hatchling.direction];
       const choices = Object.keys(vectors).filter((directionName) => {
         const vector = vectors[directionName];
         const point = { x: hatchling.x + vector.x, y: hatchling.y + vector.y };
-        return point.x >= 0 && point.x < nurseryConfig.columns && point.y >= 0 && point.y < nurseryConfig.rows;
+        const reverses = currentVector && vector.x === -currentVector.x && vector.y === -currentVector.y;
+        return !reverses && point.x >= 0 && point.x < nurseryConfig.columns && point.y >= 0 && point.y < nurseryConfig.rows;
       });
       if (choices.length === 0) return;
 
-      const currentVector = vectors[hatchling.direction];
       const straight = currentVector
         ? { x: hatchling.x + currentVector.x, y: hatchling.y + currentVector.y }
         : null;
@@ -631,6 +655,8 @@
     createHabitats,
     createHatchling,
     addEggBoardHatchling,
+    addDevelopmentEgg,
+    addDevelopmentHatchling,
     eggRequirement,
     canStartEgg,
     eggHeldForSpace,

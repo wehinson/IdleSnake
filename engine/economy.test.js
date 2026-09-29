@@ -77,6 +77,44 @@ test("egg hatches after eggHatchMs and emits a hatch event", () => {
   assert.equal(events.filter((e) => e.type === "hatch").length, 1);
 });
 
+test("grown hatchlings have a 5% chance to wiggle their tail instead of moving", () => {
+  const nursery = economy.createNursery({}, 0);
+  const grown = { id: "grown", x: 4, y: 4, direction: "right", progressMs: nurseryConfig.twoBlockMs, tailWiggle: false };
+  nursery.hatchlings = [grown];
+
+  economy.moveHatchlings(nursery, () => 0.049);
+  assert.deepEqual({ x: grown.x, y: grown.y }, { x: 4, y: 4 }, "a wiggle replaces movement");
+  assert.equal(grown.tailWiggle, true);
+
+  const rolls = [0.05, 0.5];
+  economy.moveHatchlings(nursery, () => rolls.shift());
+  assert.deepEqual({ x: grown.x, y: grown.y }, { x: 5, y: 4 }, "the 5% boundary moves normally");
+  assert.equal(grown.tailWiggle, false);
+});
+
+test("one-cell hatchlings always move without rolling for a tail wiggle", () => {
+  const nursery = economy.createNursery({}, 0);
+  const young = { id: "young", x: 4, y: 4, direction: "right", progressMs: 0, tailWiggle: false };
+  nursery.hatchlings = [young];
+  economy.moveHatchlings(nursery, () => 0.5);
+  assert.deepEqual({ x: young.x, y: young.y }, { x: 5, y: 4 });
+  assert.equal(young.tailWiggle, false);
+});
+
+test("hatchlings turn left or right instead of reversing at an edge", () => {
+  const nursery = economy.createNursery({}, 0);
+  const hatchling = {
+    id: "edge", x: nurseryConfig.columns - 1, y: 4,
+    direction: "right", progressMs: 0, tailWiggle: false
+  };
+  nursery.hatchlings = [hatchling];
+
+  economy.moveHatchlings(nursery, () => 0.99);
+
+  assert.equal(hatchling.direction, "down");
+  assert.deepEqual({ x: hatchling.x, y: hatchling.y }, { x: nurseryConfig.columns - 1, y: 5 });
+});
+
 test("active Lake snakes shorten one egg's incubation without generating seeds", () => {
   const state = freshState({ seeds: 500 });
   state.habitats.counts[1] = 2; // Lake

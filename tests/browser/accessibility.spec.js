@@ -1,5 +1,14 @@
 const { test, expect } = require("@playwright/test");
 
+test("phone controls do not show the browser's white focus ring", async ({ page }) => {
+  await page.goto("/", { waitUntil: "networkidle" });
+  const settingsKey = page.locator('[data-minigame="0"]');
+  await settingsKey.click();
+  await page.keyboard.press("ArrowUp");
+  await expect(settingsKey).toBeFocused();
+  await expect(settingsKey).toHaveCSS("outline-style", "none");
+});
+
 test("reduced motion persists and game canvas exposes concise state", async ({ page }) => {
   await page.goto("/", { waitUntil: "networkidle" });
   await page.locator('[data-minigame="0"]').click();

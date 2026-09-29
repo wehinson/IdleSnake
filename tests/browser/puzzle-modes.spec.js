@@ -76,6 +76,10 @@ test("Snakebird and Sokoban use session-routed input, lifecycle, records, and pe
   await page.waitForTimeout(1600);
   let saved = JSON.parse(await page.evaluate((key) => localStorage.getItem(key), saveKey));
   expect(saved.session.records.sokobanBest).toBeGreaterThan(0);
+  await page.getByRole("button", { name: "Reset", exact: true }).click();
+  await expect(page.locator("#screenHint")).toContainText("collect pellets");
+  await expect(page.locator("#stateText")).toContainText("Ready");
+  expect(await page.evaluate(() => session.snapshot().active.stageIndex)).toBe(1);
   await page.locator('[data-minigame="0"]').click();
   await expect(page.locator("#stateText")).toContainText("Ready");
   await page.reload({ waitUntil: "networkidle" });
@@ -85,4 +89,23 @@ test("Snakebird and Sokoban use session-routed input, lifecycle, records, and pe
   expect(pageErrors).toEqual([]);
   expect(consoleErrors).toEqual([]);
   await context.close();
+});
+
+
+test("every shipped puzzle has the same starting state in Node and the browser", async ({ page }) => {
+  const { createGameSession } = require("../../engine/session.js");
+  const levels = require("../../engine/puzzle-levels.js");
+  await page.goto("/");
+  for (const mode of ["snakebird", "sokoban"]) {
+    for (let levelIndex = 0; levelIndex < levels[mode].length; levelIndex++) {
+      const action = { type: "selectPuzzleLevel", mode, levelIndex };
+      const node = createGameSession({ now: 0, rng: () => 0.5 }).dispatch(action).snapshot;
+      const browser = await page.evaluate(action => {
+        const session = window.IdleSnakeSession.createGameSession({ now: 0, rng: () => 0.5 });
+        return session.dispatch(action).snapshot;
+      }, action);
+      expect(browser.active).toEqual(node.active);
+      expect(browser.snakebirdProgress).toEqual(node.snakebirdProgress);
+    }
+  }
 });

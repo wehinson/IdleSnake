@@ -69,6 +69,7 @@
     for (const [parent, key] of nestedObjects) if (session[parent]?.[key] !== undefined && !isObject(session[parent][key])) return invalid("structure", "Invalid save structure.");
     const nonNegativeFields = ["elapsedMs", "modeAccumulatorMs", "seeds", "provisions", "branches", "best", "selectedBoardLevel", "selectedDuelGridSize", "nextTradeRouteId", "nextResupplyMissionId"];
     if (nonNegativeFields.some((key) => session[key] !== undefined && (!Number.isFinite(session[key]) || session[key] < 0))) return invalid("structure", "Invalid save structure.");
+    if (session.snakeSpeed !== undefined && !["turtle", "snake", "rabbit"].includes(session.snakeSpeed)) return invalid("structure", "Invalid snake speed.");
     if (session.reducedMotion !== undefined && typeof session.reducedMotion !== "boolean") return invalid("structure", "Invalid save structure.");
     if (session.records !== undefined && !nonNegativeNumbers(session.records)) return invalid("structure", "Invalid save structure.");
     if (session.resupplyTotals !== undefined && !nonNegativeNumbers(session.resupplyTotals)) return invalid("structure", "Invalid save structure.");

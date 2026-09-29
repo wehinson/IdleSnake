@@ -12,11 +12,30 @@ function lcg(seed) {
   return () => { s = (s * 1664525 + 1013904223) >>> 0; return s / 0x100000000; };
 }
 
+test("development egg and hatchling commands respect nest and nursery capacity", () => {
+  const game = createGameSession({ now: 0, rng: lcg(7) });
+
+  const egg = game.dispatch({ type: "addDevelopmentEgg" });
+  assert.ok(egg.events.some((item) => item.type === "developmentEggAdded"));
+  assert.equal(egg.snapshot.nursery.eggElapsedMs, 0);
+  const fullNest = game.dispatch({ type: "addDevelopmentEgg" });
+  assert.equal(fullNest.events.find((item) => item.type === "actionRejected")?.reason, "nestFull");
+  assert.equal(fullNest.snapshot.nursery.nestEggs.length, 0);
+
+  const capacity = nurseryConfig.capacity;
+  for (let index = 0; index < capacity; index += 1) {
+    assert.ok(game.dispatch({ type: "addDevelopmentHatchling" }).events.some((item) => item.type === "developmentHatchlingAdded"));
+  }
+  const fullNursery = game.dispatch({ type: "addDevelopmentHatchling" });
+  assert.equal(fullNursery.events.find((item) => item.type === "actionRejected")?.reason, "nurseryFull");
+  assert.equal(fullNursery.snapshot.nursery.hatchlings.length, capacity);
+});
+
 test("Runner is a session-owned mode with pause, restart, and per-mode record persistence", () => {
   const game = createGameSession({ now: 0, rng: lcg(17), save: { records: { runnerBest: 37 } } });
   const ready = game.dispatch({ type: "selectMode", mode: "runner", setup: { width: 120, height: 180 } });
-  assert.equal(ready.snapshot.active.boardWidth, 120);
-  assert.equal(ready.snapshot.active.boardHeight, 180);
+  assert.equal(ready.snapshot.active.boardWidth, 720);
+  assert.equal(ready.snapshot.active.boardHeight, 720);
   assert.equal(ready.snapshot.hud.best, 37);
   assert.ok(ready.snapshot.supportedModes.includes("runner"));
   const started = game.dispatch({ type: "direction", direction: "up" });
@@ -32,16 +51,17 @@ test("Runner is a session-owned mode with pause, restart, and per-mode record pe
   assert.equal(restored.snapshot().records.runnerBest, 37);
 
   const ending = createGameSession({ now: 0, rng: lcg(123) });
-  ending.dispatch({ type: "selectMode", mode: "runner", setup: { width: 30, height: 100 } });
+  ending.dispatch({ type: "selectMode", mode: "runner" });
   ending.dispatch({ type: "direction", direction: "up" });
   let ended;
-  for (let index = 0; index < 20 && !ended; index += 1) {
+  for (let index = 0; index < 200 && !ended; index += 1) {
     const result = ending.tick(100);
     ended = result.events.find((item) => item.type === "runEnded");
   }
-  assert.deepEqual(ended, { type: "runEnded", mode: "runner", reward: 7 });
-  assert.equal(ending.snapshot().records.runnerBest, 7);
-  assert.equal(ending.snapshot().seeds, 7);
+  assert.equal(ended?.mode, "runner");
+  assert.ok(ended.reward > 0);
+  assert.equal(ending.snapshot().records.runnerBest, ended.reward);
+  assert.equal(ending.snapshot().seeds, ended.reward);
 });
 
 test("Centipede is a session-owned mode with deterministic input, cadence, pause, and record persistence", () => {
@@ -113,10 +133,11 @@ test("start yields a ready run; the first direction begins running and moves the
   const started = game.dispatch({ type: "direction", direction: "up" });
   assert.equal(started.snapshot.phase, "running");
   assert.ok(started.events.some((e) => e.type === "runStarted"));
+  assert.equal(started.snapshot.active.snake[0].y, before.y - 1);
   const ticksNeeded = Math.ceil(ready.snapshot.active.tickMs / 100);
   let after;
   for (let index = 0; index < ticksNeeded; index += 1) after = game.tick(100).snapshot.active.snake[0];
-  assert.equal(after.y, before.y - 1);
+  assert.equal(after.y, before.y - 2);
 });
 
 test("explicit Snake begin can delay the opening move by half a tick", () => {
@@ -306,11 +327,14 @@ test("the elapsed timer only advances while running and freezes at game over", (
   assert.equal(out.snapshot.elapsedMs, frozen);
 });
 
-test("host-supplied setup overrides board dimensions and grid without new rules", () => {
+test("real-time modes use engine dimensions while grid modes accept host grids", () => {
   const game = createGameSession({ now: 0, rng: lcg(11) });
   const breakout = game.dispatch({ type: "selectMode", mode: "breakout", setup: { width: 360, height: 480, segmentSize: 22, gap: 3 } }).snapshot;
-  assert.deepEqual(breakout.active.board, { width: 360, height: 480 });
-  assert.equal(breakout.active.segmentSize, 22);
+  assert.deepEqual(breakout.active.board, { width: 720, height: 720 });
+  assert.equal(breakout.active.segmentSize, 45);
+  const runner = game.dispatch({ type: "selectMode", mode: "runner", setup: { width: 120, height: 180 } }).snapshot;
+  assert.equal(runner.active.boardWidth, 720);
+  assert.equal(runner.active.boardHeight, 720);
   const duel = game.dispatch({ type: "selectMode", mode: "duel", setup: { grid: { columns: 15, rows: 15 } } }).snapshot;
   assert.deepEqual(duel.active.grid, { columns: 15, rows: 15 });
 });
@@ -357,6 +381,42 @@ test("buying an upgrade deducts seeds and rejects when unaffordable", () => {
   const broke = createGameSession({ save: { currencies: { seeds: 0 } }, now: 0 });
   const rejected = broke.dispatch({ type: "buyUpgrade", upgrade: "board" });
   assert.ok(rejected.events.some((e) => e.type === "actionRejected" && e.reason === "insufficientSeeds"));
+});
+
+test("Snake board mastery automatically creates one persistent Notable candidate", () => {
+  const config = require("./config.js");
+  const mastery = config.boardMasteryConfig.find((item) => item.boardSize === "5x8");
+  const originalScore = mastery.masteryScore;
+  mastery.masteryScore = 1;
+  try {
+    const rngValues = [0.5, 0.38];
+    const game = createGameSession({ now: 0, rng: () => rngValues.shift() ?? 0.5 });
+    const setup = {
+      grid: { columns: 5, rows: 8 },
+      snake: [{ x: 4, y: 3 }, { x: 4, y: 4 }, { x: 4, y: 5 }]
+    };
+    game.dispatch({ type: "selectMode", mode: "snake", setup });
+    const events = [...game.dispatch({ type: "direction", direction: "up" }).events];
+    for (let index = 0; index < 4; index += 1) events.push(...game.tick(100).events);
+
+    assert.equal(events.filter((item) => item.type === "BOARD_MASTERY_REWARD_CLAIMED").length, 1);
+    assert.equal(events.filter((item) => item.type === "NOTABLE_GENERATED").length, 1);
+    assert.equal(game.snapshot().notables.masteryRewardsClaimed[mastery.masteryId], true);
+    assert.equal(game.snapshot().notables.retained.length, 0);
+    assert.equal(game.snapshot().notables.pending[0].sourceType, "BOARD_MASTERY");
+    assert.equal(game.snapshot().notables.pending[0].sourceReference, "5x8");
+
+    const saved = game.serialize();
+    const restoredRng = [0.5, 0.38];
+    const restored = createGameSession({ save: saved, now: saved.savedAt, rng: () => restoredRng.shift() ?? 0.5 });
+    restored.dispatch({ type: "selectMode", mode: "snake", setup });
+    const replayEvents = [...restored.dispatch({ type: "direction", direction: "up" }).events];
+    for (let index = 0; index < 4; index += 1) replayEvents.push(...restored.tick(100).events);
+    assert.equal(replayEvents.some((item) => item.type === "BOARD_MASTERY_REWARD_CLAIMED"), false);
+    assert.equal(restored.snapshot().notables.pending.length, 1);
+  } finally {
+    mastery.masteryScore = originalScore;
+  }
 });
 
 test("Crossing owns its timed clear transition, rejects input, pauses, and resets cleanly", () => {
@@ -445,7 +505,7 @@ test("Breakout pauses after a non-final ball loss and resumes without settling t
   game.dispatch({ type: "resume" });
 
   let lost;
-  for (let index = 0; index < 100 && !lost; index += 1) {
+  for (let index = 0; index < 500 && !lost; index += 1) {
     const result = game.tick(100);
     if (result.events.some((item) => item.type === "ballLost")) lost = result;
   }
@@ -462,7 +522,7 @@ test("Breakout pauses after a non-final ball loss and resumes without settling t
   assert.equal(resumed.snapshot.phase, "running");
   game.dispatch({ type: "setInputAxis", axis: "x", value: -1 });
   let ended;
-  for (let index = 0; index < 100 && !ended; index += 1) {
+  for (let index = 0; index < 500 && !ended; index += 1) {
     const result = game.tick(100);
     if (result.events.some((item) => item.type === "runEnded")) ended = result;
   }

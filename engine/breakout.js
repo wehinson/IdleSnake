@@ -1,8 +1,8 @@
 // Headless breakout minigame — paddle/ball/brick physics with falling powerups
 // (seed = grow paddle, heart = extra life, multiball). Real-time, float physics;
 // pure here. Port of game.js stepBreakout + its paddle/ball/powerup helpers.
-// Board pixel dimensions are passed in (the host derives them from the canvas);
-// win/loss/ball-lost side-effects are lifted into events.
+// Game dimensions are fixed here; hosts scale these coordinates for display.
+// Win/loss/ball-lost side-effects are lifted into events.
 (function attachBreakout(root, factory) {
   const engine = factory();
   if (typeof module !== "undefined" && module.exports) module.exports = engine;
@@ -18,6 +18,34 @@
   };
   const MAX_HEARTS_PER_LEVEL = 2;
   const SEED_BOOST_MS = 30000;
+  const BOARD_WIDTH = 720;
+  const BOARD_HEIGHT = 720;
+  const SEGMENT_SIZE = 45;
+  const GAP = 4;
+
+  function createState(options = {}) {
+    const brickWidth = (BOARD_WIDTH - 28 - GAP * 9) / 10;
+    const state = {
+      board: { width: BOARD_WIDTH, height: BOARD_HEIGHT },
+      score: 0,
+      lives: 2,
+      segmentSize: SEGMENT_SIZE,
+      gap: GAP,
+      paddle: { x: 0, y: BOARD_HEIGHT - SEGMENT_SIZE - 10, length: config.basePaddleLength, input: 0 },
+      balls: [],
+      powerups: [],
+      seedBoosts: [],
+      heartsCollected: 0,
+      bricks: []
+    };
+    if (Array.isArray(options.bricks)) state.bricks = options.bricks.map((brick) => ({ ...brick }));
+    else for (let row = 0; row < 5; row += 1) for (let column = 0; column < 10; column += 1) {
+      state.bricks.push({ x: 14 + column * (brickWidth + GAP), y: 58 + row * 20, width: brickWidth, height: 16, hp: 1 });
+    }
+    state.paddle.x = (BOARD_WIDTH - paddleWidth(state)) / 2;
+    state.balls = [buildBall(state, BOARD_WIDTH)];
+    return state;
+  }
 
   function paddleWidth(state) {
     if (!state) return 0;
@@ -164,5 +192,5 @@
     return { state, events, alive: true };
   }
 
-  return { config, MAX_HEARTS_PER_LEVEL, SEED_BOOST_MS, paddleWidth, setPaddleLength, buildBall, createPowerup, randomPowerupType, step };
+  return { config, BOARD_WIDTH, BOARD_HEIGHT, SEGMENT_SIZE, GAP, MAX_HEARTS_PER_LEVEL, SEED_BOOST_MS, createState, paddleWidth, setPaddleLength, buildBall, createPowerup, randomPowerupType, step };
 });

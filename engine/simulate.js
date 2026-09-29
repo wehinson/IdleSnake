@@ -29,6 +29,9 @@
           const dispatched = session.dispatch(action);
           snapshot = dispatched.snapshot;
           events.push(...dispatched.events);
+          if (stopOnEnd && dispatched.events.some((item) => item.type === "runEnded")) {
+            steps += 1; ended = true; break;
+          }
         }
       }
       // A live session deliberately clamps one tick to 100ms. A headless

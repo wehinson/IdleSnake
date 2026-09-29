@@ -11,22 +11,103 @@ function seededRng(seed) {
 }
 
 test("createSnakeMode builds a centered snake and spawns the right food count", () => {
-  const state = snake.createSnakeMode({ columns: 9, rows: 9 }, {
+  const state = snake.createSnakeMode({ columns: 11, rows: 11 }, {
     rng: seededRng(1),
     upgrades: { foodTypeLevel: 0, foodCountLevel: 0, shieldLevel: 0 }
   });
   assert.equal(state.snake.length, 3);
   assert.equal(state.foods.length, 1); // baseCount 1 + level 0
   assert.equal(state.direction, "up");
-  assert.equal(state.tickMs, 317, "starts 40% slower than the prior 190 ms cadence");
+  const smallest = snake.createSnakeMode({ columns: 5, rows: 8 }, { rng: seededRng(1) });
+  assert.ok(state.tickMs < smallest.tickMs, "11x11 starts faster than the smallest board");
   // Food never overlaps the snake.
   const occupied = new Set(state.snake.map((p) => `${p.x},${p.y}`));
   assert.equal(state.foods.some((f) => occupied.has(`${f.x},${f.y}`)), false);
 });
 
-test("mastery score fills even boards and leaves one tile on odd boards", () => {
+test("additional food is weighted away from existing Seeds", () => {
+  const foods = [{ x: 4, y: 4, kind: "seed" }];
+  assert.equal(snake.foodPlacementWeight(foods, { x: 3, y: 3 }), 0.1, "diagonal neighbors use the adjacent weight");
+  assert.equal(snake.foodPlacementWeight(foods, { x: 4, y: 3 }), 0.1, "orthogonal neighbors use the adjacent weight");
+  assert.equal(snake.foodPlacementWeight(foods, { x: 2, y: 4 }), 0.2, "the outer 5x5 ring uses the perimeter weight");
+  assert.equal(snake.foodPlacementWeight(foods, { x: 6, y: 6 }), 0.2, "5x5 corners use the perimeter weight");
+  assert.equal(snake.foodPlacementWeight(foods, { x: 1, y: 4 }), 1, "distant cells retain full weight");
+});
+
+test("the nearest existing Seed determines the strongest food spacing penalty", () => {
+  const foods = [
+    { x: 2, y: 2, kind: "seed" },
+    { x: 5, y: 5, kind: "seed" },
+    { x: 3, y: 3, kind: "egg" }
+  ];
+  assert.equal(snake.foodPlacementWeight(foods, { x: 4, y: 4 }), 0.1);
+  assert.equal(snake.foodPlacementWeight([{ x: 3, y: 3, kind: "egg" }], { x: 4, y: 4 }), 1, "eggs do not affect Seed spacing");
+});
+
+test("weighted placement uses the configured relative probabilities", () => {
+  const state = {
+    grid: { columns: 7, rows: 1 },
+    snake: [{ x: 0, y: 0 }],
+    foods: [{ x: 3, y: 0, kind: "seed" }]
+  };
+  // Open cells in scan order have weights 0.2, 0.1, 0.1, 0.2, and 1.
+  assert.deepEqual(snake.placeFood(state, () => 0), { x: 1, y: 0 });
+  assert.deepEqual(snake.placeFood(state, () => 0.21 / 1.6), { x: 2, y: 0 });
+  assert.deepEqual(snake.placeFood(state, () => 0.31 / 1.6), { x: 4, y: 0 });
+  assert.deepEqual(snake.placeFood(state, () => 0.41 / 1.6), { x: 5, y: 0 });
+  assert.deepEqual(snake.placeFood(state, () => 0.61 / 1.6), { x: 6, y: 0 });
+});
+
+test("spacing weights never prevent food from spawning on a nearly full board", () => {
+  const state = {
+    grid: { columns: 3, rows: 3 },
+    snake: [
+      { x: 0, y: 0 }, { x: 1, y: 0 }, { x: 2, y: 0 },
+      { x: 0, y: 1 }, { x: 2, y: 1 },
+      { x: 0, y: 2 }, { x: 1, y: 2 }
+    ],
+    foods: [{ x: 2, y: 2, kind: "seed" }]
+  };
+  assert.deepEqual(snake.placeFood(state, () => 0.999999), { x: 1, y: 1 });
+  assert.equal(snake.spawnSeed(state, () => 0.5), true);
+  assert.deepEqual(state.foods.at(-1), { x: 1, y: 1, kind: "seed" });
+});
+
+test("board speed increases preserve food acceleration and scale the maximum speed", () => {
+  const { upgradeConfig, snakeConfig } = require("./config.js");
+  const expected = upgradeConfig.board.levels.map((_, level) =>
+    snakeConfig.startTickMs / (1 + level * snakeConfig.boardSpeedIncreasePerLevel));
+  upgradeConfig.board.levels.forEach((size, index) => {
+    const [columns, rows] = size.split("x").map(Number);
+    const state = snake.createSnakeMode({ columns, rows }, { rng: seededRng(42) });
+    assert.ok(Math.abs(state.tickMs - expected[index]) < 1e-9);
+    const feed = () => {
+      const head = state.snake[0];
+      state.foods = [{ x: head.x, y: head.y - 1 }];
+      return snake.stepSnake(state, { rng: seededRng(42) });
+    };
+    feed();
+    assert.ok(state.tickMs < expected[index]);
+    assert.ok(snake.accelerationProgress(state.score, snake.masteryScore(state.grid)) < 0.02,
+      "the first food stays below the 30% acceleration knee");
+    state.score = snake.masteryScore(state.grid);
+    feed();
+    assert.ok(state.tickMs > expected[index] / snakeConfig.maximumSpeedMultiplier);
+    assert.ok(state.tickMs < expected[index] / (snakeConfig.maximumSpeedMultiplier * 0.98));
+  });
+});
+
+test("custom starting speed remains the baseline after eating", () => {
+  const state = snake.createSnakeMode({ columns: 9, rows: 9 }, { tickMs: 200, rng: seededRng(42) });
+  state.foods = [{ x: state.snake[0].x, y: state.snake[0].y - 1 }];
+  snake.stepSnake(state, { rng: seededRng(42) });
+  assert.ok(state.tickMs < 200 && state.tickMs > 199);
+});
+
+test("mastery score fills the complete area on odd and even boards", () => {
   assert.equal(snake.masteryScore({ columns: 4, rows: 6 }), 21);
-  assert.equal(snake.masteryScore({ columns: 5, rows: 7 }), 31);
+  assert.equal(snake.masteryScore({ columns: 5, rows: 7 }), 32);
+  assert.equal(snake.masteryScore({ columns: 8, rows: 11 }, 5), 83);
 });
 
 test("moving forward shifts the body and keeps its length", () => {
@@ -63,7 +144,7 @@ test("eating food grows the snake, awards seeds, and speeds up", () => {
   const startingTickMs = state.tickMs;
   const { events } = snake.stepSnake(state, { rng: seededRng(4) });
 
-  assert.equal(state.snake.length, startLen + 1, "snake grew");
+  assert.equal(state.snake.length, startLen + 1, "the tail extends on the eating move");
   assert.equal(state.score, 1);
   assert.equal(state.seeds, 3, "food value 3 awarded");
   assert.ok(state.tickMs < startingTickMs, "sped up");
@@ -71,6 +152,60 @@ test("eating food grows the snake, awards seeds, and speeds up", () => {
   assert.ok(eat && eat.value === 3);
   // A replacement food was spawned to keep foodCount satisfied.
   assert.equal(state.foods.length, 1);
+
+  state.foods = [];
+  snake.stepSnake(state, { rng: seededRng(4) });
+  assert.equal(state.snake.length, startLen + 1, "the next move does not apply deferred growth");
+});
+
+test("rapid apples grow immediately on every eating move", () => {
+  const state = snake.createSnakeMode({ columns: 20, rows: 3 }, {
+    rng: seededRng(10),
+    snake: [{ x: 3, y: 1 }, { x: 2, y: 1 }, { x: 1, y: 1 }],
+    direction: "right"
+  });
+  const startingLength = state.snake.length;
+  const tailPositions = [];
+
+  for (let tick = 0; tick < 4; tick += 1) {
+    const head = state.snake[0];
+    state.foods = [{ x: head.x + 1, y: head.y, kind: "seed" }];
+    snake.stepSnake(state, { rng: seededRng(10 + tick) });
+    tailPositions.push({ ...state.snake.at(-1) });
+  }
+
+  assert.deepEqual(tailPositions, [
+    { x: 1, y: 1 },
+    { x: 1, y: 1 },
+    { x: 1, y: 1 },
+    { x: 1, y: 1 }
+  ]);
+  assert.equal(state.score, 4);
+  assert.equal(state.snake.length, startingLength + 4);
+
+  const lengths = [];
+  for (let tick = 0; tick < 4; tick += 1) {
+    state.foods = [];
+    snake.stepSnake(state, { rng: seededRng(20 + tick) });
+    lengths.push(state.snake.length);
+  }
+  assert.deepEqual(lengths, Array(4).fill(startingLength + 4));
+});
+
+test("a normal move can enter the cell vacated by the tail", () => {
+  const state = snake.createSnakeMode({ columns: 4, rows: 4 }, { rng: seededRng(11) });
+  state.snake = [
+    { x: 1, y: 1 },
+    { x: 1, y: 2 },
+    { x: 0, y: 2 },
+    { x: 0, y: 1 }
+  ];
+  state.direction = "left";
+  state.nextDirection = "left";
+  state.foods = [];
+
+  const normalMove = snake.stepSnake({ ...state, snake: state.snake.map((part) => ({ ...part })) }, { rng: seededRng(11) });
+  assert.equal(normalMove.alive, true, "the vacating tail cell is open on a normal move");
 });
 
 test("a crowded board reduces seed slots instead of ending the run", () => {
@@ -87,11 +222,11 @@ test("a crowded board reduces seed slots instead of ending the run", () => {
   const result = snake.stepSnake(state, { rng: seededRng(8) });
 
   assert.equal(result.alive, true);
-  assert.equal(state.snake.length, 8);
+  assert.equal(state.snake.length, 8, "food extends the tail on the eating move");
   assert.equal(snake.seedFoodCount(state), 1);
 });
 
-test("the run ends at the parity-aware mastery score", () => {
+test("the run ends when the snake fills the complete board", () => {
   const state = snake.createSnakeMode({ columns: 3, rows: 3 }, {
     rng: seededRng(9), upgrades: { foodTypeLevel: 0, foodCountLevel: 2, shieldLevel: 0 }
   });
@@ -124,7 +259,7 @@ test("egg boards can spawn egg pickups alongside seeds, and egg pickups do not a
   assert.equal(state.score, scoreBefore);
 });
 
-test("shield redirects around a fatal wall instead of dying", () => {
+test("shield impact waits three ticks before redirecting around a fatal wall", () => {
   const state = snake.createSnakeMode({ columns: 7, rows: 7 }, { rng: seededRng(5) });
   state.foods = [];
   // Drive the snake to the top wall.
@@ -138,7 +273,20 @@ test("shield redirects around a fatal wall instead of dying", () => {
   assert.equal(alive, true, "survived via shield");
   assert.equal(events.some((e) => e.type === "shield"), true);
   assert.equal(state.upgrades.shieldLevel, 0, "shield consumed");
+  assert.equal(state.direction, "up", "impact begins against the wall");
+  assert.deepEqual(state.snake[0], { x: 3, y: 0 }, "impact does not move the body");
+  assert.equal(state.shieldImpact.ticksRemaining, 3);
+  for (let tick = 2; tick > 0; tick -= 1) {
+    const impact = snake.stepSnake(state, { rng: seededRng(5) });
+    assert.equal(impact.events[0].type, "shieldImpactTick");
+    assert.equal(state.shieldImpact.ticksRemaining, tick);
+    assert.deepEqual(state.snake[0], { x: 3, y: 0 });
+  }
+  const redirected = snake.stepSnake(state, { rng: seededRng(5) });
+  assert.equal(redirected.events[0].type, "shieldRedirected");
+  assert.equal(state.shieldImpact, null);
   assert.notEqual(state.direction, "up", "turned away from the wall");
+  assert.deepEqual(state.snake[0], { x: 2, y: 0 });
 });
 
 test("queueDirection rejects reversals and respects the queue cap", () => {
@@ -146,12 +294,15 @@ test("queueDirection rejects reversals and respects the queue cap", () => {
   // Facing up; reversing to down is rejected.
   assert.equal(snake.queueDirection(state, "down"), false);
   assert.equal(snake.queueDirection(state, "left"), true);
-  // Cap at 2 queued (maxQueuedDirections).
+  // Cap at three queued turns without dropping earlier input.
   snake.queueDirection(state, "up");
   const beforeLen = state.directionQueue.length;
   snake.queueDirection(state, "left");
-  assert.ok(state.directionQueue.length <= 2, `queue len ${state.directionQueue.length}`);
-  assert.ok(beforeLen <= 2);
+  assert.ok(state.directionQueue.length <= 3, `queue len ${state.directionQueue.length}`);
+  assert.ok(beforeLen <= 3);
+  const before = [...state.directionQueue];
+  assert.equal(snake.queueDirection(state, "down"), false);
+  assert.deepEqual(state.directionQueue, before);
 });
 
 test("stepSnake runs headless with no DOM present", () => {

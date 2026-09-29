@@ -10,7 +10,8 @@
     "check:authority": "node scripts/check-authority.js",
     "check": "npm run check:syntax && npm run check:authority && npm test",
     "test:browser": "playwright test",
-    "serve": "node scripts/serve.js"
+    "serve": "node scripts/serve.js",
+    "play": "node scripts/play.js"
   },
   "devDependencies": {
     "@playwright/test": "^1.56.1"
