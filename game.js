@@ -791,8 +791,9 @@ function savedReducedMotion() {
 }
 
 const deviceMotionQuery = window.matchMedia?.("(prefers-reduced-motion: reduce)");
+let deviceMotionMatches = Boolean(deviceMotionQuery?.matches);
 function effectiveReducedMotion() {
-  return savedReducedMotion() || Boolean(deviceMotionQuery?.matches);
+  return savedReducedMotion() || deviceMotionMatches;
 }
 
 function syncAccessibilityPreference() {
@@ -844,7 +845,8 @@ function toggleReducedMotion() {
   render();
 }
 
-deviceMotionQuery?.addEventListener("change", () => {
+deviceMotionQuery?.addEventListener("change", (event) => {
+  deviceMotionMatches = event.matches;
   syncAccessibilityPreference();
   render();
 });
@@ -3430,27 +3432,27 @@ function syncHud() {
   const isSokoban = gameView.gameMode === "sokoban";
   if (gameView.gameMode === "battleship" && gameView.battleship) {
     const B = window.IdleSnakeBattleship;
-    scoreLabelEl.textContent = "Sunk";
-    bestLabelEl.textContent = "Wins";
+    setText(scoreLabelEl, "Sunk");
+    setText(bestLabelEl, "Wins");
     setText(scoreEl, padScore(B.sunkCount(gameView.battleship.enemy)));
     setText(bestEl, padScore(gameView.battleshipBest));
     setText(seedsTotalEl, padSeeds(gameView.seedsTotal));
-    if (duelGridSelect) duelGridSelect.hidden = true;
-    if (gridLabelEl) gridLabelEl.hidden = false;
+    setHidden(duelGridSelect, true);
+    setHidden(gridLabelEl, false);
     setText(gridLabelEl, `${battleshipGrid.columns}x${battleshipGrid.rows}`);
     setText(timerEl, formatTime(gameView.elapsedMs));
     pauseButton.classList.toggle("is-active", gameView.state === "paused");
     return;
   }
   if (gameView.gameMode === "broodline" && gameView.broodline) {
-    scoreLabelEl.textContent = "Seeds"; bestLabelEl.textContent = "Kills";
+    setText(scoreLabelEl, "Seeds"); setText(bestLabelEl, "Kills");
     scoreEl.textContent = padScore(gameView.broodline.pendingSeeds); bestEl.textContent = padScore(gameView.broodline.kills);
     gridLabelEl.textContent = `R${gameView.broodline.round}`; timerEl.textContent = formatTime(gameView.elapsedMs);
     setScreenHint(`BODY ${gameView.broodline.chain.filter((part) => part.kind === "body").length} · ARMOR ${gameView.broodline.armor}/${gameView.broodline.maxArmor} · HATCH ${gameView.broodline.chain.filter((part) => ["garden", "cave", "electric", "lava", "rattle"].includes(part.kind)).length}`);
     return;
   }
-  if (scoreLabelEl) scoreLabelEl.textContent = isSnakebird ? "Moves" : "Score";
-  if (bestLabelEl) bestLabelEl.textContent = isSnakebird ? "Best" : "Best";
+  setText(scoreLabelEl, isSnakebird ? "Moves" : "Score");
+  setText(bestLabelEl, "Best");
   const activeScore = isSnakebird
     ? gameView.snakebird?.moves || 0
     : isSokoban
@@ -3478,10 +3480,11 @@ function syncHud() {
   setText(bestEl, isSnakebird && activeBest === null ? "—" : padScore(activeBest));
   setText(seedsTotalEl, padSeeds(gameView.seedsTotal));
   if (duelGridSelect) {
-    duelGridSelect.hidden = gameView.gameMode !== "duel";
-    duelGridSelect.value = String(gameView.selectedDuelGridSize);
+    setHidden(duelGridSelect, gameView.gameMode !== "duel");
+    const size = String(gameView.selectedDuelGridSize);
+    if (duelGridSelect.value !== size) duelGridSelect.value = size;
   }
-  if (gridLabelEl) gridLabelEl.hidden = gameView.gameMode === "duel";
+  setHidden(gridLabelEl, gameView.gameMode === "duel");
   setText(gridLabelEl, isSnakebird
     ? `L${(gameView.snakebird?.levelIndex || 0) + 1}/5`
     : isSokoban ? `S${(gameView.sokoban?.stageIndex || 0) + 1}/${sokobanLevels.length}`
@@ -3506,8 +3509,12 @@ function syncPrimaryActionButton() {
     : gameView.state === "ready" ? "Start"
     : gameView.state === "paused" ? "Resume"
     : "Pause";
-  pauseButton.textContent = label;
-  pauseButton.removeAttribute("aria-label");
+  setText(pauseButton, label);
+  if (pauseButton.hasAttribute("aria-label")) pauseButton.removeAttribute("aria-label");
+}
+
+function setHidden(element, hidden) {
+  if (element && element.hidden !== hidden) element.hidden = hidden;
 }
 
 // Refresh the idle/upgrade panels. Called from the 250ms nursery clock and from
@@ -3875,14 +3882,17 @@ function syncUpgradeMenu() {
 }
 
 function syncMinigameKeys() {
+  const available = new Set(engineQueries.capabilities(latestSnapshot).minigames);
   minigameKeys.forEach((key) => {
-    const unlocked = engineQueries.capabilities(latestSnapshot).minigames.includes(Number(key.dataset.minigame));
-    key.disabled = !unlocked;
+    const unlocked = available.has(Number(key.dataset.minigame));
+    if (key.disabled !== !unlocked) key.disabled = !unlocked;
     key.classList.toggle("is-locked", !unlocked);
-    key.setAttribute("aria-disabled", String(!unlocked));
-    key.title = Number(key.dataset.minigame) === 0
+    const ariaDisabled = String(!unlocked);
+    if (key.getAttribute("aria-disabled") !== ariaDisabled) key.setAttribute("aria-disabled", ariaDisabled);
+    const title = Number(key.dataset.minigame) === 0
       ? "Open snake personalization"
       : unlocked ? `Launch minigame ${key.dataset.minigame}` : "Purchase Minigame Upgrade to Unlock.";
+    if (key.title !== title) key.title = title;
   });
 }
 
