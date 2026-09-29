@@ -34,19 +34,19 @@ test("keyboard turns queue without adding movement before the next tick", async 
   expect(errors).toEqual([]);
 });
 
-test("the first D-pad turn is immediate and starts a new interval", async ({ page }) => {
+test("a D-pad turn during a run waits for the next normal step", async ({ page }) => {
   const errors = await prepare(page);
   await page.locator('[data-direction="right"]').first().dispatchEvent("pointerdown", { pointerId: 1 });
   await page.clock.runFor(190);
   await page.locator('[data-direction="up"]').first().dispatchEvent("pointerdown", { pointerId: 2 });
   const turn = await page.evaluate(() => ({ head: { ...gameView.snake[0] }, elapsed: session.snapshot().elapsedMs }));
-  expect(turn).toEqual({ head: { x: 11, y: 9 }, elapsed: 190 });
-  await page.clock.runFor(199);
+  expect(turn).toEqual({ head: { x: 11, y: 10 }, elapsed: 190 });
+  await page.clock.runFor(9);
   expect(await page.evaluate(() => session.snapshot().active.snake[0])).toEqual(turn.head);
   // Flush time to the exact boundary through the same host clock operation.
   await page.clock.runFor(1);
   await page.evaluate(() => tickIdleWorld());
-  expect(await page.evaluate(() => session.snapshot().active.snake[0])).toEqual({ x: 11, y: 8 });
+  expect(await page.evaluate(() => session.snapshot().active.snake[0])).toEqual({ x: 11, y: 9 });
   expect(errors).toEqual([]);
 });
 
@@ -121,7 +121,7 @@ test("a late keyboard turn rescues the pending collision in the browser", async 
 });
 
 for (const [second, duration, head] of [
-  ["ArrowLeft", 100, { x: 9, y: 9 }],
+  ["ArrowLeft", 200, { x: 9, y: 9 }],
   ["ArrowRight", 200, { x: 11, y: 9 }]
 ]) test("relative turn timing for " + second, async ({ page }) => {
   await prepare(page);

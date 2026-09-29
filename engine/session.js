@@ -836,7 +836,7 @@
             const sameDirection = action.direction === (state.active.directionQueue.at(-1) || state.active.direction);
             if (!sameDirection && !snake.queueDirection(state.active, action.direction)) return reject("invalidDirection");
             if (sameDirection && !ready) break;
-            const moveNow = ready || state.active.lastTurn === 0 || state.modeAccumulatorMs >= snake.nextMoveInterval(state.active);
+            const moveNow = ready || (config.snakeConfig.turnTimingEnabled && state.active.lastTurn === 0) || state.modeAccumulatorMs >= snake.nextMoveInterval(state.active);
             if (moveNow) {
               state.phase = "running";
               state.modeAccumulatorMs = 0;

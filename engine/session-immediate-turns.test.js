@@ -15,20 +15,21 @@ function advance(game, ms) {
   return game.snapshot();
 }
 
-test("the first turn after straight travel is immediate and starts a new interval", () => {
+test("the first turn after straight travel waits for the normal interval", () => {
   for (const elapsed of [1, 100, 199]) {
     const game = gameAt();
     game.dispatch({ type: "begin" });
     advance(game, elapsed);
     const turn = game.dispatch({ type: "direction", direction: "up" }).snapshot;
-    assert.deepEqual(turn.active.snake[0], { x: 10, y: 9 });
-    assert.equal(turn.modeAccumulatorMs, 0);
-    assert.deepEqual(advance(game, 199).active.snake[0], { x: 10, y: 9 });
-    assert.deepEqual(advance(game, 1).active.snake[0], { x: 10, y: 8 });
+    assert.deepEqual(turn.active.snake[0], { x: 10, y: 10 });
+    assert.equal(turn.modeAccumulatorMs, elapsed);
+    assert.deepEqual(advance(game, 199 - elapsed).active.snake[0], { x: 10, y: 10 });
+    assert.deepEqual(advance(game, 1).active.snake[0], { x: 10, y: 9 });
+    assert.deepEqual(advance(game, 200).active.snake[0], { x: 10, y: 8 });
   }
 });
 
-test("a ready turn is immediate and repeated left turns consume half intervals", () => {
+test("a ready turn is immediate and repeated left turns use full intervals", () => {
   const game = gameAt();
   game.dispatch({ type: "direction", direction: "up" });
   for (const direction of ["left", "down", "right"]) game.dispatch({ type: "direction", direction });
@@ -37,10 +38,10 @@ test("a ready turn is immediate and repeated left turns consume half intervals",
   assert.deepEqual(before.active.directionQueue, ["left", "down", "right"]);
   assert.ok(game.dispatch({ type: "direction", direction: "up" }).events.some(e => e.type === "actionRejected"));
   assert.deepEqual(game.snapshot().active.directionQueue, ["left", "down", "right"]);
-  assert.deepEqual(advance(game, 99).active.snake[0], { x: 10, y: 9 });
+  assert.deepEqual(advance(game, 199).active.snake[0], { x: 10, y: 9 });
   assert.deepEqual(advance(game, 1).active.snake[0], { x: 9, y: 9 });
-  assert.deepEqual(advance(game, 100).active.snake[0], { x: 9, y: 10 });
-  assert.deepEqual(advance(game, 100).active.snake[0], { x: 10, y: 10 });
+  assert.deepEqual(advance(game, 200).active.snake[0], { x: 9, y: 10 });
+  assert.deepEqual(advance(game, 200).active.snake[0], { x: 10, y: 10 });
   assert.deepEqual(game.snapshot().active.directionQueue, []);
 });
 
@@ -54,7 +55,7 @@ test("queued reversals reject against the final queued turn and pause preserves 
   advance(game, 1000);
   assert.deepEqual(game.snapshot().active.directionQueue, ["left"]);
   game.dispatch({ type: "resume" });
-  assert.deepEqual(advance(game, 50).active.snake[0], { x: 9, y: 9 });
+  assert.deepEqual(advance(game, 150).active.snake[0], { x: 9, y: 9 });
   game.dispatch({ type: "direction", direction: "down" });
   assert.deepEqual(game.dispatch({ type: "restart" }).snapshot.active.directionQueue, []);
 });
@@ -172,10 +173,10 @@ test("left then right waits a full interval and does not get the U-turn shortcut
   assert.deepEqual(advance(game, 1).active.snake[0], { x: 11, y: 8 });
 });
 
-test("two right turns also use half a tick", () => {
+test("two right turns also use full intervals", () => {
   const game = gameAt();
   game.dispatch({ type: "direction", direction: "down" });
   game.dispatch({ type: "direction", direction: "left" });
-  assert.deepEqual(advance(game, 99).active.snake[0], { x: 10, y: 11 });
+  assert.deepEqual(advance(game, 199).active.snake[0], { x: 10, y: 11 });
   assert.deepEqual(advance(game, 1).active.snake[0], { x: 9, y: 11 });
 });

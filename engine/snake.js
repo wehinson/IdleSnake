@@ -261,6 +261,7 @@
   }
 
   function nextMoveInterval(state) {
+    if (!snakeConfig.turnTimingEnabled) return state.tickMs;
     const queued = state.directionQueue[0];
     const turn = queued ? turnSign(state.direction, queued) : 0;
     return state.tickMs * (turn !== 0 && turn === state.lastTurn ? 0.5 : 1);

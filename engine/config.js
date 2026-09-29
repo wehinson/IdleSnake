@@ -52,6 +52,7 @@
     accelerationStartProgress: 0.30,
     accelerationAsymptoteProgress: 0.75,
     maxQueuedDirections: 3,
+    turnTimingEnabled: false,
     collisionGraceMs: 120,
     eggBoardMinRuns: 100,
     eggBoardMaxRuns: 200,
