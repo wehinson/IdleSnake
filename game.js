@@ -787,7 +787,7 @@ function syncAccessibilityPreference() {
   }
   if (reducedMotionButton) {
     reducedMotionButton.setAttribute("aria-pressed", String(enabled));
-    reducedMotionButton.textContent = `Reduced motion: ${enabled ? "On" : "Off"}`;
+    reducedMotionButton.textContent = `Reduced motion: ${enabled ? "On" : reduced ? "Off (device On)" : "Off"}`;
   }
 }
 

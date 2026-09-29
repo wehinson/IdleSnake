@@ -51,6 +51,8 @@ test("system reduced motion stops canvas effects and button movement", async ({ 
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/", { waitUntil: "networkidle" });
   await expect(page.locator("html")).toHaveAttribute("data-reduced-motion", "true");
+  await page.locator('[data-minigame="0"]').click();
+  await expect(page.getByRole("button", { name: "Reduced motion: Off (device On)" })).toHaveAttribute("aria-pressed", "false");
   expect(await page.evaluate(() => {
     startDigestionAnimation();
     return digestionAnimations.length;
@@ -61,6 +63,7 @@ test("system reduced motion stops canvas effects and button movement", async ({ 
 
   await page.emulateMedia({ reducedMotion: "no-preference" });
   await expect(page.locator("html")).toHaveAttribute("data-reduced-motion", "false");
+  await expect(page.getByRole("button", { name: "Reduced motion: Off", exact: true })).toBeVisible();
 });
 
 test("large D-Pad personalize control becomes a back-to-game button", async ({ page }) => {

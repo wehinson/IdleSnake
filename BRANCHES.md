@@ -9,7 +9,7 @@
 - Tests: `npm run check` passed all 277 Node tests; all 6 focused accessibility browser tests passed.
 - Version impact: none; the saved setting format is unchanged.
 - Last update: 2026-09-28.
-- Notes: reduced motion stops decorative effects while game pieces keep moving. The setting now explains its scope in the menu. This work is on `working` and awaits a ship instruction.
+- Notes: reduced motion stops decorative effects while game pieces keep moving. The menu explains its scope and shows when the device setting is active. This work is on `working` and awaits a ship instruction.
 
 
 ## local/quick-iterations — puzzle engine separation
