@@ -768,7 +768,23 @@ function effectiveReducedMotion() {
 
 function syncAccessibilityPreference() {
   const enabled = savedReducedMotion();
-  document.documentElement.dataset.reducedMotion = String(enabled);
+  const reduced = effectiveReducedMotion();
+  document.documentElement.dataset.reducedMotion = String(reduced);
+  if (reduced) {
+    digestionAnimations = [];
+    crumbAnimations = [];
+    tailWiggleStartedAt = null;
+    deathAnimation = null;
+    if (deathOverlayTimer) {
+      clearTimeout(deathOverlayTimer);
+      deathOverlayTimer = null;
+      if (gameView.state === "gameover" && gameView.gameMode === "snake") showOverlay("Game Over");
+    }
+    activeDirectionClicks.clear();
+    directionClickTimers.forEach(clearTimeout);
+    directionClickTimers.clear();
+    document.querySelectorAll("[data-direction]").forEach((button) => button.classList.remove("is-pressed"));
+  }
   if (reducedMotionButton) {
     reducedMotionButton.setAttribute("aria-pressed", String(enabled));
     reducedMotionButton.textContent = `Reduced motion: ${enabled ? "On" : "Off"}`;
@@ -798,6 +814,11 @@ function toggleReducedMotion() {
   syncSnakeSpeedPreference();
   render();
 }
+
+window.matchMedia?.("(prefers-reduced-motion: reduce)")?.addEventListener("change", () => {
+  syncAccessibilityPreference();
+  render();
+});
 
 function savedMobileControls() {
   const fallback = defaultMobileControls();
@@ -2636,9 +2657,7 @@ function snakeStepped(before, after) {
 }
 
 function interpolatedPoint(previous, current, index = 0) {
-  // Snake positions always render at their logical grid cell. This keeps the
-  // crisp reduced-motion movement while leaving eating's body-bulge effect
-  // independent of the movement preference.
+  // Snake positions always render at their logical grid cell.
   return { x: current.x, y: current.y };
 }
 
@@ -2740,12 +2759,14 @@ function drawGrid() {
 }
 
 function drawSnake() {
-  pruneDigestionAnimations();
+  const reducedMotion = effectiveReducedMotion();
+  if (reducedMotion) digestionAnimations = [];
+  else pruneDigestionAnimations();
   const now = performance.now();
   const cell = boardMetrics.cellSize;
 
   if (deathAnimation && gameView.state === "gameover") {
-    if (effectiveReducedMotion()) deathAnimation = null;
+    if (reducedMotion) deathAnimation = null;
     else {
       drawDeathAnimation(now);
       return;
@@ -2795,7 +2816,7 @@ function drawSnake() {
   gameView.snake.forEach((part, index) => {
     const point = points[index];
     const baseInset = Math.max(3, boardMetrics.cellSize * (index === 0 ? 0.105 : 0.135));
-    const digestionPulse = index === 0 ? 0 : digestionPulseForSegment(index, now);
+    const digestionPulse = index === 0 || reducedMotion ? 0 : digestionPulseForSegment(index, now);
     const inset = Math.max(1, baseInset - boardMetrics.cellSize * 0.1 * digestionPulse);
     const rect = interpolatedCellRect(point, inset);
     if (index === 0) {
@@ -2863,7 +2884,7 @@ function drawShieldHalo(headRect) {
   const centerX = headRect.x + headRect.size / 2 + vector.x * headRect.size * 0.58;
   const centerY = headRect.y + headRect.size / 2 + vector.y * headRect.size * 0.58;
   const angle = Math.atan2(vector.y, vector.x);
-  const pulse = impact ? 1 + Math.sin(shieldImpactProgress() * Math.PI * 5) * 0.12 : 1;
+  const pulse = impact && !effectiveReducedMotion() ? 1 + Math.sin(shieldImpactProgress() * Math.PI * 5) * 0.12 : 1;
   const radius = Math.max(3, headRect.size * 0.2 * pulse);
   ctx.save();
   ctx.lineCap = "round";
@@ -3123,6 +3144,7 @@ function contrastingEyeColor(color) {
 }
 
 function startDigestionAnimation() {
+  if (effectiveReducedMotion()) return;
   digestionAnimations.push({ startedAt: performance.now(), snakeLength: gameView.snake.length });
 }
 

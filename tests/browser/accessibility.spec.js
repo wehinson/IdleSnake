@@ -24,6 +24,45 @@ test("reduced motion persists and game canvas exposes concise state", async ({ p
   await expect(page.locator("#gameStatus")).not.toHaveText("");
 });
 
+test("reduced motion stops the swallowed seed and clears effects already playing", async ({ page }) => {
+  await page.goto("/", { waitUntil: "networkidle" });
+  await page.locator('[data-minigame="0"]').click();
+  await page.evaluate(() => {
+    startDigestionAnimation();
+    crumbAnimations.push({ startedAt: performance.now() });
+    tailWiggleStartedAt = performance.now();
+  });
+  expect(await page.evaluate(() => digestionAnimations.length)).toBe(1);
+
+  await page.getByRole("button", { name: "Reduced motion: Off" }).click();
+  expect(await page.evaluate(() => {
+    startDigestionAnimation();
+    return { digestion: digestionAnimations.length, crumbs: crumbAnimations.length, tail: tailWiggleStartedAt, pulse: digestionPulseForSegment(1, performance.now()) };
+  })).toEqual({ digestion: 0, crumbs: 0, tail: null, pulse: 0 });
+
+  await page.getByRole("button", { name: "Reduced motion: On" }).click();
+  expect(await page.evaluate(() => {
+    startDigestionAnimation();
+    return digestionAnimations.length;
+  })).toBe(1);
+});
+
+test("system reduced motion stops canvas effects and button movement", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto("/", { waitUntil: "networkidle" });
+  await expect(page.locator("html")).toHaveAttribute("data-reduced-motion", "true");
+  expect(await page.evaluate(() => {
+    startDigestionAnimation();
+    return digestionAnimations.length;
+  })).toBe(0);
+  const upButton = page.locator('.nav-up');
+  await upButton.evaluate((button) => button.classList.add("is-pressed"));
+  await expect(upButton).toHaveCSS("transform", "none");
+
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await expect(page.locator("html")).toHaveAttribute("data-reduced-motion", "false");
+});
+
 test("large D-Pad personalize control becomes a back-to-game button", async ({ page }) => {
   await page.goto("/", { waitUntil: "networkidle" });
   await page.locator('[data-minigame="0"]').click();
