@@ -1,5 +1,16 @@
 # Branch status
 
+## working — Frame lag plan
+
+- Category: performance planning.
+- Purpose: verify late-game frame costs and reduce missed frames without changing game results.
+- Agent: Codex.
+- Status: Planned; see `LAG-PLAN.md`.
+- Tests: code-path review only; Claude's reported frame measurements need a repeatable fixture.
+- Version impact: none for this plan.
+- Last update: 2026-09-29.
+- Notes: the existing uncommitted Snake timing work was preserved. The plan separates motion and HUD work, economy reuse, and conditional timing changes.
+
 ## working — Reduced motion overhaul
 
 - Category: accessibility.
