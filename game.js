@@ -498,6 +498,7 @@ const minimumDirectionClickMs = 230;
 
 let animationId;
 let deathOverlayTimer = null;
+let directionInputLockedUntil = 0;
 // Game state is read from engine snapshots. Only display state lives here.
 
 let idleLastWallAt = null;
@@ -1636,9 +1637,10 @@ function interpretSessionEvents(events) {
       case "eat": if (gameView.gameMode === "snake") { startDigestionAnimation(); startCrumbAnimation(event.at); startTailWiggle(); } break;
       case "shield": if (gameView.gameMode === "snake") { acceptSnapshot(session.snapshot()); saveUpgrades(); } break;
       case "bestScore": if (gameView.gameMode === "snake") setSaveItem("best", String(gameView.best)); break;
-      case "gameOver": if (gameView.gameMode === "snake") {  startDeathAnimation(); syncHud(); showDeathOverlay("Game Over"); } break;
+      case "gameOver": if (gameView.gameMode === "snake") { directionInputLockedUntil = Date.now() + 1000; startDeathAnimation(); syncHud(); showDeathOverlay("Game Over"); } break;
       case "win": if (gameView.gameMode === "snake") {  syncHud(); showOverlay("Maxed"); } break;
       case "runEnded":
+        directionInputLockedUntil = Date.now() + 1000;
         if (event.mode === "runner") {
 
           syncHud();
@@ -4113,6 +4115,7 @@ document.addEventListener("keydown", (event) => {
 
   if (keyMap[event.code]) {
     event.preventDefault();
+    if (event.code.startsWith("Arrow") && Date.now() < directionInputLockedUntil) return;
     const directionName = keyMap[event.code];
     if (gameView.gameMode !== "snake" || !event.repeat) queueDirection(directionName);
     if (!event.repeat) {
