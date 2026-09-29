@@ -453,9 +453,25 @@ const snakeColorChoices = {
 let session = window.IdleSnakeSession.createGameSession({ save: loadedSaveEnvelope, now: Date.now(), mobileControlsDefault: defaultMobileControls() });
 let latestSnapshot = session.snapshot();
 let latestFrameSnapshot = latestSnapshot;
+const snakeTiming = window.IdleSnakeTiming;
 const engineQueries = window.IdleSnakeQueries;
 const gameView = window.IdleSnakeStateReader.createStateReader(() => latestSnapshot, () => latestFrameSnapshot);
 let broodlineCamera = null;
+function snakeTimingState(snapshot) {
+  if (snapshot?.mode !== "snake" || !snapshot.active) return null;
+  const active = snapshot.active;
+  return {
+    phase: snapshot.phase,
+    head: active.snake?.[0] ? { x: active.snake[0].x, y: active.snake[0].y } : null,
+    direction: active.direction,
+    queued: active.directionQueue?.slice() || [],
+    score: active.score,
+    tickMs: active.tickMs,
+    accumulatorMs: snapshot.modeAccumulatorMs,
+    collisionGraceMs: active.collisionGraceRemainingMs,
+    shieldImpactTicks: active.shieldImpact?.ticksRemaining ?? null
+  };
+}
 function acceptSnapshot(snapshot) {
   if (!snapshot) return;
   const before = latestFrameSnapshot;
@@ -477,8 +493,19 @@ function acceptSnapshot(snapshot) {
   latestFrameSnapshot = snapshot;
 }
 function dispatchSession(action) {
+  const tracing = snakeTiming.enabled;
+  const before = tracing ? snakeTimingState(latestFrameSnapshot) : null;
+  const startedAt = tracing ? performance.now() : 0;
   const result = session.dispatch(action);
   acceptSnapshot(result.snapshot);
+  if (tracing && (before || result.snapshot.mode === "snake")) snakeTiming.record("action", {
+    action: action.type,
+    direction: action.direction ?? null,
+    before,
+    after: snakeTimingState(result.snapshot),
+    events: result.events.map((item) => item.type),
+    workMs: performance.now() - startedAt
+  });
   return result;
 }
 
@@ -1304,14 +1331,28 @@ function refreshPanelSnapshot(now, snapshot) {
 }
 
 // Measure wall time in the browser and let the engine advance the game and economy.
-function tickIdleWorld() {
+function tickIdleWorld(source = "other") {
   if (!session) return [];
   const now = Date.now();
   const dt = idleLastWallAt == null ? 0 : now - idleLastWallAt;
   idleLastWallAt = now;
   if (dt <= 0) return [];
+  const tracing = snakeTiming.enabled;
+  const before = tracing ? snakeTimingState(latestFrameSnapshot) : null;
+  const startedAt = tracing ? performance.now() : 0;
   const { snapshot, events } = session.tick(dt, { snapshot: "frame" });
   acceptSnapshot(snapshot);
+  if (tracing && (before || snapshot.mode === "snake")) snakeTiming.record("tick", {
+    source,
+    wallTimeMs: now,
+    rawDtMs: dt,
+    countedDtMs: Math.min(window.IdleSnakeSession.MAX_LIVE_DT, dt),
+    discardedDtMs: Math.max(0, dt - window.IdleSnakeSession.MAX_LIVE_DT),
+    before,
+    after: snakeTimingState(snapshot),
+    events: events.map((item) => item.type),
+    workMs: performance.now() - startedAt
+  });
 
   const masteryAwarded = events.some((item) => item.type === "BOARD_MASTERY_REWARD_CLAIMED");
   if (masteryAwarded) {
@@ -1773,11 +1814,16 @@ function activatePrimaryAction() {
 function resetGame() { return presentGameResult(dispatchSession({ type: "resetRun" })); }
 
 let idleLastPanelAt = 0;
+let previousAnimationTime = null;
 function gameLoop(now) {
+  const tracing = snakeTiming.enabled;
+  const startedAt = tracing ? performance.now() : 0;
+  const frameGapMs = tracing && previousAnimationTime !== null ? now - previousAnimationTime : null;
+  if (tracing) previousAnimationTime = now;
   // Idle economy advances on the SAME clock as gameplay, every frame, whatever
   // the gameplay phase (menu/ready/running/paused/gameover). This replaces the
   // the former separate nursery interval.
-  const sessionEvents = tickIdleWorld();
+  const sessionEvents = tickIdleWorld("frame");
   interpretSessionEvents(sessionEvents);
 
   setText(seedsTotalEl, padSeeds(gameView.seedsTotal));
@@ -1791,6 +1837,12 @@ function gameLoop(now) {
 
   ;
   render();
+  if (tracing && gameView.gameMode === "snake") snakeTiming.record("frame", {
+    animationTimeMs: now,
+    frameGapMs,
+    after: snakeTimingState(latestFrameSnapshot),
+    workMs: performance.now() - startedAt
+  });
   animationId = requestAnimationFrame(gameLoop);
 }
 
@@ -1801,7 +1853,7 @@ function gameLoop(now) {
 function launchCentipede(force = false) { return launchMode("centipede", force); }
 
 function queueDirection(direction) {
-  interpretSessionEvents(tickIdleWorld());
+  interpretSessionEvents(tickIdleWorld("direction"));
   return presentGameResult(dispatchSession({ type: "playDirection", direction }));
 }
 

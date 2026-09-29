@@ -2033,3 +2033,16 @@ body.is-fullscreen-mode { padding: 10px; }
   .is-fullscreen-mode .phone-shell { height: 75dvh; }
   .is-fullscreen-mode .menu-panel { height: auto; max-height: none; }
 }
+
+.snake-timing-download {
+  position: fixed;
+  top: 8px;
+  right: 8px;
+  z-index: 1000;
+  padding: 8px 12px;
+  border: 1px solid #25301f;
+  border-radius: 6px;
+  color: #fff;
+  background: #25301f;
+  cursor: pointer;
+}

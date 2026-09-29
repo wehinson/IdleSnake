@@ -68,9 +68,13 @@ Level data is in `engine/puzzle-levels.js`. Custom puzzle definitions remain ava
 
 ## Classic Snake turns
 
-Turns are stored in a queue of up to three directions. The first turn after straight travel moves immediately. A following turn in the same relative direction (left-left or right-right) waits half a movement interval; switching relative turn direction waits a full interval. Relative turns are measured from the snake heading; direction keys remain absolute. Reversals are checked against the last queued direction, and a full queue rejects additional turns without dropping earlier input. Keyboard repeat events are ignored for classic Snake.
+Turns are stored in a queue of up to three directions. During a run, turns and straight moves use the same movement interval. The earlier immediate-turn and half-interval rules remain in the code but are disabled by `snakeConfig.turnTimingEnabled`. Reversals are checked against the last queued direction, and a full queue rejects additional turns without dropping earlier input. Keyboard repeat events are ignored for classic Snake.
 
 The first valid direction from Ready moves immediately. The Start button keeps its existing opening delay. Pause preserves the queue; reset and game over clear it. Turns use the same engine operation as automatic movement, including food, eggs, shields, rewards, and collisions.
+
+## Snake timing log
+
+Open `http://127.0.0.1:4173/?snakeTiming=1`, play a few games, then click **Download timing log** at the top right. Send the downloaded JSON with the video. The log records direction actions, frame timing, each clock update, the time discarded by the 100 ms gameplay limit, movement state, and Seed events. It stays in the browser until you download it; it does not include the saved game or send data to a server. A long session keeps the latest 20,000 records and reports how many older records were dropped.
 
 ## Snake speed
 
