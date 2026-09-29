@@ -66,6 +66,23 @@ test("system reduced motion stops canvas effects and button movement", async ({ 
   await expect(page.getByRole("button", { name: "Reduced motion: Off", exact: true })).toBeVisible();
 });
 
+test("motion checks use the accepted frame state without full snapshots", async ({ page }) => {
+  await page.goto("/", { waitUntil: "networkidle" });
+  const initial = await page.evaluate(() => {
+    let fullSnapshots = 0;
+    const original = session.snapshot;
+    session.snapshot = (...args) => { fullSnapshots += 1; return original(...args); };
+    for (let index = 0; index < 20; index += 1) effectiveReducedMotion();
+    return { fullSnapshots, reduced: effectiveReducedMotion() };
+  });
+  expect(initial).toEqual({ fullSnapshots: 0, reduced: false });
+  await page.locator('[data-minigame="0"]').click();
+  await page.getByRole("button", { name: "Reduced motion: Off" }).click();
+  expect(await page.evaluate(() => effectiveReducedMotion())).toBe(true);
+  await page.getByRole("button", { name: "Reduced motion: On" }).click();
+  expect(await page.evaluate(() => effectiveReducedMotion())).toBe(false);
+});
+
 test("large D-Pad personalize control becomes a back-to-game button", async ({ page }) => {
   await page.goto("/", { waitUntil: "networkidle" });
   await page.locator('[data-minigame="0"]').click();

@@ -787,11 +787,12 @@ function importSaveData() {
 }
 
 function savedReducedMotion() {
-  return Boolean((session ? session.snapshot() : latestSnapshot)?.reducedMotion ?? consolidatedSave?.accessibility?.reducedMotion);
+  return Boolean(latestFrameSnapshot?.reducedMotion ?? latestSnapshot?.reducedMotion ?? consolidatedSave?.accessibility?.reducedMotion);
 }
 
+const deviceMotionQuery = window.matchMedia?.("(prefers-reduced-motion: reduce)");
 function effectiveReducedMotion() {
-  return savedReducedMotion() || window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches;
+  return savedReducedMotion() || Boolean(deviceMotionQuery?.matches);
 }
 
 function syncAccessibilityPreference() {
@@ -843,7 +844,7 @@ function toggleReducedMotion() {
   render();
 }
 
-window.matchMedia?.("(prefers-reduced-motion: reduce)")?.addEventListener("change", () => {
+deviceMotionQuery?.addEventListener("change", () => {
   syncAccessibilityPreference();
   render();
 });
