@@ -1,2 +1,216 @@
-// Neon Drive: placeholder until the design lands.
-ThemeKit.register({ id: "neon-drive", name: "Neon Drive", author: "Claude", phrases: {} });
+// Neon Drive: a synthwave handheld where the snake is a light-trail rider on a night grid.
+(function () {
+  const magenta = "#ff4fd8";
+  const colors = {
+    // Screen, grid ink, and light
+    "#9cac77": "#150b2e",
+    "#182413": magenta,
+    "#101713": "#0b0618",
+    "#e7e1c5": "#ffe3fa",
+    "rgb(231, 225, 197)": "#ffe3fa",
+    "#132218": "#0b0618",
+    "#1b2b20": "#1a0f33",
+    "#1c2c22": "#1d1138",
+    // Rider trails (body swatches) and helmets (head swatches)
+    "#29391f": "#27e8ff",
+    "#32204f": "#9d4dff",
+    "#16465a": "#2f7bff",
+    "#176052": "#1fffc4",
+    "#843b2f": "#ff3b5c",
+    "#a55b25": "#ff9a3c",
+    "#702c57": "#ff6fae",
+    "#252a32": "#c9d3e0",
+    "#583b83": "#b36bff",
+    "#267b91": "#8fe9ff",
+    "#2d8b68": "#9dff4f",
+    "#b3483d": "#ff2d4a",
+    "#b0802d": "#ffd23c",
+    "#9b477e": "#e05dff",
+    "#596474": "#e6ecf5",
+    // Pickups, sparks, cores, and force fields
+    "#4b562f": "#ff9ae8",
+    "#f2e9ba": "#fff3a8",
+    "#e4c65e": "#ffe14f",
+    "rgb(82, 190, 255)": "#27e8ff",
+    "rgb(74, 175, 255)": "#6ff0ff",
+    // Arcade modes
+    "#fffdf0": "#ffffff",
+    "#d5d5c8": "#ffb3f0",
+    "#718253": "#9dff4f",
+    "#4b3d2a": "#3a2a5a",
+    "#708b59": "#2a1650",
+    "#344336": "#0d0820",
+    "#38502a": "#6b2bd9",
+    "#496536": "#8f3dff",
+    "#5c7840": "#b066ff",
+    "rgb(88, 110, 58)": "#ff9a3c",
+    "#16231d": "#0d0820",
+    "#243b2a": "#1b0f3a",
+    "#29452f": "#221248",
+    "#d5df9d": magenta,
+    "#67c993": "#1fffc4",
+    "#8fa6d6": "#8fb6ff",
+    "#d9d45a": "#ffe14f",
+    "#e37a47": "#ff7a3c",
+    "#b996cf": "#d08cff",
+    "#91b957": "#9dff4f",
+    "#d58964": "#ff8a5c",
+    "#c4574e": "#ff3b5c",
+    "#f6e8a4": "#fff6b0",
+    "#efe7b4": "#ffe9ff",
+    "#e5a04c": "#ffb13c",
+    "#e0c15a": "#ffd23c",
+    "#f4d39a": "#ffd9a0",
+    "#d0574e": "#ff3b5c",
+    "#7bc86c": "#9dff4f",
+  };
+
+  ThemeKit.register({
+    id: "neon-drive",
+    name: "Neon Drive",
+    author: "Claude",
+    title: "Neon Drive",
+    fonts: "https://fonts.googleapis.com/css2?family=Audiowide&family=Rajdhani:wght@600;700&family=VT323&display=swap",
+    canvas: {
+      colors,
+      fonts: { "Courier New": "VT323" },
+      scanlines: true,
+      // A sunset horizon glow and a soft chromatic edge.
+      overlay(ctx, canvas, metrics, strength) {
+        const w = canvas.width;
+        const h = canvas.height;
+        ctx.save();
+        const horizon = ctx.createLinearGradient(0, h * 0.55, 0, h);
+        horizon.addColorStop(0, "rgba(255, 79, 216, 0)");
+        horizon.addColorStop(1, `rgba(255, 79, 216, ${0.16 * strength})`);
+        ctx.fillStyle = horizon;
+        ctx.fillRect(0, 0, w, h);
+        const edge = ctx.createRadialGradient(w / 2, h / 2, w * 0.35, w / 2, h / 2, w * 0.72);
+        edge.addColorStop(0, "rgba(0, 0, 0, 0)");
+        edge.addColorStop(1, "rgba(5, 0, 20, 0.5)");
+        ctx.fillStyle = edge;
+        ctx.fillRect(0, 0, w, h);
+        ctx.restore();
+      },
+    },
+    phrases: {
+      // Title and brand
+      "Snake Forever": "Neon Drive",
+      "SNAKE FOREVER": "NEON DRIVE",
+      "PHONE": "DECK",
+      "Menu": "Garage",
+      "Phone Mode": "Handheld Mode",
+
+      // Currencies and resources
+      "Seeds": "Watts",
+      "Seed": "Watt",
+      "seeds": "watts",
+      "seed": "watt",
+      "Branches": "Chrome",
+      "branches": "chrome",
+      "Provisions": "Fuel",
+      "provisions": "fuel",
+      "Pod": "Battery",
+      "Fruit": "Power Cell",
+      "snacks": "charges",
+      "snack": "charge",
+      "Shields": "Force Fields",
+      "shields": "force fields",
+      "Shield": "Force Field",
+      "shield": "force field",
+      "collision saves": "crash saves",
+
+      // Menu areas
+      "Upgrades": "Tuning",
+      "Nursery": "Assembly Bay",
+      "Colony": "Grid City",
+      "Settle": "Road Trip",
+      "Board size": "Track size",
+      "Food type": "Pickup type",
+      "Food count": "Pickups",
+      "Minigames": "Arcade",
+      "Add Nest Slot": "Add Charging Pad",
+      "Nest": "Charging Pad",
+      "Eggs": "Cores",
+      "Egg": "Core",
+      "eggs": "cores",
+      "egg": "core",
+      "Hatchling yard": "Training Track",
+      "Hatchlings": "Rookies",
+      "Hatchling": "Rookie",
+      "hatchlings": "rookies",
+      "hatchling": "rookie",
+      "Upgrade Nursery": "Expand Bay",
+      "Habitats": "Districts",
+      "Notables": "Legends",
+      "Notable": "Legend",
+      "Elders": "Hall of Fame",
+      "Adults": "Veterans",
+      "Convoy": "Motorcade",
+      "Settlements": "Sectors",
+      "Settlement": "Sector",
+      "Grasslands": "Downtown",
+      "Wetlands": "Harbor District",
+      "Highlands": "Skyline Heights",
+      "Badlands": "Wasteland",
+      "Coast": "Ocean Drive",
+      "expeditions": "road trips",
+      "expedition": "road trip",
+      "Field": "Suburb",
+      "Lake": "Marina",
+      "Forest": "Arcade Strip",
+      "River": "Freeway",
+      "Cave": "Tunnel",
+      "Ocean": "Pier",
+      "Mountain": "Tower",
+      "Blizzard": "Ice Rink",
+
+      // Riders
+      "Snakes": "Riders",
+      "Snake": "Rider",
+      "snakes": "riders",
+      "snake": "rider",
+
+      // Arcade cabinets (minigames) and their pieces
+      "Vs Snake": "Rider Duel",
+      "Snake Runner": "Night Runner",
+      "Snakeger": "Traffic Dash",
+      "Brick Breakout": "Neon Breakout",
+      "Centipede": "Glitch Swarm",
+      "Broodline": "Pack Line",
+      "BROODLINE": "PACK LINE",
+      "Venom Strike": "Laser Strike",
+      "venom": "laser",
+      "Snakebird": "Jump Jet",
+      "Sokoban": "Crate Pusher",
+      "Maze": "Grid Maze",
+      "Crossing": "Traffic Dash",
+      "Titanoboa": "Dreadnought",
+      "Anaconda": "Cruiser",
+      "Python": "Interceptor",
+      "Viper": "Striker",
+      "Adder": "Drone",
+
+      // Screen and controls
+      "Personalization": "Customization",
+      "Personalize": "Customize",
+      "PERSONALIZE": "CUSTOMIZE",
+      "Score": "Points",
+      "Game Over": "Wrecked",
+      "Moss": "Cyan",
+      "Dark purple": "Ultraviolet",
+      "Teal": "Aqua",
+      "Ember": "Laser Red",
+      "Orange": "Sunset",
+      "Berry": "Hot Pink",
+      "Charcoal": "Chrome",
+      "Violet": "Violet",
+      "Sky": "Ice",
+      "Mint": "Lime",
+      "Ruby": "Red",
+      "Gold": "Gold",
+      "Plum": "Plum",
+      "Slate": "Silver",
+    },
+  });
+})();

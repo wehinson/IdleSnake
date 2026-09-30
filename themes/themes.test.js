@@ -53,7 +53,8 @@ test("every theme is valid, unique, and scoped", () => {
   assert.equal(themes.length, 5, "five redesign themes are registered");
   assert.equal(new Set(themes.map((theme) => theme.id)).size, 5);
   for (const theme of themes) {
-    assert.deepEqual(kit.validateTheme(theme), [], theme.id);
+    const errors = kit.validateTheme(theme);
+    assert.equal(errors.length, 0, `${theme.id}: ${errors.join("; ")}`);
     const css = readFileSync(join(themesDir, theme.id, "theme.css"), "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
     const selectors = css
       .replace(/@(?:import|font-face)[^;{]*;/g, "")

@@ -1,1 +1,658 @@
-/* Neon Drive (Claude): placeholder. */
+/* Neon Drive (Claude): a synthwave handheld deck on a night grid, glowing magenta and cyan
+   edges, chrome type, and a sunset on the horizon. */
+
+html[data-theme="neon-drive"] {
+  --case: #120a24;
+  --case-light: #2a1650;
+  --case-dark: #07030f;
+  --case-edge: #ff4fd8;
+  --trim: #07030f;
+  --screen: #150b2e;
+  --screen-ink: #ffe3fa;
+  --screen-shadow: #3a2a5a;
+  --screen-ink-rgb: 255, 227, 250;
+  --key: #1b1036;
+  --key-light: #2e1d57;
+  --paper: #f3e9ff;
+  --paper-rgb: 243, 233, 255;
+  --green: #1fffc4;
+  --orange: #ff9a3c;
+  --font-body: "Rajdhani", "Segoe UI", sans-serif;
+  --font-ui: "Rajdhani", "Segoe UI", sans-serif;
+  --nd-display: "Audiowide", "Segoe UI", sans-serif;
+  --nd-lcd: "VT323", Consolas, monospace;
+  --nd-pink: #ff4fd8;
+  --nd-cyan: #27e8ff;
+  --nd-sun: #ffb13c;
+}
+
+html[data-theme="neon-drive"] body {
+  background:
+    radial-gradient(circle at 50% 38%, #ffd23c 0 60px, #ff7a3c 61px 80px, #ff4fd8 81px 100px, transparent 101px),
+    linear-gradient(180deg, #07030f 0%, #1d0b3a 35%, #5a1667 52%, #0b0618 52.2%, #0b0618 100%);
+  background-attachment: fixed;
+  color: var(--paper);
+}
+
+/* Perspective grid floor below the horizon */
+html[data-theme="neon-drive"] body::before {
+  content: "";
+  position: fixed;
+  left: -50%;
+  right: -50%;
+  bottom: -10%;
+  height: 58%;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(90deg, rgba(255, 79, 216, 0.55) 0 2px, transparent 2px 60px),
+    repeating-linear-gradient(0deg, rgba(39, 232, 255, 0.45) 0 2px, transparent 2px 40px);
+  transform: perspective(300px) rotateX(62deg);
+  transform-origin: 50% 0;
+  animation: neon-drive-road 1.6s linear infinite;
+  mask-image: linear-gradient(180deg, transparent, #000 35%);
+}
+
+@keyframes neon-drive-road {
+  to {
+    background-position: 0 0, 0 40px;
+  }
+}
+
+@keyframes neon-drive-glow {
+  0%,
+  100% {
+    text-shadow: 0 0 6px #ff4fd8, 0 0 14px #ff4fd8;
+  }
+  50% {
+    text-shadow: 0 0 8px #27e8ff, 0 0 20px #27e8ff;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-theme="neon-drive"] body::before,
+  html[data-theme="neon-drive"] .phone-brand,
+  html[data-theme="neon-drive"] .menu-panel h1 {
+    animation: none;
+  }
+}
+
+html[data-theme="neon-drive"][data-reduced-motion="true"] body::before,
+html[data-theme="neon-drive"][data-reduced-motion="true"] .phone-brand,
+html[data-theme="neon-drive"][data-reduced-motion="true"] .menu-panel h1 {
+  animation: none;
+}
+
+/* ---------- garage menu: dark glass with neon trim ---------- */
+
+html[data-theme="neon-drive"] .menu-panel {
+  background: linear-gradient(180deg, rgba(42, 22, 80, 0.88), rgba(11, 6, 24, 0.92));
+  border: 2px solid var(--nd-pink);
+  border-radius: 14px;
+  box-shadow: 0 0 18px rgba(255, 79, 216, 0.5), inset 0 0 22px rgba(255, 79, 216, 0.15);
+  backdrop-filter: blur(6px);
+}
+
+html[data-theme="neon-drive"] .menu-panel h1 {
+  color: #fff;
+  font-family: var(--nd-display);
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  animation: neon-drive-glow 4s ease-in-out infinite;
+}
+
+html[data-theme="neon-drive"] .menu-section-heading {
+  color: var(--nd-cyan);
+  font-family: var(--nd-display);
+  font-weight: 400;
+}
+
+html[data-theme="neon-drive"] .menu-stat,
+html[data-theme="neon-drive"] .status-strip div {
+  background: #0b0618;
+  border: 1px solid var(--nd-cyan);
+  border-radius: 8px;
+  box-shadow: inset 0 0 14px rgba(39, 232, 255, 0.25), 0 0 10px rgba(39, 232, 255, 0.25);
+  color: var(--nd-cyan);
+}
+
+html[data-theme="neon-drive"] .menu-stat span,
+html[data-theme="neon-drive"] .stat-label {
+  color: var(--nd-pink);
+  font-family: var(--nd-display);
+  font-weight: 400;
+  letter-spacing: 0.06em;
+}
+
+html[data-theme="neon-drive"] .menu-stat strong,
+html[data-theme="neon-drive"] .status-strip strong {
+  color: var(--nd-cyan);
+  font-family: var(--nd-lcd);
+  font-weight: 400;
+  text-shadow: 0 0 8px rgba(39, 232, 255, 0.8);
+}
+
+html[data-theme="neon-drive"] .menu-stat strong {
+  font-size: clamp(2rem, 8vw, 3.2rem);
+}
+
+html[data-theme="neon-drive"] .status-strip strong {
+  font-size: clamp(1rem, 4.8vw, 1.35rem);
+}
+
+html[data-theme="neon-drive"] .menu-tabs {
+  background: #0b0618;
+  border: 1px solid rgba(255, 79, 216, 0.5);
+  border-radius: 999px;
+}
+
+html[data-theme="neon-drive"] .menu-tab {
+  border-radius: 999px;
+  color: #b9a6d9;
+  font-family: var(--nd-display);
+  font-size: 0.56rem;
+  font-weight: 400;
+}
+
+html[data-theme="neon-drive"] .menu-tab.is-active,
+html[data-theme="neon-drive"] .menu-tab[aria-selected="true"] {
+  background: linear-gradient(90deg, var(--nd-pink), #9d4dff);
+  border-color: transparent;
+  box-shadow: 0 0 12px rgba(255, 79, 216, 0.7);
+  color: #fff;
+}
+
+html[data-theme="neon-drive"] .menu-tab-notification {
+  background: var(--nd-sun);
+  color: #1a0b00;
+}
+
+/* Cards: dark glass panels */
+html[data-theme="neon-drive"] .upgrade-card,
+html[data-theme="neon-drive"] .nursery-goal-card,
+html[data-theme="neon-drive"] .nest-card,
+html[data-theme="neon-drive"] .nursery-yard-card,
+html[data-theme="neon-drive"] .nursery-currency,
+html[data-theme="neon-drive"] .migration-summary-card,
+html[data-theme="neon-drive"] .migration-builder,
+html[data-theme="neon-drive"] .migration-expedition-card,
+html[data-theme="neon-drive"] .trade-route-builder,
+html[data-theme="neon-drive"] .trade-direction-card,
+html[data-theme="neon-drive"] .colony-placeholder,
+html[data-theme="neon-drive"] .colony-income-summary,
+html[data-theme="neon-drive"] .habitat-card,
+html[data-theme="neon-drive"] .notable-card,
+html[data-theme="neon-drive"] .hatchling-row,
+html[data-theme="neon-drive"] .candidate-decision,
+html[data-theme="neon-drive"] .notable-candidates {
+  background: linear-gradient(180deg, rgba(46, 29, 87, 0.8), rgba(18, 10, 36, 0.9));
+  border: 1px solid rgba(39, 232, 255, 0.35);
+  border-radius: 10px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme="neon-drive"] .upgrade-card.is-maxed {
+  border-color: var(--nd-sun);
+  box-shadow: 0 0 12px rgba(255, 177, 60, 0.45);
+}
+
+html[data-theme="neon-drive"] .upgrade-card-heading strong,
+html[data-theme="neon-drive"] .nursery-card-heading strong,
+html[data-theme="neon-drive"] .nursery-goal-card strong,
+html[data-theme="neon-drive"] .habitat-name,
+html[data-theme="neon-drive"] .notable-card > strong,
+html[data-theme="neon-drive"] .colony-placeholder strong,
+html[data-theme="neon-drive"] .migration-expedition-card h3,
+html[data-theme="neon-drive"] .trade-direction-card h4 {
+  color: #fff;
+  font-family: var(--nd-display);
+  font-weight: 400;
+  letter-spacing: 0.03em;
+}
+
+html[data-theme="neon-drive"] .upgrade-label,
+html[data-theme="neon-drive"] .habitat-output-types,
+html[data-theme="neon-drive"] .colony-summary-heading {
+  color: #b9a6d9;
+}
+
+html[data-theme="neon-drive"] .upgrade-level,
+html[data-theme="neon-drive"] .upgrade-next,
+html[data-theme="neon-drive"] .nursery-meta span:last-child,
+html[data-theme="neon-drive"] .hatchling-row-heading span:last-child,
+html[data-theme="neon-drive"] .habitat-production,
+html[data-theme="neon-drive"] .notable-service,
+html[data-theme="neon-drive"] .menu-section-mark {
+  color: var(--nd-cyan) !important;
+}
+
+html[data-theme="neon-drive"] .upgrade-card p,
+html[data-theme="neon-drive"] .nursery-goal-card p,
+html[data-theme="neon-drive"] .colony-placeholder p,
+html[data-theme="neon-drive"] .colony-note,
+html[data-theme="neon-drive"] .nursery-timer,
+html[data-theme="neon-drive"] .nursery-meta {
+  color: #d8ccef;
+  font-size: 0.78rem;
+}
+
+html[data-theme="neon-drive"] .upgrade-select,
+html[data-theme="neon-drive"] .migration-field select,
+html[data-theme="neon-drive"] .migration-field input,
+html[data-theme="neon-drive"] .trade-direction-fields select,
+html[data-theme="neon-drive"] .notable-actions select,
+html[data-theme="neon-drive"] .grid-select {
+  background: #0b0618;
+  border: 1px solid var(--nd-cyan);
+  border-radius: 6px;
+  color: var(--nd-cyan);
+  font-family: var(--font-body);
+  font-weight: 700;
+}
+
+/* Buttons glow like dash lights */
+html[data-theme="neon-drive"] .upgrade-button,
+html[data-theme="neon-drive"] .habitat-place-button,
+html[data-theme="neon-drive"] .habitat-upgrade-button,
+html[data-theme="neon-drive"] .notables-open-button,
+html[data-theme="neon-drive"] .notables-back-button,
+html[data-theme="neon-drive"] .trade-open-button,
+html[data-theme="neon-drive"] .trade-route-button,
+html[data-theme="neon-drive"] .migration-expedition-actions button,
+html[data-theme="neon-drive"] .notable-actions button,
+html[data-theme="neon-drive"] .candidate-pagination button,
+html[data-theme="neon-drive"] #recruitNotableButton {
+  background: linear-gradient(90deg, #ff4fd8, #9d4dff);
+  border: 0;
+  border-radius: 999px;
+  box-shadow: 0 0 12px rgba(255, 79, 216, 0.6);
+  color: #fff;
+  font-family: var(--nd-display);
+  font-size: 0.62rem;
+  font-weight: 400;
+  letter-spacing: 0.06em;
+}
+
+html[data-theme="neon-drive"] .upgrade-button:disabled,
+html[data-theme="neon-drive"] .trade-route-button:disabled,
+html[data-theme="neon-drive"] .habitat-place-button:disabled,
+html[data-theme="neon-drive"] .habitat-upgrade-button:disabled {
+  background: #2a1f40;
+  box-shadow: none;
+  color: #7b6d99;
+  filter: none;
+}
+
+html[data-theme="neon-drive"] .trade-open-button.is-ready {
+  background: linear-gradient(90deg, #ffd23c, #ff7a3c);
+  box-shadow: 0 0 14px rgba(255, 177, 60, 0.7);
+  color: #1a0b00;
+}
+
+html[data-theme="neon-drive"] .migration-expedition-actions button.is-danger {
+  background: linear-gradient(90deg, #ff3b5c, #b3123f);
+}
+
+html[data-theme="neon-drive"] .reset-progress-button {
+  background: #0b0618;
+  border: 1px solid #ff3b5c;
+  border-radius: 999px;
+  box-shadow: 0 0 10px rgba(255, 59, 92, 0.4);
+  color: #ffb3c2;
+  font-family: var(--nd-display);
+  font-weight: 400;
+}
+
+html[data-theme="neon-drive"] .reset-progress-fill {
+  background: repeating-linear-gradient(115deg, rgba(255, 59, 92, 0.95) 0 18px, rgba(255, 79, 216, 0.95) 18px 36px);
+  background-size: 200% 100%;
+}
+
+/* ---------- assembly bay (nursery) ---------- */
+
+html[data-theme="neon-drive"] .egg-progress-rate {
+  background: rgba(39, 232, 255, 0.1);
+  border-color: var(--nd-cyan);
+  color: var(--nd-cyan);
+}
+
+html[data-theme="neon-drive"] .nursery-feeding-button {
+  border-color: var(--nd-pink);
+  border-radius: 999px;
+  color: #ffd6f6;
+}
+
+html[data-theme="neon-drive"] .nursery-feeding-button[aria-pressed="true"] {
+  background: rgba(255, 79, 216, 0.3);
+}
+
+html[data-theme="neon-drive"] .nest-visual {
+  background:
+    repeating-radial-gradient(circle at 50% 50%, transparent 0 8px, rgba(39, 232, 255, 0.35) 9px 10px),
+    #0b0618;
+  border: 1px solid var(--nd-cyan);
+  border-radius: 10px;
+  box-shadow: inset 0 0 18px rgba(39, 232, 255, 0.3);
+  color: var(--nd-cyan);
+}
+
+html[data-theme="neon-drive"] .egg-shape {
+  width: 24px;
+  height: 24px;
+  border: 2px solid #fff3a8;
+  border-radius: 50%;
+  background: radial-gradient(circle, #fff 0 20%, #ffe14f 40%, #ff7a3c 75%);
+  box-shadow: 0 0 16px #ffd23c;
+}
+
+html[data-theme="neon-drive"] .nursery-grid {
+  background:
+    linear-gradient(rgba(255, 79, 216, 0.25) 1px, transparent 1px) 0 0 / 100% calc(100% / 15),
+    linear-gradient(90deg, rgba(255, 79, 216, 0.25) 1px, transparent 1px) 0 0 / calc(100% / 12) 100%,
+    #150b2e;
+  border: 1px solid var(--nd-pink);
+  box-shadow: inset 0 0 14px rgba(255, 79, 216, 0.3);
+}
+
+html[data-theme="neon-drive"] .nursery-cell,
+html[data-theme="neon-drive"] .nursery-cell:nth-child(odd) {
+  background: transparent;
+}
+
+html[data-theme="neon-drive"] .nursery-cell.is-body::after,
+html[data-theme="neon-drive"] .nursery-cell.is-tail::after,
+html[data-theme="neon-drive"] .nursery-cell.is-head::after {
+  background: var(--nd-cyan);
+  box-shadow: 0 0 6px var(--nd-cyan);
+}
+
+html[data-theme="neon-drive"] .nursery-cell.is-head::after {
+  background: var(--nd-pink);
+  box-shadow: 0 0 6px var(--nd-pink);
+}
+
+html[data-theme="neon-drive"] .growth-bar {
+  background: #0b0618;
+  border-color: rgba(39, 232, 255, 0.5);
+}
+
+html[data-theme="neon-drive"] .growth-bar span {
+  background: linear-gradient(90deg, #ff4fd8, #27e8ff);
+  box-shadow: 0 0 8px #27e8ff;
+}
+
+/* ---------- grid city (colony) ---------- */
+
+html[data-theme="neon-drive"] .habitat-card.is-locked {
+  background: repeating-linear-gradient(135deg, #140c28 0 8px, #1b1036 8px 16px);
+  border-style: dashed;
+}
+
+html[data-theme="neon-drive"] .habitat-card.produces-provisions:not(.is-locked) {
+  border-color: var(--nd-sun);
+}
+
+html[data-theme="neon-drive"] .habitat-card.produces-branches:not(.is-locked) {
+  border-color: #c9d3e0;
+}
+
+html[data-theme="neon-drive"] .habitat-card.speeds-egg-hatch:not(.is-locked) {
+  border-color: var(--nd-pink);
+}
+
+html[data-theme="neon-drive"] .habitat-capacity-tooltip {
+  background: #0b0618;
+  border: 1px solid var(--nd-cyan);
+  box-shadow: 0 0 14px rgba(39, 232, 255, 0.4);
+}
+
+html[data-theme="neon-drive"] .candidate-list-item {
+  background: #0b0618;
+  border: 1px solid rgba(39, 232, 255, 0.35);
+  border-radius: 8px;
+  color: var(--paper);
+}
+
+html[data-theme="neon-drive"] .candidate-list-item[aria-pressed="true"] {
+  background: rgba(255, 79, 216, 0.25);
+  border-color: var(--nd-pink);
+  color: #fff;
+}
+
+html[data-theme="neon-drive"] .trade-network-edge {
+  stroke: rgba(39, 232, 255, 0.6);
+}
+
+html[data-theme="neon-drive"] .trade-network-edge.is-selected {
+  stroke: var(--nd-pink);
+}
+
+html[data-theme="neon-drive"] .trade-network-node circle {
+  fill: #150b2e;
+  stroke: var(--nd-cyan);
+}
+
+html[data-theme="neon-drive"] .trade-network-node text {
+  fill: #fff;
+}
+
+/* ---------- handheld deck (phone) ---------- */
+
+html[data-theme="neon-drive"] .phone-shell {
+  background:
+    linear-gradient(115deg, rgba(255, 255, 255, 0.12), transparent 30%),
+    linear-gradient(180deg, #221442, #120a24 55%, #07030f);
+  border: 2px solid var(--nd-pink);
+  border-radius: 34px 34px 44px 44px;
+  box-shadow:
+    0 0 0 3px #07030f,
+    0 0 0 4px rgba(39, 232, 255, 0.7),
+    0 0 40px rgba(255, 79, 216, 0.45),
+    0 24px 60px rgba(0, 0, 0, 0.7);
+}
+
+/* The antenna becomes a cyan light bar; the camera a power LED */
+html[data-theme="neon-drive"] .phone-shell::before {
+  top: 14px;
+  right: auto;
+  left: 50%;
+  width: 60%;
+  height: 3px;
+  border: 0;
+  border-radius: 3px;
+  background: linear-gradient(90deg, transparent, var(--nd-cyan), transparent);
+  box-shadow: 0 0 10px var(--nd-cyan);
+  transform: translateX(-50%);
+  z-index: 1;
+}
+
+html[data-theme="neon-drive"] .phone-shell::after {
+  top: 26px;
+  right: 26px;
+  width: 10px;
+  height: 10px;
+  border: 0;
+  background: #1fffc4;
+  box-shadow: 0 0 10px #1fffc4;
+}
+
+html[data-theme="neon-drive"] .speaker-slot {
+  background: repeating-linear-gradient(90deg, var(--nd-pink) 0 3px, transparent 3px 7px);
+  border-radius: 2px;
+  height: 6px;
+  opacity: 0.8;
+  filter: none;
+}
+
+html[data-theme="neon-drive"] .phone-brand {
+  background: transparent;
+  color: #fff;
+  font-family: var(--nd-display);
+  font-size: 0.9rem;
+  font-weight: 400;
+  letter-spacing: 0.14em;
+  animation: neon-drive-glow 4s ease-in-out infinite;
+}
+
+html[data-theme="neon-drive"] .screen-frame {
+  background: #07030f;
+  border: 1px solid rgba(255, 79, 216, 0.6);
+  border-radius: 14px;
+  box-shadow: inset 0 0 18px rgba(255, 79, 216, 0.2);
+}
+
+html[data-theme="neon-drive"] .screen-bezel {
+  background: #150b2e;
+  border: 1px solid var(--nd-cyan);
+  border-radius: 6px;
+  box-shadow: 0 0 14px rgba(39, 232, 255, 0.4), inset 0 0 18px rgba(0, 0, 0, 0.6);
+}
+
+html[data-theme="neon-drive"] #game {
+  border: 0;
+  background: #150b2e;
+}
+
+html[data-theme="neon-drive"] .screen-plate {
+  background: rgba(11, 6, 24, 0.9);
+  border: 1px solid var(--nd-pink);
+  border-radius: 8px;
+  box-shadow: 0 0 16px rgba(255, 79, 216, 0.6);
+  color: #fff;
+}
+
+html[data-theme="neon-drive"] #stateText {
+  color: #fff;
+  font-family: var(--nd-display);
+  font-weight: 400;
+  text-shadow: 0 0 8px var(--nd-pink);
+}
+
+html[data-theme="neon-drive"] .ready-start-prompt {
+  color: var(--nd-cyan);
+  font-family: var(--font-body);
+}
+
+html[data-theme="neon-drive"] .screen-hint {
+  color: #d8ccef;
+  font-family: var(--font-body);
+}
+
+html[data-theme="neon-drive"] .personalization-screen,
+html[data-theme="neon-drive"] .broodline-screen {
+  background: rgba(11, 6, 24, 0.97);
+  border: 1px solid var(--nd-cyan);
+  color: var(--paper);
+}
+
+html[data-theme="neon-drive"] .personalization-heading strong,
+html[data-theme="neon-drive"] .mobile-controls-settings h2 {
+  color: #fff;
+  font-family: var(--nd-display);
+  font-weight: 400;
+}
+
+html[data-theme="neon-drive"] .personalization-copy,
+html[data-theme="neon-drive"] .motion-setting-note,
+html[data-theme="neon-drive"] .color-choice-label {
+  color: #d8ccef;
+}
+
+html[data-theme="neon-drive"] .color-swatch {
+  border: 1px solid #fff;
+  border-radius: 8px;
+  box-shadow: 0 0 8px var(--swatch);
+}
+
+html[data-theme="neon-drive"] .color-swatch[aria-pressed="true"] {
+  outline: 2px solid var(--nd-cyan);
+}
+
+html[data-theme="neon-drive"] .personalization-back,
+html[data-theme="neon-drive"] .mobile-control-toggle,
+html[data-theme="neon-drive"] .broodline-card {
+  background: #150b2e;
+  border: 1px solid var(--nd-cyan);
+  border-radius: 8px;
+  color: var(--nd-cyan);
+  font-family: var(--font-body);
+  font-weight: 700;
+}
+
+html[data-theme="neon-drive"] .mobile-control-toggle[aria-pressed="true"],
+html[data-theme="neon-drive"] .broodline-card.is-selected {
+  background: var(--nd-cyan);
+  color: #07030f;
+}
+
+html[data-theme="neon-drive"] .save-data-area {
+  background: #0b0618;
+  border: 1px solid var(--nd-cyan);
+  color: var(--nd-cyan);
+}
+
+/* ---------- glowing controls ---------- */
+
+html[data-theme="neon-drive"] .nav-key,
+html[data-theme="neon-drive"] .action-key,
+html[data-theme="neon-drive"] .phone-key {
+  background: linear-gradient(180deg, #2e1d57, #1b1036);
+  border: 1px solid rgba(39, 232, 255, 0.7);
+  box-shadow: 0 0 8px rgba(39, 232, 255, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.15), 0 3px 0 #07030f;
+  color: var(--nd-cyan);
+}
+
+html[data-theme="neon-drive"] .nav-key:focus-visible,
+html[data-theme="neon-drive"] .action-key:focus-visible,
+html[data-theme="neon-drive"] .phone-key:focus-visible {
+  box-shadow: 0 0 0 2px var(--nd-pink), 0 0 12px var(--nd-pink);
+}
+
+html[data-theme="neon-drive"] .phone-key {
+  font-family: var(--nd-lcd);
+  font-size: 1.05rem;
+  font-weight: 400;
+}
+
+html[data-theme="neon-drive"] .action-key {
+  font-family: var(--nd-display);
+  font-size: 0.62rem;
+  font-weight: 400;
+  letter-spacing: 0.06em;
+}
+
+html[data-theme="neon-drive"] #startButton {
+  background: linear-gradient(180deg, #1fffc4, #0f9a78);
+  border-color: #b8fff0;
+  box-shadow: 0 0 14px rgba(31, 255, 196, 0.6), 0 3px 0 #07030f;
+  color: #02140f;
+}
+
+html[data-theme="neon-drive"] #resetButton {
+  background: linear-gradient(180deg, #ff9a3c, #d9531f);
+  border-color: #ffd0a8;
+  box-shadow: 0 0 14px rgba(255, 154, 60, 0.6), 0 3px 0 #07030f;
+  color: #1a0700;
+}
+
+html[data-theme="neon-drive"] .nav-key:active,
+html[data-theme="neon-drive"] .nav-key.is-pressed,
+html[data-theme="neon-drive"] .action-key.is-active {
+  box-shadow: 0 0 18px var(--nd-pink), inset 0 0 10px rgba(255, 79, 216, 0.6);
+}
+
+html[data-theme="neon-drive"] .minigame-key.is-locked {
+  background: #120a24;
+  border-color: rgba(185, 166, 217, 0.25);
+  box-shadow: none;
+  color: rgba(185, 166, 217, 0.35);
+}
+
+html[data-theme="neon-drive"] .grid-key[aria-pressed="true"] {
+  background: linear-gradient(180deg, var(--nd-pink), #9d4dff);
+  color: #fff;
+}
+
+html[data-theme="neon-drive"] .phone-nav.is-large-dpad .nav-key {
+  background: linear-gradient(180deg, #2e1d57, #1b1036);
+}

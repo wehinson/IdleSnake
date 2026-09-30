@@ -112,7 +112,7 @@ html[data-theme="polar-sled"] .menu-panel h1 {
 }
 
 html[data-theme="polar-sled"] .menu-panel h1::before {
-  content: "78? N / ";
+  content: "78\B0  N / ";
   font-size: .55em;
   color: var(--muted);
   letter-spacing: .08em;
