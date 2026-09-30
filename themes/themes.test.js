@@ -17,6 +17,22 @@ function loadThemes() {
   return registered;
 }
 
+// Split a selector list at top-level commas only (not inside :is(), :not(), and similar).
+function splitSelectors(list) {
+  const parts = [];
+  let depth = 0;
+  let current = "";
+  for (const char of list) {
+    if (char === "(") depth += 1;
+    if (char === ")") depth -= 1;
+    if (char === "," && depth === 0) {
+      parts.push(current);
+      current = "";
+    } else current += char;
+  }
+  return [...parts, current];
+}
+
 test("translate keeps word boundaries and letter case", () => {
   const compiled = kit.compilePhrases({ Seeds: "Coins", seed: "coin" });
   assert.equal(kit.translate("Seeds: 4", compiled), "Coins: 4");
@@ -47,8 +63,8 @@ test("every theme is valid, unique, and scoped", () => {
       .map((block) => block.split("{")[0].trim())
       .filter(Boolean);
     for (const selector of selectors) {
-      for (const part of selector.split(",")) {
-        assert.match(part.trim(), new RegExp(`^html\[data-theme="${theme.id}"\]`), `${theme.id}: unscoped selector "${part.trim()}"`);
+      for (const part of splitSelectors(selector)) {
+        assert.ok(part.trim().startsWith(`html[data-theme="${theme.id}"]`), `${theme.id}: unscoped selector "${part.trim()}"`);
       }
     }
   }

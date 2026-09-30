@@ -1,1 +1,746 @@
-/* Koi Garden (Claude): placeholder. */
+/* Koi Garden (Claude): black urushi lacquer with vermilion and gold, a washi-paper pond,
+   and smooth river-stone keys, set on a pale ink-wash landscape. */
+
+html[data-theme="koi-garden"] {
+  color-scheme: light;
+  --case: #1b1716;
+  --case-light: #3a2f2a;
+  --case-dark: #0d0a09;
+  --case-edge: #b8862d;
+  --trim: #0d0a09;
+  --screen: #eadfc4;
+  --screen-ink: #1e2a30;
+  --screen-shadow: #8a7458;
+  --screen-ink-rgb: 30, 42, 48;
+  --key: #6f7472;
+  --key-light: #b9bcb6;
+  --paper: #f7efdc;
+  --paper-rgb: 247, 239, 220;
+  --green: #3f8f6a;
+  --orange: #c0392b;
+  --font-body: "Zen Kaku Gothic New", "Segoe UI", sans-serif;
+  --font-ui: "Zen Kaku Gothic New", "Segoe UI", sans-serif;
+  --kg-display: "Shippori Mincho", Georgia, serif;
+  --kg-vermilion: #c0392b;
+  --kg-gold: #d8a531;
+  --kg-lacquer: #1b1716;
+}
+
+html[data-theme="koi-garden"] body {
+  background:
+    radial-gradient(ellipse 60% 25% at 20% 100%, rgba(30, 42, 48, 0.22), transparent 70%),
+    radial-gradient(ellipse 45% 30% at 85% 100%, rgba(30, 42, 48, 0.16), transparent 70%),
+    radial-gradient(circle at 82% 14%, rgba(192, 57, 43, 0.85) 0 44px, rgba(192, 57, 43, 0.12) 46px, transparent 90px),
+    radial-gradient(ellipse at 50% 0%, #fbf6ea, transparent 60%),
+    linear-gradient(180deg, #f3ecdc, #e6dcc6);
+  background-attachment: fixed;
+  color: #1e2a30;
+}
+
+/* Drifting cherry petals */
+html[data-theme="koi-garden"] body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    radial-gradient(ellipse 5px 3px, rgba(232, 150, 160, 0.8) 60%, transparent 62%),
+    radial-gradient(ellipse 4px 2.5px, rgba(240, 170, 180, 0.7) 60%, transparent 62%),
+    radial-gradient(ellipse 3px 2px, rgba(225, 140, 150, 0.7) 60%, transparent 62%);
+  background-position: 40px 0, 190px 120px, 300px 60px;
+  background-size: 360px 420px, 260px 380px, 420px 300px;
+  animation: koi-garden-petals 40s linear infinite;
+}
+
+@keyframes koi-garden-petals {
+  to {
+    background-position: 220px 420px, 30px 500px, 520px 360px;
+  }
+}
+
+@keyframes koi-garden-shimmer {
+  0%,
+  100% {
+    box-shadow: inset 0 0 0 1px rgba(216, 165, 49, 0.6), 0 0 0 rgba(216, 165, 49, 0);
+  }
+  50% {
+    box-shadow: inset 0 0 0 1px rgba(216, 165, 49, 1), 0 0 14px rgba(216, 165, 49, 0.45);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-theme="koi-garden"] body::before,
+  html[data-theme="koi-garden"] .phone-brand {
+    animation: none;
+  }
+}
+
+html[data-theme="koi-garden"][data-reduced-motion="true"] body::before,
+html[data-theme="koi-garden"][data-reduced-motion="true"] .phone-brand {
+  animation: none;
+}
+
+/* ---------- menu: a lacquered scroll case ---------- */
+
+html[data-theme="koi-garden"] .menu-panel {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), transparent 30%),
+    radial-gradient(ellipse at 100% 0%, rgba(192, 57, 43, 0.25), transparent 50%),
+    var(--kg-lacquer);
+  border: 2px solid var(--kg-gold);
+  border-radius: 4px;
+  box-shadow:
+    inset 0 0 0 4px var(--kg-lacquer),
+    inset 0 0 0 5px rgba(216, 165, 49, 0.45),
+    0 18px 40px rgba(60, 40, 20, 0.35);
+  color: var(--paper);
+}
+
+html[data-theme="koi-garden"] .menu-panel h1 {
+  color: #f7efdc;
+  font-family: var(--kg-display);
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: none;
+}
+
+html[data-theme="koi-garden"] .menu-panel h1::after {
+  content: "";
+  display: inline-block;
+  width: 0.7em;
+  height: 0.7em;
+  margin-left: 0.4em;
+  border-radius: 2px;
+  background: var(--kg-vermilion);
+  vertical-align: middle;
+  box-shadow: inset 0 0 0 2px rgba(255, 255, 255, 0.25);
+}
+
+html[data-theme="koi-garden"] .menu-section-heading {
+  color: var(--kg-gold);
+  font-family: var(--kg-display);
+  letter-spacing: 0.14em;
+}
+
+html[data-theme="koi-garden"] .menu-stat {
+  background:
+    repeating-linear-gradient(95deg, rgba(120, 90, 40, 0.05) 0 1px, transparent 1px 5px),
+    #f3e9d2;
+  border: 1px solid var(--kg-gold);
+  border-radius: 2px;
+  box-shadow: inset 0 0 18px rgba(120, 80, 30, 0.2);
+  color: #1e2a30;
+}
+
+html[data-theme="koi-garden"] .menu-stat span {
+  color: var(--kg-vermilion);
+  font-family: var(--kg-display);
+  letter-spacing: 0.1em;
+}
+
+html[data-theme="koi-garden"] .menu-stat strong {
+  font-family: var(--kg-display);
+  font-weight: 800;
+}
+
+html[data-theme="koi-garden"] .menu-tabs {
+  background: #0d0a09;
+  border: 1px solid rgba(216, 165, 49, 0.5);
+  border-radius: 3px;
+}
+
+html[data-theme="koi-garden"] .menu-tab {
+  color: #cdbf9e;
+  font-family: var(--kg-display);
+  letter-spacing: 0.04em;
+  text-transform: none;
+}
+
+html[data-theme="koi-garden"] .menu-tab.is-active,
+html[data-theme="koi-garden"] .menu-tab[aria-selected="true"] {
+  background: var(--kg-vermilion);
+  border-color: #7a1d14;
+  box-shadow: inset 0 0 0 1px rgba(255, 220, 190, 0.35);
+  color: #fff4e6;
+}
+
+html[data-theme="koi-garden"] .menu-tab-notification {
+  background: var(--kg-gold);
+  color: #1b1716;
+}
+
+/* Cards read as folded washi sheets on the lacquer */
+html[data-theme="koi-garden"] .upgrade-card,
+html[data-theme="koi-garden"] .nursery-goal-card,
+html[data-theme="koi-garden"] .nest-card,
+html[data-theme="koi-garden"] .nursery-yard-card,
+html[data-theme="koi-garden"] .nursery-currency,
+html[data-theme="koi-garden"] .migration-summary-card,
+html[data-theme="koi-garden"] .migration-builder,
+html[data-theme="koi-garden"] .trade-route-builder,
+html[data-theme="koi-garden"] .colony-placeholder,
+html[data-theme="koi-garden"] .habitat-card,
+html[data-theme="koi-garden"] .notable-card,
+html[data-theme="koi-garden"] .migration-expedition-card,
+html[data-theme="koi-garden"] .trade-direction-card,
+html[data-theme="koi-garden"] .colony-income-summary,
+html[data-theme="koi-garden"] .hatchling-row,
+html[data-theme="koi-garden"] .candidate-decision,
+html[data-theme="koi-garden"] .notable-candidates {
+  background:
+    repeating-linear-gradient(95deg, rgba(120, 90, 40, 0.05) 0 1px, transparent 1px 6px),
+    linear-gradient(180deg, #f7efdc, #ece0c3);
+  border: 1px solid #b8a27a;
+  border-radius: 2px;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.35);
+  color: #1e2a30;
+}
+
+html[data-theme="koi-garden"] .upgrade-card.is-maxed {
+  border-color: var(--kg-gold);
+  box-shadow: 0 0 0 1px var(--kg-gold), 0 2px 0 rgba(0, 0, 0, 0.35);
+}
+
+html[data-theme="koi-garden"] .upgrade-label,
+html[data-theme="koi-garden"] .upgrade-level,
+html[data-theme="koi-garden"] .habitat-output-types,
+html[data-theme="koi-garden"] .colony-summary-heading {
+  color: #8a6a3a;
+}
+
+html[data-theme="koi-garden"] .upgrade-level,
+html[data-theme="koi-garden"] .upgrade-next {
+  color: var(--kg-vermilion) !important;
+}
+
+html[data-theme="koi-garden"] .upgrade-card-heading strong,
+html[data-theme="koi-garden"] .nursery-card-heading strong,
+html[data-theme="koi-garden"] .nursery-goal-card strong,
+html[data-theme="koi-garden"] .habitat-name,
+html[data-theme="koi-garden"] .colony-placeholder strong,
+html[data-theme="koi-garden"] .notable-card > strong,
+html[data-theme="koi-garden"] .migration-expedition-card h3,
+html[data-theme="koi-garden"] .trade-direction-card h4 {
+  color: #1e2a30;
+  font-family: var(--kg-display);
+  font-weight: 800;
+}
+
+html[data-theme="koi-garden"] .upgrade-card p,
+html[data-theme="koi-garden"] .nursery-goal-card p,
+html[data-theme="koi-garden"] .colony-placeholder p,
+html[data-theme="koi-garden"] .colony-note,
+html[data-theme="koi-garden"] .nursery-timer,
+html[data-theme="koi-garden"] .nursery-meta,
+html[data-theme="koi-garden"] .habitat-card,
+html[data-theme="koi-garden"] .notable-card p,
+html[data-theme="koi-garden"] .migration-expedition-card p,
+html[data-theme="koi-garden"] .trade-direction-card p {
+  color: #3a4448;
+}
+
+html[data-theme="koi-garden"] .colony-note {
+  color: #cdbf9e;
+}
+
+html[data-theme="koi-garden"] .upgrade-select,
+html[data-theme="koi-garden"] .migration-field input,
+html[data-theme="koi-garden"] .trade-direction-fields select,
+html[data-theme="koi-garden"] .notable-actions select,
+html[data-theme="koi-garden"] .panel-select,
+html[data-theme="koi-garden"] .menu-panel select {
+  background: #fffaf0;
+  border: 1px solid #8a6a3a;
+  border-radius: 2px;
+  color: #1e2a30;
+  font-family: var(--font-body);
+}
+
+/* Buttons are vermilion seal stamps */
+html[data-theme="koi-garden"] .upgrade-button,
+html[data-theme="koi-garden"] .nursery-upgrade-button,
+html[data-theme="koi-garden"] .habitat-place-button,
+html[data-theme="koi-garden"] .habitat-upgrade-button,
+html[data-theme="koi-garden"] .notables-open-button,
+html[data-theme="koi-garden"] .notables-back-button,
+html[data-theme="koi-garden"] .trade-open-button,
+html[data-theme="koi-garden"] .trade-route-button,
+html[data-theme="koi-garden"] .migration-expedition-actions button,
+html[data-theme="koi-garden"] .notable-actions button,
+html[data-theme="koi-garden"] .candidate-pagination button,
+html[data-theme="koi-garden"] #recruitNotableButton {
+  background: linear-gradient(180deg, #d4513f, #a82c1f);
+  border: 1px solid #6e170f;
+  border-radius: 3px;
+  box-shadow: inset 0 1px 0 rgba(255, 220, 190, 0.35), 0 2px 0 #3a0c07;
+  color: #fff4e6;
+  font-family: var(--kg-display);
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: none;
+}
+
+html[data-theme="koi-garden"] .upgrade-button:disabled,
+html[data-theme="koi-garden"] .trade-route-button:disabled,
+html[data-theme="koi-garden"] .habitat-place-button:disabled,
+html[data-theme="koi-garden"] .habitat-upgrade-button:disabled,
+html[data-theme="koi-garden"] .nursery-upgrade-button:disabled {
+  background: #cfc6b2;
+  border-color: #a89c84;
+  box-shadow: none;
+  color: #7b7466;
+  filter: none;
+}
+
+html[data-theme="koi-garden"] .trade-open-button.is-ready {
+  background: linear-gradient(180deg, #e8b84a, #b8862d);
+  color: #1b1716;
+}
+
+html[data-theme="koi-garden"] .migration-expedition-actions button.is-danger {
+  background: #1b1716;
+  border-color: var(--kg-vermilion);
+}
+
+html[data-theme="koi-garden"] .reset-progress {
+  border-top-color: rgba(216, 165, 49, 0.35);
+}
+
+html[data-theme="koi-garden"] .reset-progress-button {
+  background: #0d0a09;
+  border: 1px solid var(--kg-vermilion);
+  border-radius: 3px;
+  color: #f2c9bd;
+  font-family: var(--kg-display);
+  text-transform: none;
+}
+
+html[data-theme="koi-garden"] .reset-progress-fill {
+  background: repeating-linear-gradient(115deg, rgba(192, 57, 43, 0.95) 0 18px, rgba(216, 90, 60, 0.95) 18px 36px);
+  background-size: 200% 100%;
+}
+
+/* ---------- spawning pool (nursery) ---------- */
+
+html[data-theme="koi-garden"] .egg-progress-rate {
+  background: rgba(192, 57, 43, 0.12);
+  border-color: var(--kg-vermilion);
+  color: var(--kg-vermilion);
+}
+
+html[data-theme="koi-garden"] .nursery-feeding-button {
+  border-color: var(--kg-gold);
+  color: #f3e3c0;
+  font-family: var(--kg-display);
+}
+
+html[data-theme="koi-garden"] .nursery-feeding-button[aria-pressed="true"] {
+  background: #3a2f2a;
+}
+
+html[data-theme="koi-garden"] .nest-visual {
+  background:
+    radial-gradient(circle at 50% 55%, #6f9a5a 0 38%, #4d7a44 39% 44%, transparent 45%),
+    radial-gradient(ellipse at 50% 50%, #2f6d8f, #1d4a63);
+  border: 1px solid var(--kg-gold);
+  border-radius: 50%;
+  color: #eadfc4;
+}
+
+html[data-theme="koi-garden"] .nest-visual.has-egg {
+  background:
+    radial-gradient(circle at 50% 55%, #7fae66 0 38%, #4d7a44 39% 44%, transparent 45%),
+    radial-gradient(ellipse at 50% 50%, #2f6d8f, #1d4a63);
+}
+
+html[data-theme="koi-garden"] .egg-shape {
+  width: 26px;
+  height: 22px;
+  border: 1px solid #b86a3a;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 35%, #fff4dc, #f4b07a 60%, #d9582b);
+  box-shadow: 8px 3px 0 -3px #f4b07a, -7px 4px 0 -4px #f4b07a;
+}
+
+html[data-theme="koi-garden"] .nursery-grid {
+  background:
+    radial-gradient(circle at 70% 30%, rgba(255, 255, 255, 0.25), transparent 40%),
+    #2f6d8f;
+  border: 1px solid var(--kg-gold);
+  border-radius: 40% 45% 42% 48% / 18% 20% 16% 18%;
+  box-shadow: inset 0 0 16px rgba(10, 30, 45, 0.5);
+}
+
+html[data-theme="koi-garden"] .nursery-cell,
+html[data-theme="koi-garden"] .nursery-cell:nth-child(odd) {
+  background: transparent;
+}
+
+html[data-theme="koi-garden"] .nursery-cell.is-body::after,
+html[data-theme="koi-garden"] .nursery-cell.is-tail::after,
+html[data-theme="koi-garden"] .nursery-cell.is-head::after {
+  background: #f08a4b;
+  border-radius: 40%;
+}
+
+html[data-theme="koi-garden"] .nursery-cell.is-head::after {
+  background: #fbf7ee;
+}
+
+html[data-theme="koi-garden"] .nursery-cell.is-head::before {
+  background: #d9582b;
+}
+
+html[data-theme="koi-garden"] .growth-bar {
+  background: #3a2f2a;
+  border-color: #0d0a09;
+}
+
+html[data-theme="koi-garden"] .growth-bar span {
+  background: linear-gradient(90deg, #d9582b, #f2c46a);
+}
+
+/* ---------- water garden (colony) ---------- */
+
+html[data-theme="koi-garden"] .habitat-card.is-locked {
+  background: repeating-linear-gradient(135deg, #d9cfb8 0 6px, #cfc4aa 6px 12px);
+  opacity: 0.8;
+}
+
+html[data-theme="koi-garden"] .habitat-card.produces-provisions:not(.is-locked) {
+  border-left: 5px solid #e0b64a;
+}
+
+html[data-theme="koi-garden"] .habitat-card.produces-branches:not(.is-locked) {
+  border-left: 5px solid #3f8f6a;
+}
+
+html[data-theme="koi-garden"] .habitat-card.speeds-egg-hatch:not(.is-locked) {
+  border-left: 5px solid #d9582b;
+}
+
+html[data-theme="koi-garden"] .habitat-capacity-tooltip {
+  background: #1b1716;
+  border: 1px solid var(--kg-gold);
+  color: #f7efdc;
+}
+
+html[data-theme="koi-garden"] .candidate-list-item {
+  background: #fffaf0;
+  border: 1px solid #b8a27a;
+  color: #1e2a30;
+}
+
+html[data-theme="koi-garden"] .candidate-list-item[aria-pressed="true"] {
+  background: #f6d9c9;
+  border-color: var(--kg-vermilion);
+}
+
+html[data-theme="koi-garden"] .trade-network-edge {
+  stroke: #8a6a3a;
+}
+
+html[data-theme="koi-garden"] .trade-network-edge.is-selected {
+  stroke: var(--kg-vermilion);
+}
+
+html[data-theme="koi-garden"] .trade-network-node circle {
+  fill: #f7efdc;
+  stroke: var(--kg-gold);
+}
+
+html[data-theme="koi-garden"] .trade-network-node text {
+  fill: #1e2a30;
+}
+
+/* ---------- the lacquered scroll box (phone) ---------- */
+
+html[data-theme="koi-garden"] .phone-shell {
+  background:
+    radial-gradient(ellipse at 30% 10%, rgba(255, 255, 255, 0.14), transparent 40%),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.4), transparent 12% 88%, rgba(0, 0, 0, 0.4)),
+    linear-gradient(180deg, #2b2220, #1b1716 50%, #120f0e);
+  border: 3px solid var(--kg-gold);
+  border-radius: 18px;
+  box-shadow:
+    inset 0 0 0 5px #120f0e,
+    inset 0 0 0 6px rgba(216, 165, 49, 0.5),
+    0 24px 60px rgba(60, 40, 20, 0.45);
+}
+
+/* The antenna becomes a hanging silk tassel; the camera a gold mon crest */
+html[data-theme="koi-garden"] .phone-shell::before {
+  top: -44px;
+  right: 46px;
+  width: 6px;
+  height: 58px;
+  border: 0;
+  border-radius: 3px;
+  background: linear-gradient(180deg, #c0392b, #8a1f15);
+  box-shadow: none;
+}
+
+html[data-theme="koi-garden"] .phone-shell::after {
+  top: 22px;
+  right: 24px;
+  width: 22px;
+  height: 22px;
+  border: 1px solid #8a6a2a;
+  background:
+    radial-gradient(circle at 50% 50%, #1b1716 0 22%, transparent 24%),
+    conic-gradient(from 0deg, #e8c46a 0 45deg, #b8862d 45deg 90deg, #e8c46a 90deg 135deg, #b8862d 135deg 180deg, #e8c46a 180deg 225deg, #b8862d 225deg 270deg, #e8c46a 270deg 315deg, #b8862d 315deg);
+  box-shadow: 0 0 0 2px #1b1716;
+}
+
+html[data-theme="koi-garden"] .speaker-slot {
+  background: linear-gradient(90deg, transparent, var(--kg-gold), transparent) center / 100% 1px no-repeat;
+  filter: none;
+}
+
+html[data-theme="koi-garden"] .phone-brand {
+  background: var(--kg-vermilion);
+  border-radius: 2px;
+  color: #fff4e6;
+  font-family: var(--kg-display);
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  animation: koi-garden-shimmer 6s ease-in-out infinite;
+}
+
+html[data-theme="koi-garden"] .screen-frame {
+  background: linear-gradient(180deg, #5a3a26, #3d2718);
+  border: 2px solid #1b1716;
+  border-radius: 6px;
+  box-shadow: inset 0 0 0 1px rgba(216, 165, 49, 0.5);
+}
+
+html[data-theme="koi-garden"] .status-strip div {
+  background: #f3e9d2;
+  border: 1px solid #8a6a3a;
+  border-radius: 2px;
+  box-shadow: none;
+  color: #1e2a30;
+}
+
+html[data-theme="koi-garden"] .stat-label {
+  color: var(--kg-vermilion);
+  font-family: var(--kg-display);
+  letter-spacing: 0.06em;
+}
+
+html[data-theme="koi-garden"] .status-strip strong {
+  font-family: var(--kg-display);
+  font-weight: 800;
+  text-shadow: none;
+}
+
+html[data-theme="koi-garden"] .grid-select {
+  background: #fffaf0;
+  border-color: #8a6a3a;
+  color: #1e2a30;
+  font-family: var(--font-body);
+}
+
+html[data-theme="koi-garden"] .screen-bezel {
+  background: #eadfc4;
+  border: 1px solid #8a6a3a;
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 3px #f7efdc, inset 0 0 20px rgba(120, 80, 30, 0.3);
+}
+
+html[data-theme="koi-garden"] #game {
+  border: 1px solid rgba(138, 106, 58, 0.6);
+  border-radius: 1px;
+  image-rendering: auto;
+}
+
+html[data-theme="koi-garden"] .screen-plate {
+  background: rgba(247, 239, 220, 0.92);
+  border: 1px solid #1e2a30;
+  border-radius: 2px;
+  box-shadow: 3px 3px 0 rgba(192, 57, 43, 0.6);
+}
+
+html[data-theme="koi-garden"] #stateText {
+  font-family: var(--kg-display);
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: none;
+}
+
+html[data-theme="koi-garden"] .ready-start-prompt {
+  color: var(--kg-vermilion);
+  font-family: var(--kg-display);
+  text-transform: none;
+}
+
+html[data-theme="koi-garden"] .screen-hint {
+  color: #e8d5ae;
+  font-family: var(--kg-display);
+  text-transform: none;
+}
+
+html[data-theme="koi-garden"] .personalization-screen,
+html[data-theme="koi-garden"] .save-data-screen,
+html[data-theme="koi-garden"] .broodline-screen {
+  background:
+    repeating-linear-gradient(95deg, rgba(120, 90, 40, 0.05) 0 1px, transparent 1px 6px),
+    #f3e9d2;
+  border: 1px solid #1e2a30;
+  color: #1e2a30;
+}
+
+html[data-theme="koi-garden"] .personalization-heading strong,
+html[data-theme="koi-garden"] .mobile-controls-settings h2 {
+  font-family: var(--kg-display);
+  font-weight: 800;
+}
+
+html[data-theme="koi-garden"] .color-swatch {
+  border: 1px solid #1e2a30;
+  border-radius: 50%;
+}
+
+html[data-theme="koi-garden"] .color-swatch::after {
+  border-radius: 50%;
+}
+
+html[data-theme="koi-garden"] .color-swatch[aria-pressed="true"] {
+  outline: 2px solid var(--kg-vermilion);
+}
+
+html[data-theme="koi-garden"] .personalization-back,
+html[data-theme="koi-garden"] .mobile-control-toggle,
+html[data-theme="koi-garden"] .broodline-card {
+  background: #fffaf0;
+  border: 1px solid #1e2a30;
+  border-radius: 2px;
+  color: #1e2a30;
+  font-family: var(--font-body);
+  font-weight: 700;
+}
+
+html[data-theme="koi-garden"] .mobile-control-toggle[aria-pressed="true"],
+html[data-theme="koi-garden"] .broodline-card.is-selected {
+  background: #1e2a30;
+  color: #f7efdc;
+}
+
+html[data-theme="koi-garden"] .save-data-area {
+  background: #fffaf0;
+  border: 1px solid #8a6a3a;
+  color: #1e2a30;
+}
+
+/* ---------- river-stone keys ---------- */
+
+html[data-theme="koi-garden"] .nav-key,
+html[data-theme="koi-garden"] .action-key,
+html[data-theme="koi-garden"] .phone-key {
+  background: radial-gradient(ellipse at 35% 25%, #d6d8d2, #9a9e98 55%, #6f7472);
+  border: 1px solid #3a3d3b;
+  box-shadow: inset 0 2px 2px rgba(255, 255, 255, 0.45), inset 0 -3px 5px rgba(0, 0, 0, 0.35), 0 3px 0 #0d0a09;
+  color: #1e2a30;
+}
+
+html[data-theme="koi-garden"] .nav-key:focus-visible,
+html[data-theme="koi-garden"] .action-key:focus-visible,
+html[data-theme="koi-garden"] .phone-key:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--kg-gold), 0 3px 0 #0d0a09;
+}
+
+html[data-theme="koi-garden"] .phone-key {
+  font-family: var(--kg-display);
+  font-weight: 800;
+}
+
+html[data-theme="koi-garden"] .action-key {
+  font-family: var(--kg-display);
+  letter-spacing: 0.06em;
+  text-transform: none;
+}
+
+html[data-theme="koi-garden"] #startButton {
+  background: radial-gradient(ellipse at 35% 25%, #9fd0a8, #4f9a6c 55%, #2f6d4a);
+  color: #0d1f14;
+}
+
+html[data-theme="koi-garden"] #resetButton {
+  background: radial-gradient(ellipse at 35% 25%, #f09a86, #c0392b 55%, #7a1d14);
+  color: #fff4e6;
+}
+
+html[data-theme="koi-garden"] .minigame-key.is-locked {
+  background: radial-gradient(ellipse at 35% 25%, #8a8c88, #55585a);
+  color: rgba(247, 239, 220, 0.4);
+}
+
+html[data-theme="koi-garden"] .grid-key[aria-pressed="true"] {
+  background: radial-gradient(ellipse at 35% 25%, #f2d58a, #c69a3a 60%);
+  color: #1b1716;
+}
+
+html[data-theme="koi-garden"] .phone-nav.is-large-dpad .nav-key {
+  background: radial-gradient(ellipse at 35% 25%, #d6d8d2, #9a9e98 55%, #6f7472);
+}
+
+html[data-theme="koi-garden"].is-fullscreen-mode .phone-shell,
+html[data-theme="koi-garden"] .is-fullscreen-mode .phone-shell {
+  border-radius: 10px;
+}
+
+/* ---------- ink text on the washi cards ---------- */
+
+html[data-theme="koi-garden"] .menu-panel :is(.migration-field, .migration-cargo-note, .migration-expedition-card p, .trade-direction-derived, .trade-direction-fields label, .trade-worker-row, .nursery-goal-card p, .colony-placeholder p, .nursery-timer, .nursery-meta, .nursery-currency, .hatchling-row, .colony-income-summary, .notable-card, .habitat-primary-row, .habitat-over-capacity-row, .habitat-bonus, .habitat-output-types, .upgrade-card p, .upgrade-label, .colony-placeholder .colony-note, .nursery-yard-card .colony-note) {
+  color: #4a4238;
+}
+
+html[data-theme="koi-garden"] .menu-panel :is(.nursery-goal-card strong, .nursery-card-heading strong, .nursery-currency strong, .colony-placeholder strong, .colony-income-summary strong, .colony-summary-heading, .notables-heading strong, .notables-panel h3, .notable-card > strong, .habitat-name, .habitat-notable, .trade-route-header h3, .trade-direction-card h4, .upgrade-card-heading strong) {
+  color: #1e2a30;
+}
+
+html[data-theme="koi-garden"] .menu-panel :is(.nursery-meta span:last-child, .hatchling-row-heading span:last-child, .habitat-production, .notable-service, .upgrade-level, .nest-visual span) {
+  color: #a82c1f;
+}
+
+html[data-theme="koi-garden"] .menu-panel :is(.migration-required, .migration-founding, .habitat-over-capacity-row, .habitat-natural-count.is-over-natural) {
+  color: #9a6a12;
+}
+
+html[data-theme="koi-garden"] .menu-panel :is(.migration-error, .habitat-idle-snakes, .habitat-max-count.is-at-maximum) {
+  color: #a82c1f;
+}
+
+html[data-theme="koi-garden"] .habitat-card.produces-provisions:not(.is-locked) :is(.habitat-production, .habitat-output-types) {
+  color: #9a6a12;
+}
+
+html[data-theme="koi-garden"] .habitat-card.produces-branches:not(.is-locked) :is(.habitat-production, .habitat-output-types) {
+  color: #2f6d4a;
+}
+
+html[data-theme="koi-garden"] .habitat-card.speeds-egg-hatch:not(.is-locked) :is(.habitat-production, .habitat-output-types) {
+  color: #2f5f7f;
+}
+
+html[data-theme="koi-garden"] .nursery-feeding-button {
+  border-color: #8a6a3a;
+  color: #1e2a30;
+}
+
+html[data-theme="koi-garden"] .nursery-feeding-button[aria-pressed="true"] {
+  background: #1e2a30;
+  color: #f7efdc;
+}
+
+html[data-theme="koi-garden"] .migration-field select,
+html[data-theme="koi-garden"] .migration-field input {
+  background: #fffaf0;
+  border: 1px solid #8a6a3a;
+  color: #1e2a30;
+}
+
+html[data-theme="koi-garden"] .notable-hold-confirm::after {
+  background: rgba(192, 57, 43, 0.5);
+}
