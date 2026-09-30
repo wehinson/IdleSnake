@@ -1,16 +1,16 @@
 # Branch status
 
-## working-codex — Body motion test
+## working-codex — Body movement test
 
 - Category: display.
 - Agent: Codex.
-- Base: `c9dca04` on `working`; existing unshipped changes are retained.
-- Status: Ready for William to test.
-- Changes: a small sideways wave travels through each Classic Snake body block and the tail. The engine supplies display geometry; the renderer uses the same points for the spine, blocks, and tail. Pause freezes the wave. Reduced motion stops it.
-- Tests: `npm run check` passed syntax, authority checks, and all 293 engine tests. The authorized isolated browser check passed: all 10 body and tail pieces move between frames, the head keeps its cell, pause freezes the pixels, and Reduced motion restores exact cells. Device Reduced motion is also checked. The screenshot was inspected.
+- Status: Waiting for a replacement motion choice.
+- Changes: removed the sideways wave at William's request. Display positions use exact grid cells again.
+- Direction: show forward progress from cell to cell; no sideways movement or waviness.
+- Tests: `npm run check` passed syntax, authority checks, and all 289 engine tests after removal. No new browser check was run.
 - Version impact: none.
 - Last update: 2026-09-30.
-- Notes: experimental branch requested by William. Moved to `C:\Code\IdleSnake-codex` because another chat started edits in the original folder during this task. The separate test app runs at `http://127.0.0.1:4174`. All checks passed again in this worktree. No release requested.
+- Notes: the original wave remains in commit `4caa200` for history. The separate test app runs at `http://127.0.0.1:4174`. No replacement effect or release requested.
 
 ## working — Nursery and fullscreen follow-up
 

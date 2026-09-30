@@ -2864,12 +2864,10 @@ function drawSnake() {
     }
   }
 
-  // One motion projection keeps the spine, blocks, and tail connected.
-  const points = window.IdleSnakeMotion.bodyPoints(gameView.snake, {
-    elapsedMs: gameView.elapsedMs,
-    phase: gameView.state,
-    reducedMotion
-  }).map((point, index) => {
+  // Interpolated cell-space point for every segment (head included), reused by
+  // both the connecting spine and the distinct blocks below.
+  const points = gameView.snake.map((part, index) => {
+    const point = interpolatedPoint(null, part, index);
     return index === 0 ? shieldImpactPoint(point) : point;
   });
 
