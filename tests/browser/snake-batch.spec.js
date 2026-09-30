@@ -91,7 +91,7 @@ test("the keyboard forwards input timestamps and corrects a turn processed after
   expect(state.modeAccumulatorMs).toBeLessThanOrEqual(34);
 });
 
-test("nursery feeding button is between the counter and title, saves its pause, and resumes growth", async ({ page }) => {
+test("nursery feeding button is between the title and counter, saves its pause, and resumes growth", async ({ page }) => {
   await page.goto("/");
   await page.evaluate(() => {
     dispatchSession({ type: "addDevelopmentHatchling" });
@@ -105,8 +105,8 @@ test("nursery feeding button is between the counter and title, saves its pause, 
   const counterBox = await page.locator("#nurseryCapacity").boundingBox();
   const buttonBox = await button.boundingBox();
   const titleBox = await page.locator(".nursery-yard-card strong").boundingBox();
-  expect(counterBox.x + counterBox.width).toBeLessThanOrEqual(buttonBox.x);
-  expect(buttonBox.x + buttonBox.width).toBeLessThanOrEqual(titleBox.x);
+  expect(titleBox.x + titleBox.width).toBeLessThanOrEqual(buttonBox.x);
+  expect(buttonBox.x + buttonBox.width).toBeLessThanOrEqual(counterBox.x);
   const paused = await page.evaluate(() => {
     const before = session.snapshot();
     acceptSnapshot(session.tick(600000).snapshot); syncPanels();

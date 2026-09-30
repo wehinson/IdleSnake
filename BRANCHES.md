@@ -1,5 +1,17 @@
 # Branch status
 
+## working — Nursery and fullscreen follow-up
+
+- Category: display and saved preferences.
+- Agent: Codex.
+- Status: Ready to Ship.
+- Changes: nursery title left, feeding button middle, capacity right; normal menu dimensions in fullscreen; 25% weaker scanlines, tint, and bezel shading; engine-owned fullscreen setting saved across reloads; clean Game Over display after a background death or a death animation interrupted by loss of focus.
+- Tests: `npm run check` passed syntax, authority checks, and all 289 engine tests. Fullscreen preference validation, board unlock, unchanged run state, frame snapshots, and save round trips are covered. Direct HTTP check returned 200.
+- UI verification: William gave explicit permission for one isolated browser check. That focused check passed for header order, unchanged menu width and height, larger play field, 0.75 screen-effect strength, reduced bezel shading, fullscreen after reload, and a static Game Over display with no death animation or pending overlay timer. The check sends window focus events explicitly because headless tabs can retain focus. Screenshots were inspected. No full browser suite was run.
+- Version impact: optional `fullscreenMode` field in the existing version 5 envelope. Old saves use phone mode.
+- Last update: 2026-09-30.
+- Notes: all four listed changes are addressed. Work stays on working; no release is requested.
+
 ## working — Snake and nursery changes
 
 - Category: gameplay, persistence, controls, and nursery UI.

@@ -522,6 +522,7 @@ const minimumDirectionClickMs = 230;
 let animationId;
 let deathOverlayTimer = null;
 let directionInputLockedUntil = 0;
+let gameWasUnfocused = document.hidden || !document.hasFocus();
 // Game state is read from engine snapshots. Only display state lives here.
 
 let idleLastWallAt = null;
@@ -575,6 +576,7 @@ function applySessionSnapshot(snapshot, savedAt = Date.now()) {
   syncAccessibilityPreference();
   syncSnakeSpeedPreference();
   syncMobileControlPreferences();
+  syncFullscreenMode();
   syncHud();
   syncColorChoices();
   buildNurseryGrid();
@@ -1699,7 +1701,14 @@ function interpretSessionEvents(events) {
         break;
       case "shield": if (gameView.gameMode === "snake") { acceptSnapshot(session.snapshot()); saveUpgrades(); } break;
       case "bestScore": if (gameView.gameMode === "snake") setSaveItem("best", String(gameView.best)); break;
-      case "gameOver": if (gameView.gameMode === "snake") { directionInputLockedUntil = Date.now() + 1000; startDeathAnimation(); syncHud(); showDeathOverlay("Game Over"); } break;
+      case "gameOver":
+        if (gameView.gameMode === "snake") {
+          directionInputLockedUntil = Date.now() + 1000;
+          if (gameWasUnfocused || document.hidden || !document.hasFocus()) finishDeathPresentation();
+          else { startDeathAnimation(); showDeathOverlay("Game Over"); }
+          syncHud();
+        }
+        break;
       case "win": if (gameView.gameMode === "snake") {  syncHud(); showOverlay("Maxed"); } break;
       case "runEnded":
         directionInputLockedUntil = Date.now() + 1000;
@@ -2798,7 +2807,7 @@ function getStaticLayer(kind, drawLayer) {
 function drawScreen() {
   ctx.fillStyle = "#9cac77";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = "rgba(24, 36, 19, 0.06)";
+  ctx.fillStyle = `rgba(24, 36, 19, ${0.06 * screenEffectStrength()})`;
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 }
 
@@ -3445,10 +3454,14 @@ function drawFood() {
 }
 
 function drawScanlines() {
-  ctx.fillStyle = "rgba(255, 255, 255, 0.055)";
+  ctx.fillStyle = `rgba(255, 255, 255, ${0.055 * screenEffectStrength()})`;
   for (let y = 0; y < canvas.height; y += Math.max(8, Math.floor(boardMetrics.cellSize / 2))) {
     ctx.fillRect(0, y, canvas.width, 2);
   }
+}
+
+function screenEffectStrength() {
+  return document.body.classList.contains("is-fullscreen-mode") ? 0.75 : 1;
 }
 
 function syncHud() {
@@ -3830,8 +3843,8 @@ function syncFullscreenMode() {
   const unlocked = engineQueries.fullscreenAvailable(latestSnapshot);
   button.hidden = !unlocked;
   document.querySelector(".app-layout").classList.toggle("has-fullscreen-option", unlocked);
-  if (!unlocked) document.body.classList.remove("is-fullscreen-mode");
-  const expanded = document.body.classList.contains("is-fullscreen-mode");
+  const expanded = unlocked && latestSnapshot.fullscreenMode;
+  document.body.classList.toggle("is-fullscreen-mode", expanded);
   button.setAttribute("aria-pressed", String(expanded));
   const label = expanded ? "Exit Fullscreen" : "Fullscreen";
   button.setAttribute("aria-label", label);
@@ -3842,15 +3855,18 @@ document.querySelector("#fullscreenModeButton").addEventListener("keydown", (eve
 });
 
 document.querySelector("#fullscreenModeButton").addEventListener("click", () => {
-  if (!engineQueries.fullscreenAvailable(latestSnapshot)) return;
-  document.body.classList.toggle("is-fullscreen-mode");
-  syncFullscreenMode();
+  setFullscreenMode(!latestSnapshot.fullscreenMode);
 });
 
 document.querySelector("#phoneModeButton").addEventListener("click", () => {
-  document.body.classList.remove("is-fullscreen-mode");
-  syncFullscreenMode();
+  setFullscreenMode(false);
 });
+
+function setFullscreenMode(fullscreenMode) {
+  const result = dispatchSession({ type: "setFullscreenMode", fullscreenMode });
+  if (result.events.some((event) => event.type === "actionRejected")) return;
+  syncFullscreenMode(); render(); persistConsolidatedSave();
+}
 
 function syncUpgradeMenu() {
   const boardMaxed = engineQueries.upgradePanel(latestSnapshot).board.maxed;
@@ -4109,6 +4125,13 @@ function showDeathOverlay(text) {
   }, DEATH_SEED_DURATION_MS * 0.46);
 }
 
+function finishDeathPresentation() {
+  clearTimeout(deathOverlayTimer); deathOverlayTimer = null;
+  deathAnimation = null;
+  digestionAnimations = []; crumbAnimations = []; tailWiggleStartedAt = null;
+  if (gameView.gameMode === "snake" && gameView.state === "gameover") showOverlay("Game Over");
+}
+
 function hideOverlay() {
   overlay.classList.remove("visible");
   if (readyStartPrompt) readyStartPrompt.hidden = true;
@@ -4250,6 +4273,8 @@ document.addEventListener("keyup", (event) => {
 });
 
 window.addEventListener("blur", () => {
+  gameWasUnfocused = true;
+  if (gameView.gameMode === "snake" && gameView.state === "gameover") finishDeathPresentation();
   activeDirectionKeys.clear();
   activeDirectionClicks.clear();
   directionPointerStarts.clear();
@@ -4603,10 +4628,13 @@ setInterval(() => {
 }, 100);
 function catchUpGame() {
   interpretSessionEvents(tickIdleWorld("focus"));
+  if (gameView.gameMode === "snake" && gameView.state === "gameover") finishDeathPresentation();
+  gameWasUnfocused = document.hidden || !document.hasFocus();
   syncHud(); render(); persistConsolidatedSave();
 }
 window.addEventListener("focus", catchUpGame);
 document.addEventListener("visibilitychange", () => {
+  if (document.hidden) gameWasUnfocused = true;
   catchUpGame();
   if (document.hidden) flushPendingSaves();
 });
