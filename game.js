@@ -2781,7 +2781,8 @@ function staticLayerKey() {
     boardMetrics.y,
     snakeColors.body,
     snakeColors.head,
-    ctx.lineJoin
+    ctx.lineJoin,
+    window.ThemeKit ? window.ThemeKit.active().id : ""
   ].join("|");
 }
 
@@ -3215,6 +3216,7 @@ function drawEyes(x, y, size, facing = gameView.direction) {
 
 // Lighten a hex color by blending it toward white by `amount` (0..1).
 function lightenColor(color, amount) {
+  if (window.ThemeKit) color = window.ThemeKit.color(color);
   const hex = String(color).replace("#", "");
   if (hex.length < 6) return color;
   const channel = (start) => {
@@ -3454,6 +3456,10 @@ function drawFood() {
 }
 
 function drawScanlines() {
+  // Theme redesigns can paint a screen overlay and turn off the scanlines.
+  const themeOverlay = window.ThemeKit?.canvasOption("overlay", null);
+  if (typeof themeOverlay === "function") themeOverlay(ctx, canvas, boardMetrics, screenEffectStrength());
+  if (window.ThemeKit?.canvasOption("scanlines", true) === false) return;
   ctx.fillStyle = `rgba(255, 255, 255, ${0.055 * screenEffectStrength()})`;
   for (let y = 0; y < canvas.height; y += Math.max(8, Math.floor(boardMetrics.cellSize / 2))) {
     ctx.fillRect(0, y, canvas.width, 2);
@@ -4641,4 +4647,9 @@ document.addEventListener("visibilitychange", () => {
 window.addEventListener("pagehide", () => {
   interpretSessionEvents(tickIdleWorld("pagehide"));
   persistConsolidatedSave(); flushPendingSaves();
+});
+// Theme redesigns: redraw the cached grid and the screen when the theme changes.
+window.ThemeKit?.onChange(() => {
+  staticLayerCache.grid = null;
+  render();
 });
