@@ -1,1 +1,658 @@
-/* Iron Rail (Claude): placeholder. */
+/* Iron Rail (Claude): a 1930s art-deco streamliner. Navy enamel, gold chevrons,
+   cream railway tickets, signal red, and a blueprint screen for the line. */
+
+html[data-theme="iron-rail"] {
+  --case: #14213d;
+  --case-light: #22355e;
+  --case-dark: #0b1427;
+  --case-edge: #d4a93c;
+  --trim: #0b1427;
+  --screen: #1f4e8c;
+  --screen-ink: #eaf2ff;
+  --screen-shadow: #0d2140;
+  --screen-ink-rgb: 234, 242, 255;
+  --key: #0b1427;
+  --key-light: #22355e;
+  --paper: #f3ead3;
+  --paper-rgb: 243, 234, 211;
+  --green: #2f8a5a;
+  --orange: #c8102e;
+  --font-body: "Josefin Sans", "Segoe UI", sans-serif;
+  --font-ui: "Josefin Sans", "Segoe UI", sans-serif;
+  --ir-display: "Limelight", Georgia, serif;
+  --ir-navy: #14213d;
+  --ir-gold: #d4a93c;
+  --ir-red: #c8102e;
+  --ir-cream: #f3ead3;
+}
+
+html[data-theme="iron-rail"] body {
+  background:
+    repeating-linear-gradient(90deg, transparent 0 46px, rgba(212, 169, 60, 0.07) 46px 48px),
+    radial-gradient(ellipse at 50% 120%, rgba(212, 169, 60, 0.35), transparent 55%),
+    conic-gradient(from 180deg at 50% 110%, #1a2b4f 0 20deg, #14213d 20deg 40deg, #1a2b4f 40deg 60deg, #14213d 60deg 80deg, #1a2b4f 80deg 100deg, #14213d 100deg 120deg, #1a2b4f 120deg 140deg, #14213d 140deg 160deg, #1a2b4f 160deg 180deg, #14213d 180deg);
+  background-attachment: fixed;
+  color: var(--ir-cream);
+}
+
+/* Speed lines racing across the page */
+html[data-theme="iron-rail"] body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    linear-gradient(90deg, transparent, rgba(212, 169, 60, 0.35), transparent) 0 22% / 30% 2px no-repeat,
+    linear-gradient(90deg, transparent, rgba(243, 234, 211, 0.25), transparent) 0 68% / 22% 2px no-repeat,
+    linear-gradient(90deg, transparent, rgba(212, 169, 60, 0.3), transparent) 0 84% / 40% 2px no-repeat;
+  animation: iron-rail-speed 5s linear infinite;
+}
+
+@keyframes iron-rail-speed {
+  from {
+    background-position: -40% 22%, -30% 68%, -60% 84%;
+  }
+  to {
+    background-position: 140% 22%, 130% 68%, 160% 84%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-theme="iron-rail"] body::before {
+    animation: none;
+  }
+}
+
+html[data-theme="iron-rail"][data-reduced-motion="true"] body::before {
+  animation: none;
+}
+
+/* ---------- timetable menu ---------- */
+
+html[data-theme="iron-rail"] .menu-panel {
+  background:
+    linear-gradient(180deg, rgba(212, 169, 60, 0.12), transparent 80px),
+    var(--ir-navy);
+  border: 2px solid var(--ir-gold);
+  border-radius: 2px 2px 26px 26px;
+  box-shadow:
+    inset 0 0 0 4px var(--ir-navy),
+    inset 0 0 0 5px rgba(212, 169, 60, 0.55),
+    0 18px 40px rgba(0, 0, 0, 0.5);
+}
+
+html[data-theme="iron-rail"] .menu-panel h1 {
+  color: var(--ir-gold);
+  font-family: var(--ir-display);
+  font-weight: 400;
+  letter-spacing: 0.08em;
+  text-align: center;
+}
+
+html[data-theme="iron-rail"] .menu-panel h1::before,
+html[data-theme="iron-rail"] .menu-panel h1::after {
+  content: "";
+  display: inline-block;
+  width: 1.1em;
+  height: 0.5em;
+  margin: 0 0.35em;
+  vertical-align: middle;
+  background:
+    linear-gradient(135deg, transparent 45%, var(--ir-gold) 46% 54%, transparent 55%) 0 0 / 50% 100% no-repeat,
+    linear-gradient(225deg, transparent 45%, var(--ir-gold) 46% 54%, transparent 55%) 100% 0 / 50% 100% no-repeat;
+}
+
+html[data-theme="iron-rail"] .menu-section-heading {
+  color: var(--ir-gold);
+  font-family: var(--font-body);
+  letter-spacing: 0.2em;
+}
+
+html[data-theme="iron-rail"] .menu-stat {
+  background: #0b1427;
+  border: 1px solid var(--ir-gold);
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 3px #0b1427, inset 0 0 0 4px rgba(212, 169, 60, 0.4);
+  color: var(--ir-cream);
+}
+
+html[data-theme="iron-rail"] .menu-stat span {
+  color: var(--ir-gold);
+  letter-spacing: 0.16em;
+}
+
+html[data-theme="iron-rail"] .menu-stat strong {
+  color: #fff6de;
+  font-family: var(--ir-display);
+  font-weight: 400;
+}
+
+html[data-theme="iron-rail"] .menu-tabs {
+  background: #0b1427;
+  border: 1px solid rgba(212, 169, 60, 0.6);
+  border-radius: 2px;
+}
+
+html[data-theme="iron-rail"] .menu-tab {
+  border-radius: 1px;
+  color: #b9c3d8;
+  font-size: 0.5rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+html[data-theme="iron-rail"] .menu-tab.is-active,
+html[data-theme="iron-rail"] .menu-tab[aria-selected="true"] {
+  background: var(--ir-gold);
+  border-color: #8a6a1c;
+  box-shadow: none;
+  color: var(--ir-navy);
+}
+
+html[data-theme="iron-rail"] .menu-tab-notification {
+  background: var(--ir-red);
+  color: #fff;
+}
+
+/* Cards: cream railway tickets with perforated edges */
+html[data-theme="iron-rail"] .upgrade-card,
+html[data-theme="iron-rail"] .nursery-goal-card,
+html[data-theme="iron-rail"] .nest-card,
+html[data-theme="iron-rail"] .nursery-yard-card,
+html[data-theme="iron-rail"] .nursery-currency,
+html[data-theme="iron-rail"] .migration-summary-card,
+html[data-theme="iron-rail"] .migration-builder,
+html[data-theme="iron-rail"] .migration-expedition-card,
+html[data-theme="iron-rail"] .trade-route-builder,
+html[data-theme="iron-rail"] .trade-direction-card,
+html[data-theme="iron-rail"] .colony-placeholder,
+html[data-theme="iron-rail"] .colony-income-summary,
+html[data-theme="iron-rail"] .habitat-card,
+html[data-theme="iron-rail"] .notable-card,
+html[data-theme="iron-rail"] .hatchling-row,
+html[data-theme="iron-rail"] .candidate-decision,
+html[data-theme="iron-rail"] .notable-candidates {
+  background:
+    radial-gradient(circle at 0 50%, var(--ir-navy) 0 5px, transparent 6px) 0 0 / 100% 14px repeat-y,
+    radial-gradient(circle at 100% 50%, var(--ir-navy) 0 5px, transparent 6px) 0 0 / 100% 14px repeat-y,
+    linear-gradient(180deg, #f8f0da, #ece0c0);
+  border: 0;
+  border-radius: 3px;
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.35);
+  color: var(--ir-navy);
+  padding-left: 13px;
+  padding-right: 13px;
+}
+
+html[data-theme="iron-rail"] .upgrade-card.is-maxed {
+  box-shadow: inset 0 0 0 2px var(--ir-gold), 0 2px 0 rgba(0, 0, 0, 0.35);
+}
+
+html[data-theme="iron-rail"] .menu-panel :is(.migration-field, .migration-cargo-note, .migration-expedition-card p, .trade-direction-derived, .trade-direction-fields label, .trade-worker-row, .nursery-goal-card p, .colony-placeholder p, .nursery-timer, .nursery-meta, .nursery-currency, .hatchling-row, .colony-income-summary, .notable-card, .habitat-primary-row, .habitat-over-capacity-row, .habitat-bonus, .habitat-output-types, .upgrade-card p, .upgrade-label, .colony-placeholder .colony-note, .nursery-yard-card .colony-note) {
+  color: #3d4a66;
+}
+
+html[data-theme="iron-rail"] .menu-panel :is(.nursery-goal-card strong, .nursery-card-heading strong, .nursery-currency strong, .colony-placeholder strong, .colony-income-summary strong, .colony-summary-heading, .notables-heading strong, .notables-panel h3, .notable-card > strong, .habitat-name, .habitat-notable, .trade-route-header h3, .trade-direction-card h4, .upgrade-card-heading strong, .migration-expedition-card h3) {
+  color: var(--ir-navy);
+  font-family: var(--ir-display);
+  font-weight: 400;
+}
+
+html[data-theme="iron-rail"] .menu-panel :is(.nursery-meta span:last-child, .hatchling-row-heading span:last-child, .habitat-production, .notable-service, .upgrade-level, .upgrade-next, .nest-visual span) {
+  color: var(--ir-red) !important;
+}
+
+html[data-theme="iron-rail"] .menu-panel :is(.migration-required, .migration-founding, .habitat-over-capacity-row, .habitat-natural-count.is-over-natural) {
+  color: #8a5a00;
+}
+
+html[data-theme="iron-rail"] .menu-panel :is(.migration-error, .habitat-idle-snakes, .habitat-max-count.is-at-maximum) {
+  color: var(--ir-red);
+}
+
+html[data-theme="iron-rail"] .colony-note {
+  color: #b9c3d8;
+}
+
+html[data-theme="iron-rail"] .habitat-card.produces-provisions:not(.is-locked) :is(.habitat-production, .habitat-output-types) {
+  color: #8a5a00;
+}
+
+html[data-theme="iron-rail"] .habitat-card.produces-branches:not(.is-locked) :is(.habitat-production, .habitat-output-types) {
+  color: #2f6a3a;
+}
+
+html[data-theme="iron-rail"] .habitat-card.speeds-egg-hatch:not(.is-locked) :is(.habitat-production, .habitat-output-types) {
+  color: #1f4e8c;
+}
+
+html[data-theme="iron-rail"] .habitat-card.is-locked {
+  filter: grayscale(0.8);
+  opacity: 0.7;
+}
+
+html[data-theme="iron-rail"] .habitat-card.produces-provisions:not(.is-locked) {
+  box-shadow: inset 4px 0 0 #d4a93c, 0 2px 0 rgba(0, 0, 0, 0.35);
+}
+
+html[data-theme="iron-rail"] .habitat-card.produces-branches:not(.is-locked) {
+  box-shadow: inset 4px 0 0 #2f8a5a, 0 2px 0 rgba(0, 0, 0, 0.35);
+}
+
+html[data-theme="iron-rail"] .habitat-card.speeds-egg-hatch:not(.is-locked) {
+  box-shadow: inset 4px 0 0 #1f4e8c, 0 2px 0 rgba(0, 0, 0, 0.35);
+}
+
+html[data-theme="iron-rail"] .upgrade-select,
+html[data-theme="iron-rail"] .migration-field select,
+html[data-theme="iron-rail"] .migration-field input,
+html[data-theme="iron-rail"] .trade-direction-fields select,
+html[data-theme="iron-rail"] .notable-actions select {
+  background: #fffaf0;
+  border: 1px solid var(--ir-navy);
+  border-radius: 1px;
+  color: var(--ir-navy);
+  font-family: var(--font-body);
+  font-weight: 700;
+}
+
+/* Buttons are navy with a gold rule, like a deco nameplate */
+html[data-theme="iron-rail"] .upgrade-button,
+html[data-theme="iron-rail"] .habitat-place-button,
+html[data-theme="iron-rail"] .habitat-upgrade-button,
+html[data-theme="iron-rail"] .notables-open-button,
+html[data-theme="iron-rail"] .notables-back-button,
+html[data-theme="iron-rail"] .trade-open-button,
+html[data-theme="iron-rail"] .trade-route-button,
+html[data-theme="iron-rail"] .migration-expedition-actions button,
+html[data-theme="iron-rail"] .notable-actions button,
+html[data-theme="iron-rail"] .candidate-pagination button,
+html[data-theme="iron-rail"] #recruitNotableButton {
+  background: linear-gradient(180deg, #22355e, #14213d);
+  border: 1px solid var(--ir-gold);
+  border-radius: 2px;
+  box-shadow: inset 0 0 0 2px #14213d, inset 0 0 0 3px rgba(212, 169, 60, 0.45), 0 2px 0 #050a14;
+  color: var(--ir-gold);
+  font-family: var(--font-body);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+html[data-theme="iron-rail"] .upgrade-button:disabled,
+html[data-theme="iron-rail"] .trade-route-button:disabled,
+html[data-theme="iron-rail"] .habitat-place-button:disabled,
+html[data-theme="iron-rail"] .habitat-upgrade-button:disabled {
+  background: #d8cfb6;
+  border-color: #a89c7c;
+  box-shadow: none;
+  color: #7c7460;
+  filter: none;
+}
+
+html[data-theme="iron-rail"] .trade-open-button.is-ready {
+  background: var(--ir-gold);
+  color: var(--ir-navy);
+}
+
+html[data-theme="iron-rail"] .migration-expedition-actions button.is-danger {
+  background: var(--ir-red);
+  color: #fff;
+}
+
+html[data-theme="iron-rail"] .reset-progress {
+  border-top-color: rgba(212, 169, 60, 0.35);
+}
+
+html[data-theme="iron-rail"] .reset-progress-button {
+  background: repeating-linear-gradient(135deg, #14213d 0 10px, #1a2b4f 10px 20px);
+  border: 1px solid var(--ir-red);
+  border-radius: 2px;
+  color: #f3c0c8;
+  letter-spacing: 0.1em;
+}
+
+html[data-theme="iron-rail"] .reset-progress-fill {
+  background: repeating-linear-gradient(135deg, rgba(200, 16, 46, 0.95) 0 14px, rgba(243, 234, 211, 0.95) 14px 28px);
+  background-size: 200% 100%;
+}
+
+/* ---------- engine works (nursery) ---------- */
+
+html[data-theme="iron-rail"] .egg-progress-rate {
+  background: rgba(200, 16, 46, 0.1);
+  border-color: var(--ir-red);
+  color: var(--ir-red);
+}
+
+html[data-theme="iron-rail"] .nursery-feeding-button {
+  border-color: var(--ir-navy);
+  border-radius: 1px;
+  color: var(--ir-navy);
+  font-weight: 700;
+}
+
+html[data-theme="iron-rail"] .nursery-feeding-button[aria-pressed="true"] {
+  background: var(--ir-navy);
+  color: var(--ir-gold);
+}
+
+html[data-theme="iron-rail"] .nest-visual {
+  background:
+    repeating-linear-gradient(90deg, transparent 0 18px, #6b5a3a 18px 22px),
+    linear-gradient(180deg, transparent 0 62%, #8a8f98 62% 68%, transparent 68% 80%, #8a8f98 80% 86%, transparent 86%),
+    #e6dbbd;
+  border: 1px solid var(--ir-navy);
+  border-radius: 2px;
+  color: var(--ir-navy);
+}
+
+html[data-theme="iron-rail"] .egg-shape {
+  width: 34px;
+  height: 20px;
+  border: 2px solid var(--ir-navy);
+  border-radius: 10px 4px 4px 10px;
+  background: linear-gradient(180deg, #2f5f9e, #14213d);
+  box-shadow: inset 0 3px 0 rgba(255, 255, 255, 0.25), 10px 0 0 -6px var(--ir-gold);
+}
+
+html[data-theme="iron-rail"] .nursery-grid {
+  background:
+    linear-gradient(rgba(234, 242, 255, 0.12) 1px, transparent 1px) 0 0 / 100% calc(100% / 15),
+    linear-gradient(90deg, rgba(234, 242, 255, 0.12) 1px, transparent 1px) 0 0 / calc(100% / 12) 100%,
+    #1f4e8c;
+  border: 2px solid var(--ir-navy);
+  border-radius: 1px;
+  box-shadow: inset 0 0 0 1px rgba(234, 242, 255, 0.35);
+}
+
+html[data-theme="iron-rail"] .nursery-cell,
+html[data-theme="iron-rail"] .nursery-cell:nth-child(odd) {
+  background: transparent;
+}
+
+html[data-theme="iron-rail"] .nursery-cell.is-body::after,
+html[data-theme="iron-rail"] .nursery-cell.is-tail::after {
+  background: #e0b04a;
+  border-radius: 2px;
+}
+
+html[data-theme="iron-rail"] .nursery-cell.is-head::after {
+  background: #eaf2ff;
+  border-radius: 40% 2px 2px 40%;
+}
+
+html[data-theme="iron-rail"] .growth-bar {
+  background: #d8cfb6;
+  border-color: var(--ir-navy);
+  border-radius: 1px;
+}
+
+html[data-theme="iron-rail"] .growth-bar span {
+  background: repeating-linear-gradient(90deg, var(--ir-red) 0 8px, #e04a5f 8px 16px);
+}
+
+/* ---------- rail yards (colony) ---------- */
+
+html[data-theme="iron-rail"] .habitat-capacity-tooltip {
+  background: var(--ir-navy);
+  border: 1px solid var(--ir-gold);
+  color: var(--ir-cream);
+}
+
+html[data-theme="iron-rail"] .candidate-list-item {
+  background: #fffaf0;
+  border: 1px solid #a89c7c;
+  color: var(--ir-navy);
+}
+
+html[data-theme="iron-rail"] .candidate-list-item[aria-pressed="true"] {
+  background: var(--ir-navy);
+  border-color: var(--ir-gold);
+  color: var(--ir-gold);
+}
+
+html[data-theme="iron-rail"] .trade-network-edge {
+  stroke: var(--ir-navy);
+  stroke-dasharray: 6 3;
+}
+
+html[data-theme="iron-rail"] .trade-network-edge.is-selected {
+  stroke: var(--ir-red);
+}
+
+html[data-theme="iron-rail"] .trade-network-node circle {
+  fill: var(--ir-cream);
+  stroke: var(--ir-navy);
+}
+
+html[data-theme="iron-rail"] .trade-network-node text {
+  fill: var(--ir-navy);
+}
+
+/* ---------- the streamliner cab (phone) ---------- */
+
+html[data-theme="iron-rail"] .phone-shell {
+  background:
+    linear-gradient(180deg, transparent 0 58%, var(--ir-gold) 58% 59%, transparent 59% 61%, var(--ir-gold) 61% 62%, transparent 62%),
+    radial-gradient(ellipse at 50% 0%, rgba(255, 255, 255, 0.14), transparent 50%),
+    linear-gradient(90deg, #0b1427, #22355e 20% 80%, #0b1427);
+  border: 3px solid var(--ir-gold);
+  border-radius: 120px 120px 22px 22px / 70px 70px 22px 22px;
+  box-shadow: inset 0 0 0 4px var(--ir-navy), inset 0 0 0 5px rgba(212, 169, 60, 0.5), 0 24px 60px rgba(0, 0, 0, 0.6);
+}
+
+/* The antenna becomes a headlamp; the camera a gold emblem */
+html[data-theme="iron-rail"] .phone-shell::before {
+  top: -14px;
+  right: auto;
+  left: 50%;
+  width: 34px;
+  height: 22px;
+  border: 2px solid var(--ir-gold);
+  border-radius: 50% 50% 4px 4px;
+  background: radial-gradient(circle at 50% 70%, #fff6c8, #ffd978 40%, #b8862d);
+  box-shadow: 0 0 22px rgba(255, 217, 120, 0.8);
+  transform: translateX(-50%);
+  z-index: 1;
+}
+
+html[data-theme="iron-rail"] .phone-shell::after {
+  top: 30px;
+  right: 30px;
+  width: 20px;
+  height: 20px;
+  border: 1px solid #8a6a1c;
+  background: conic-gradient(from 0deg, #f5d27a, #b8862d, #f5d27a, #b8862d, #f5d27a);
+  clip-path: polygon(50% 0, 100% 50%, 50% 100%, 0 50%);
+}
+
+html[data-theme="iron-rail"] .speaker-slot {
+  background: repeating-linear-gradient(90deg, var(--ir-gold) 0 3px, transparent 3px 8px);
+  border-radius: 0;
+  height: 10px;
+  filter: none;
+  opacity: 0.8;
+}
+
+html[data-theme="iron-rail"] .phone-brand {
+  background: var(--ir-gold);
+  border-radius: 1px;
+  color: var(--ir-navy);
+  font-family: var(--ir-display);
+  font-size: 0.82rem;
+  font-weight: 400;
+  letter-spacing: 0.1em;
+}
+
+html[data-theme="iron-rail"] .screen-frame {
+  background: #0b1427;
+  border: 2px solid var(--ir-gold);
+  border-radius: 4px;
+  box-shadow: inset 0 0 0 3px #0b1427, inset 0 0 0 4px rgba(212, 169, 60, 0.4);
+}
+
+html[data-theme="iron-rail"] .status-strip div {
+  background: var(--ir-cream);
+  border: 0;
+  border-radius: 1px;
+  box-shadow: inset 0 -3px 0 var(--ir-red);
+  color: var(--ir-navy);
+}
+
+html[data-theme="iron-rail"] .stat-label {
+  color: var(--ir-red);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+
+html[data-theme="iron-rail"] .status-strip strong {
+  font-family: var(--ir-display);
+  font-weight: 400;
+  text-shadow: none;
+}
+
+html[data-theme="iron-rail"] .grid-select {
+  background: #fffaf0;
+  border-color: var(--ir-navy);
+  color: var(--ir-navy);
+  font-family: var(--font-body);
+}
+
+html[data-theme="iron-rail"] .screen-bezel {
+  background: #1f4e8c;
+  border: 1px solid var(--ir-gold);
+  border-radius: 1px;
+  box-shadow: inset 0 0 0 3px #173e72, inset 0 0 22px rgba(0, 0, 0, 0.4);
+}
+
+html[data-theme="iron-rail"] #game {
+  border: 1px solid rgba(234, 242, 255, 0.35);
+  border-radius: 0;
+  background: #1f4e8c;
+}
+
+html[data-theme="iron-rail"] .screen-plate {
+  background: var(--ir-cream);
+  border: 2px solid var(--ir-navy);
+  border-radius: 1px;
+  box-shadow: 4px 4px 0 var(--ir-red);
+  color: var(--ir-navy);
+}
+
+html[data-theme="iron-rail"] #stateText {
+  color: var(--ir-navy);
+  font-family: var(--ir-display);
+  font-weight: 400;
+  letter-spacing: 0.06em;
+}
+
+html[data-theme="iron-rail"] .ready-start-prompt {
+  color: var(--ir-red);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+html[data-theme="iron-rail"] .screen-hint {
+  color: #d9c89a;
+  letter-spacing: 0.08em;
+}
+
+html[data-theme="iron-rail"] .personalization-screen,
+html[data-theme="iron-rail"] .broodline-screen {
+  background: var(--ir-cream);
+  border: 2px solid var(--ir-navy);
+  color: var(--ir-navy);
+}
+
+html[data-theme="iron-rail"] .personalization-heading strong,
+html[data-theme="iron-rail"] .mobile-controls-settings h2 {
+  font-family: var(--ir-display);
+  font-weight: 400;
+}
+
+html[data-theme="iron-rail"] .color-swatch {
+  border: 2px solid var(--ir-navy);
+  border-radius: 1px;
+}
+
+html[data-theme="iron-rail"] .color-swatch[aria-pressed="true"] {
+  outline: 2px solid var(--ir-red);
+}
+
+html[data-theme="iron-rail"] .personalization-back,
+html[data-theme="iron-rail"] .mobile-control-toggle,
+html[data-theme="iron-rail"] .broodline-card {
+  background: #fffaf0;
+  border: 1px solid var(--ir-navy);
+  border-radius: 1px;
+  color: var(--ir-navy);
+  font-family: var(--font-body);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+html[data-theme="iron-rail"] .mobile-control-toggle[aria-pressed="true"],
+html[data-theme="iron-rail"] .broodline-card.is-selected {
+  background: var(--ir-navy);
+  color: var(--ir-gold);
+}
+
+html[data-theme="iron-rail"] .save-data-area {
+  background: #fffaf0;
+  border: 1px solid var(--ir-navy);
+  color: var(--ir-navy);
+}
+
+/* ---------- gold-rimmed ticket-punch buttons ---------- */
+
+html[data-theme="iron-rail"] .nav-key,
+html[data-theme="iron-rail"] .action-key,
+html[data-theme="iron-rail"] .phone-key {
+  background: radial-gradient(circle at 50% 30%, #2f4a80, #14213d 70%);
+  border: 2px solid var(--ir-gold);
+  box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.18), 0 3px 0 #050a14;
+  color: var(--ir-cream);
+}
+
+html[data-theme="iron-rail"] .nav-key:focus-visible,
+html[data-theme="iron-rail"] .action-key:focus-visible,
+html[data-theme="iron-rail"] .phone-key:focus-visible {
+  box-shadow: inset 0 0 0 2px var(--ir-cream), 0 3px 0 #050a14;
+}
+
+html[data-theme="iron-rail"] .phone-key {
+  font-family: var(--ir-display);
+  font-weight: 400;
+}
+
+html[data-theme="iron-rail"] .action-key {
+  font-family: var(--font-body);
+  font-weight: 700;
+  letter-spacing: 0.12em;
+}
+
+html[data-theme="iron-rail"] #startButton {
+  background: radial-gradient(circle at 50% 30%, #4fb07a, #2f8a5a 70%);
+  color: #06170d;
+}
+
+html[data-theme="iron-rail"] #resetButton {
+  background: radial-gradient(circle at 50% 30%, #e84a62, var(--ir-red) 70%);
+  color: #fff;
+}
+
+html[data-theme="iron-rail"] .minigame-key.is-locked {
+  background: #1a2640;
+  border-color: rgba(212, 169, 60, 0.3);
+  color: rgba(243, 234, 211, 0.3);
+}
+
+html[data-theme="iron-rail"] .grid-key[aria-pressed="true"] {
+  background: var(--ir-gold);
+  color: var(--ir-navy);
+}
+
+html[data-theme="iron-rail"] .phone-nav.is-large-dpad .nav-key {
+  background: radial-gradient(circle at 50% 30%, #2f4a80, #14213d 70%);
+}
