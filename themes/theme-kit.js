@@ -157,6 +157,7 @@
 
   // ---------- browser runtime ----------
 
+  const nativeGetAttribute = Element.prototype.getAttribute;
   const ORIGINAL = { id: "original", name: "Original", author: "Current game", phrases: {} };
   const themes = new Map([[ORIGINAL.id, ORIGINAL]]);
   const listeners = [];
@@ -190,7 +191,7 @@
 
   function processAttribute(element, name) {
     if (!element.hasAttribute(name) || isSkipped(element)) return;
-    const current = element.getAttribute(name);
+    const current = nativeGetAttribute.call(element, name);
     let records = attrRecords.get(element);
     const record = records && records.get(name);
     if (record && current === record.written) return;
@@ -229,7 +230,7 @@
         const records = attrRecords.get(element);
         if (!records) return;
         for (const [name, record] of records) {
-          if (element.getAttribute(name) === record.written && record.original !== record.written) element.setAttribute(name, record.original);
+          if (nativeGetAttribute.call(element, name) === record.written && record.original !== record.written) element.setAttribute(name, record.original);
         }
         attrRecords.delete(element);
       },
@@ -334,6 +335,42 @@
     }
     return theme;
   }
+
+  // ---- read-back protection ----
+  // Game code may read DOM text back (for saves or change checks). Reads return the
+  // original text, so themed words never reach game state and diffing stays stable.
+  const nativeTextContent = Object.getOwnPropertyDescriptor(Node.prototype, "textContent");
+
+  function originalOf(node) {
+    const record = textRecords.get(node);
+    return record && node.nodeValue === record.written ? record.original : node.nodeValue;
+  }
+
+  Object.defineProperty(Node.prototype, "textContent", {
+    configurable: true,
+    enumerable: true,
+    get() {
+      if (!compiledPhrases) return nativeTextContent.get.call(this);
+      if (this.nodeType === 3) return originalOf(this);
+      if (this.nodeType !== 1 && this.nodeType !== 11) return nativeTextContent.get.call(this);
+      if (!this.firstChild) return "";
+      if (this.firstChild === this.lastChild && this.firstChild.nodeType === 3) return originalOf(this.firstChild);
+      let text = "";
+      const walker = document.createTreeWalker(this, NodeFilter.SHOW_TEXT);
+      for (let node = walker.nextNode(); node; node = walker.nextNode()) text += originalOf(node);
+      return text;
+    },
+    set(value) {
+      nativeTextContent.set.call(this, value);
+    },
+  });
+
+  Element.prototype.getAttribute = function (name) {
+    const value = nativeGetAttribute.call(this, name);
+    if (!compiledPhrases || value === null) return value;
+    const record = attrRecords.get(this)?.get(name);
+    return record && value === record.written ? record.original : value;
+  };
 
   // ---- canvas remapping ----
 
