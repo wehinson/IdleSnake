@@ -1,1 +1,1094 @@
-/* Polar Sled (Codex): placeholder. */
+/* Polar Sled: a field station and a snow-white expedition radio. */
+
+html[data-theme="polar-sled"] {
+  color-scheme: light;
+  --case: #dae8ec;
+  --case-light: #f9fdff;
+  --case-dark: #a3bdc8;
+  --case-edge: #1e3c50;
+  --trim: #688e9e;
+  --screen: #d9edf2;
+  --screen-ink: #16394b;
+  --screen-shadow: #80a7bb;
+  --key: #234c66;
+  --key-light: #426e85;
+  --paper: #f5fbff;
+  --green: #247964;
+  --orange: #b95120;
+  --screen-ink-rgb: 22, 57, 75;
+  --paper-rgb: 245, 251, 255;
+  --font-body: "Barlow", "Segoe UI", sans-serif;
+  --font-ui: "Barlow", "Segoe UI", sans-serif;
+  --font-display: "Barlow Condensed", "Arial Narrow", sans-serif;
+  --panel: #f2f8fb;
+  --card: #ffffff;
+  --ink: #203e52;
+  --muted: #506b7c;
+  --line: #acc5d1;
+  --accent: #286382;
+  --accent-light: #d5e8f1;
+  --gold: #89631e;
+  --danger: #a73e38;
+  --success: #206a59;
+  --soft: #deebf1;
+  --radius: 9px;
+  --body-snake: #306582;
+  --head-snake: #16394b;
+  background: #112a3f;
+}
+
+html[data-theme="polar-sled"] body {
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E%3Cpath d='M60 0v120M0 60h120M56 56l8 8m0-8-8 8' stroke='%23c1e5ef' stroke-opacity='.08' fill='none'/%3E%3C/svg%3E"), radial-gradient(ellipse at 14% 0, #367d7b80, transparent 50%), radial-gradient(ellipse at 92% 10%, #6b568570, transparent 45%), linear-gradient(160deg, #203f58, #102338 75%);
+  background-attachment: fixed;
+  color: var(--ink);
+  font-family: var(--font-body);
+  padding: 24px 14px 54px;
+}
+
+html[data-theme="polar-sled"] .app-layout {
+  width: min(100%, 980px);
+  grid-template-columns: minmax(260px, 310px) minmax(300px, 352px);
+  gap: clamp(24px, 5vw, 70px);
+  position: relative;
+}
+
+html[data-theme="polar-sled"] .app-layout > *,
+html[data-theme="polar-sled"] .menu-panel-content,
+html[data-theme="polar-sled"] .upgrade-card-heading > div,
+html[data-theme="polar-sled"] .habitat-card-heading > div,
+html[data-theme="polar-sled"] .nursery-card-heading > div,
+html[data-theme="polar-sled"] .trade-worker-row > span,
+html[data-theme="polar-sled"] .notables-heading > div {
+  min-width: 0;
+}
+
+html[data-theme="polar-sled"] button,
+html[data-theme="polar-sled"] input,
+html[data-theme="polar-sled"] select,
+html[data-theme="polar-sled"] textarea {
+  font-family: var(--font-ui);
+  max-width: 100%;
+}
+
+html[data-theme="polar-sled"] button:focus-visible,
+html[data-theme="polar-sled"] select:focus-visible,
+html[data-theme="polar-sled"] input:focus-visible,
+html[data-theme="polar-sled"] textarea:focus-visible,
+html[data-theme="polar-sled"] .habitat-capacity:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+html[data-theme="polar-sled"] button,
+html[data-theme="polar-sled"] p,
+html[data-theme="polar-sled"] strong,
+html[data-theme="polar-sled"] label {
+  overflow-wrap: anywhere;
+}
+
+/* Desk / field station. Surface colours are explicit because the base has literal green fills. */
+
+html[data-theme="polar-sled"] .menu-panel {
+  max-height: calc(100dvh - 48px);
+  background: linear-gradient(150deg, #ffffff, var(--panel) 70%);
+  color: var(--ink);
+  border: 1px solid #b7d1dc;
+  border-radius: 15px;
+  padding: 16px;
+  box-shadow: inset 0 3px 0 #ffffff, 0 18px 48px #06172a66;
+  scrollbar-color: var(--line) var(--panel);
+}
+
+html[data-theme="polar-sled"] .menu-panel h1 {
+  font-family: var(--font-display);
+  font-size: 2.1rem;
+  font-weight: 600;
+  line-height: 1.15;
+  letter-spacing: .055em;
+  text-transform: uppercase;
+  color: var(--accent);
+  padding-bottom: 10px;
+  border-bottom: 3px solid var(--orange);
+}
+
+html[data-theme="polar-sled"] .menu-panel h1::before {
+  content: "78? N / ";
+  font-size: .55em;
+  color: var(--muted);
+  letter-spacing: .08em;
+}
+
+html[data-theme="polar-sled"] .menu-section-heading,
+html[data-theme="polar-sled"] .menu-section-mark {
+  color: var(--muted);
+}
+
+html[data-theme="polar-sled"] .menu-stat {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: linear-gradient(120deg, #153d54, #235774);
+  color: #f5fcff;
+  box-shadow: inset 0 0 0 3px #ffffff0a;
+}
+
+html[data-theme="polar-sled"] .menu-stat span {
+  color: #c1e3ee;
+  font-size: .7rem;
+  letter-spacing: .14em;
+}
+
+html[data-theme="polar-sled"] #seedsTotal {
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  letter-spacing: .035em;
+}
+
+html[data-theme="polar-sled"] .menu-tabs {
+  background: var(--soft);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 3px;
+  gap: 2px;
+}
+
+html[data-theme="polar-sled"] .menu-tab {
+  font-family: var(--font-ui);
+  font-size: .68rem;
+  line-height: 1.2;
+  color: var(--muted);
+  border-radius: var(--radius);
+  min-height: 30px;
+}
+
+html[data-theme="polar-sled"] .menu-tab.is-active,
+html[data-theme="polar-sled"] .menu-tab[aria-selected="true"] {
+  color: var(--paper);
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow: inset 0 -2px 0 #00000020;
+}
+
+html[data-theme="polar-sled"] .menu-tab:disabled {
+  opacity: .6;
+  color: var(--muted);
+}
+
+html[data-theme="polar-sled"] .menu-tab-notification {
+  background: var(--danger);
+  color: #fff9ec;
+}
+
+html[data-theme="polar-sled"] .upgrade-card,
+html[data-theme="polar-sled"] .nursery-goal-card,
+html[data-theme="polar-sled"] .nest-card,
+html[data-theme="polar-sled"] .nursery-yard-card,
+html[data-theme="polar-sled"] .colony-placeholder,
+html[data-theme="polar-sled"] .habitat-card,
+html[data-theme="polar-sled"] .notable-card,
+html[data-theme="polar-sled"] .migration-summary-card,
+html[data-theme="polar-sled"] .migration-builder,
+html[data-theme="polar-sled"] .migration-expedition-card,
+html[data-theme="polar-sled"] .trade-route-builder,
+html[data-theme="polar-sled"] .trade-route-header,
+html[data-theme="polar-sled"] .trade-direction-card,
+html[data-theme="polar-sled"] .notable-candidates,
+html[data-theme="polar-sled"] .candidate-decision {
+  background: linear-gradient(160deg, #ffffff, #f4f9fc);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: 0 2px 4px #21465b08;
+}
+
+html[data-theme="polar-sled"] .upgrade-card.is-maxed {
+  border-color: var(--success);
+  box-shadow: inset 3px 0 0 var(--success);
+}
+
+html[data-theme="polar-sled"] .upgrade-card-heading strong,
+html[data-theme="polar-sled"] .nursery-card-heading strong,
+html[data-theme="polar-sled"] .nursery-goal-card strong,
+html[data-theme="polar-sled"] .habitat-name,
+html[data-theme="polar-sled"] .notables-heading strong,
+html[data-theme="polar-sled"] .notable-card > strong,
+html[data-theme="polar-sled"] .colony-placeholder strong,
+html[data-theme="polar-sled"] .migration-expedition-card h3,
+html[data-theme="polar-sled"] .trade-route-header h3,
+html[data-theme="polar-sled"] .trade-direction-card h4 {
+  color: var(--ink);
+  line-height: 1.15;
+}
+
+html[data-theme="polar-sled"] .upgrade-label,
+html[data-theme="polar-sled"] .upgrade-level,
+html[data-theme="polar-sled"] .nursery-meta,
+html[data-theme="polar-sled"] .nursery-meta span:last-child,
+html[data-theme="polar-sled"] .nursery-timer,
+html[data-theme="polar-sled"] .colony-note,
+html[data-theme="polar-sled"] .colony-placeholder p,
+html[data-theme="polar-sled"] .nursery-goal-card p,
+html[data-theme="polar-sled"] .habitat-bonus,
+html[data-theme="polar-sled"] .habitat-output-types,
+html[data-theme="polar-sled"] .migration-field,
+html[data-theme="polar-sled"] .migration-cargo-note,
+html[data-theme="polar-sled"] .migration-expedition-card p,
+html[data-theme="polar-sled"] .trade-direction-derived,
+html[data-theme="polar-sled"] .trade-direction-fields label,
+html[data-theme="polar-sled"] .notable-service {
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+html[data-theme="polar-sled"] .upgrade-level {
+  padding: 2px 5px;
+  background: var(--soft);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  font-variant-numeric: tabular-nums;
+}
+
+html[data-theme="polar-sled"] .upgrade-card p,
+html[data-theme="polar-sled"] .hatchling-row,
+html[data-theme="polar-sled"] .habitat-primary-row,
+html[data-theme="polar-sled"] .trade-worker-row {
+  color: var(--ink);
+  line-height: 1.35;
+}
+
+html[data-theme="polar-sled"] .upgrade-next {
+  color: var(--accent) !important;
+}
+
+html[data-theme="polar-sled"] .upgrade-button,
+html[data-theme="polar-sled"] .notables-open-button,
+html[data-theme="polar-sled"] .notables-back-button,
+html[data-theme="polar-sled"] .notable-actions button,
+html[data-theme="polar-sled"] .candidate-pagination button,
+html[data-theme="polar-sled"] .trade-route-button,
+html[data-theme="polar-sled"] .migration-expedition-actions button,
+html[data-theme="polar-sled"] .nursery-feeding-button {
+  background: linear-gradient(#347895, #245d7c);
+  color: #f6fcff;
+  border: 1px solid #23506b;
+  border-radius: var(--radius);
+  box-shadow: inset 0 1px 0 #ffffff40, 0 2px 0 #163f59;
+  font-family: var(--font-ui);
+  line-height: 1.25;
+  min-height: 29px;
+  padding-block: 5px;
+}
+
+html[data-theme="polar-sled"] .upgrade-button:hover:not(:disabled),
+html[data-theme="polar-sled"] .notables-open-button:hover:not(:disabled),
+html[data-theme="polar-sled"] .notables-back-button:hover:not(:disabled),
+html[data-theme="polar-sled"] .notable-actions button:hover:not(:disabled),
+html[data-theme="polar-sled"] .candidate-pagination button:hover:not(:disabled),
+html[data-theme="polar-sled"] .trade-route-button:hover:not(:disabled),
+html[data-theme="polar-sled"] .migration-expedition-actions button:hover:not(:disabled),
+html[data-theme="polar-sled"] .nursery-feeding-button:hover:not(:disabled) {
+  filter: brightness(1.08);
+  border-color: var(--accent);
+}
+
+html[data-theme="polar-sled"] .upgrade-button:disabled,
+html[data-theme="polar-sled"] .notables-open-button:disabled,
+html[data-theme="polar-sled"] .notables-back-button:disabled,
+html[data-theme="polar-sled"] .notable-actions button:disabled,
+html[data-theme="polar-sled"] .candidate-pagination button:disabled,
+html[data-theme="polar-sled"] .trade-route-button:disabled,
+html[data-theme="polar-sled"] .migration-expedition-actions button:disabled,
+html[data-theme="polar-sled"] .nursery-feeding-button:disabled,
+html[data-theme="polar-sled"] .trade-open-button:disabled {
+  color: var(--muted);
+  background: var(--soft);
+  border-color: var(--line);
+  box-shadow: none;
+  filter: none;
+  opacity: .8;
+  cursor: not-allowed;
+}
+
+html[data-theme="polar-sled"] .upgrade-select,
+html[data-theme="polar-sled"] .migration-field select,
+html[data-theme="polar-sled"] .migration-field input,
+html[data-theme="polar-sled"] .notable-actions select,
+html[data-theme="polar-sled"] .trade-direction-fields input,
+html[data-theme="polar-sled"] .trade-direction-fields select,
+html[data-theme="polar-sled"] .trade-route-pair select {
+  min-width: 0;
+  max-width: 100%;
+  background: var(--panel);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  font-family: var(--font-body);
+  line-height: 1.3;
+  padding: 5px;
+}
+
+html[data-theme="polar-sled"] option {
+  background: var(--panel);
+  color: var(--ink);
+}
+
+/* Hold controls retain their progress fills. Reduced motion removes decorative movement. */
+
+html[data-theme="polar-sled"] .reset-progress {
+  border-top-color: var(--line);
+}
+
+html[data-theme="polar-sled"] .reset-progress-button {
+  background: var(--card);
+  color: var(--danger);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius);
+  box-shadow: none;
+  font-family: var(--font-ui);
+  line-height: 1.3;
+}
+
+html[data-theme="polar-sled"] .reset-progress-fill {
+  background: #edc6b9;
+}
+
+html[data-theme="polar-sled"] .reset-progress-button.is-holding .reset-progress-fill {
+  animation: none;
+}
+
+html[data-theme="polar-sled"] .reset-progress-button.is-holding {
+  border-color: var(--danger);
+  box-shadow: inset 0 0 0 1px var(--danger);
+}
+
+html[data-theme="polar-sled"] .notable-hold-confirm::after {
+  background: var(--danger);
+}
+
+/* Clutch / kennel, including the full 12 by 15 DOM grid. */
+
+html[data-theme="polar-sled"] .nursery-currency,
+html[data-theme="polar-sled"] .colony-income-summary {
+  background: var(--soft);
+  color: var(--muted);
+  border-color: var(--line);
+  border-radius: var(--radius);
+}
+
+html[data-theme="polar-sled"] .nursery-currency strong,
+html[data-theme="polar-sled"] .colony-income-summary strong,
+html[data-theme="polar-sled"] .colony-summary-heading,
+html[data-theme="polar-sled"] .hatchling-row-heading span:last-child,
+html[data-theme="polar-sled"] .habitat-notable,
+html[data-theme="polar-sled"] .notables-panel h3 {
+  color: var(--accent);
+}
+
+html[data-theme="polar-sled"] .colony-summary-assigned {
+  border-bottom-color: var(--line);
+}
+
+html[data-theme="polar-sled"] .egg-progress-rate {
+  background: var(--soft);
+  color: var(--gold);
+  border-color: var(--line);
+}
+
+html[data-theme="polar-sled"] .nest-visual,
+html[data-theme="polar-sled"] .nest-visual.has-egg {
+  border-color: var(--line);
+  color: var(--accent);
+  background: radial-gradient(ellipse at 50% 110%, #557b91 0 23%, #8fabbc 24% 32%, transparent 33%), linear-gradient(#d8ebf3, #f6fcff);
+  border-radius: var(--radius);
+}
+
+html[data-theme="polar-sled"] .egg-shape {
+  border: 2px solid #557b91;
+  background: radial-gradient(ellipse at 42% 30%, #fffaf0, #e7c99d 60%, #ab8c6a);
+  box-shadow: inset 2px 1px 0 #ffffff80, 0 3px 6px #00000025;
+  border-radius: 40% 40% 46% 46%;
+}
+
+html[data-theme="polar-sled"] .nest-visual.has-egg .egg-shape {
+  animation: polar-sled-beacon 5s ease-in-out infinite;
+}
+
+html[data-theme="polar-sled"] .nursery-feeding-button[aria-pressed="true"] {
+  background: var(--soft);
+  color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+html[data-theme="polar-sled"] .nursery-grid {
+  background: var(--screen);
+  border-color: var(--line);
+  box-shadow: inset 0 0 0 2px #ffffff30;
+  border-radius: var(--radius);
+}
+
+html[data-theme="polar-sled"] .nursery-cell {
+  background: rgba(var(--screen-ink-rgb), .04);
+}
+
+html[data-theme="polar-sled"] .nursery-cell:nth-child(odd) {
+  background: rgba(var(--screen-ink-rgb), .09);
+}
+
+html[data-theme="polar-sled"] .nursery-cell.is-body::after,
+html[data-theme="polar-sled"] .nursery-cell.is-tail::after {
+  background: var(--body-snake);
+  border-radius: 30%;
+}
+
+html[data-theme="polar-sled"] .nursery-cell.is-head::after {
+  background: var(--head-snake);
+  border-radius: 25% 25% 40% 40%;
+}
+
+html[data-theme="polar-sled"] .nursery-cell.is-head::before {
+  background: var(--paper);
+  box-shadow: 4px 0 0 var(--paper);
+}
+
+html[data-theme="polar-sled"] .nursery-cell.is-tail.is-wiggling::after {
+  animation-name: polar-sled-tail;
+}
+
+html[data-theme="polar-sled"] .growth-bar {
+  height: 6px;
+  background: var(--soft);
+  border-color: var(--line);
+  border-radius: 2px;
+}
+
+html[data-theme="polar-sled"] .growth-bar span {
+  background: linear-gradient(90deg, #356d8d, #4b9e89);
+}
+
+/* Realm / camps and every capacity state. */
+
+html[data-theme="polar-sled"] .habitat-card.is-locked {
+  background: var(--soft);
+  border-color: var(--line);
+  box-shadow: none;
+}
+
+html[data-theme="polar-sled"] .habitat-card.is-locked .habitat-name {
+  color: var(--muted);
+}
+
+html[data-theme="polar-sled"] .habitat-card.produces-provisions:not(.is-locked) {
+  border-left: 3px solid var(--gold);
+}
+
+html[data-theme="polar-sled"] .habitat-card.produces-provisions:not(.is-locked) .habitat-production,
+html[data-theme="polar-sled"] .habitat-card.produces-provisions:not(.is-locked) .habitat-output-types {
+  color: var(--gold);
+}
+
+html[data-theme="polar-sled"] .habitat-card.produces-branches:not(.is-locked) {
+  border-left: 3px solid var(--success);
+}
+
+html[data-theme="polar-sled"] .habitat-card.produces-branches:not(.is-locked) .habitat-production,
+html[data-theme="polar-sled"] .habitat-card.produces-branches:not(.is-locked) .habitat-output-types {
+  color: var(--success);
+}
+
+html[data-theme="polar-sled"] .habitat-card.speeds-egg-hatch:not(.is-locked) {
+  border-left: 3px solid var(--accent);
+}
+
+html[data-theme="polar-sled"] .habitat-card.speeds-egg-hatch:not(.is-locked) .habitat-production,
+html[data-theme="polar-sled"] .habitat-card.speeds-egg-hatch:not(.is-locked) .habitat-output-types {
+  color: var(--accent);
+}
+
+html[data-theme="polar-sled"] .habitat-production {
+  color: var(--accent);
+}
+
+html[data-theme="polar-sled"] .habitat-natural-count.is-over-natural,
+html[data-theme="polar-sled"] .habitat-over-capacity-row {
+  color: var(--gold);
+}
+
+html[data-theme="polar-sled"] .habitat-max-count.is-at-maximum,
+html[data-theme="polar-sled"] .habitat-idle-snakes,
+html[data-theme="polar-sled"] .migration-error {
+  color: var(--danger);
+}
+
+html[data-theme="polar-sled"] .habitat-card.is-hard-over-capacity {
+  border: 2px solid var(--danger);
+  box-shadow: inset 3px 0 0 var(--danger);
+}
+
+html[data-theme="polar-sled"] .habitat-capacity-tooltip {
+  background: var(--ink);
+  color: var(--paper);
+  border-color: var(--gold);
+  border-radius: var(--radius);
+  box-shadow: 0 5px 16px #00000030;
+  max-width: min(220px, 65vw);
+}
+
+html[data-theme="polar-sled"] .habitat-capacity-tooltip strong {
+  color: #fff1bd;
+}
+
+html[data-theme="polar-sled"] .notable-card.is-pending {
+  border-color: var(--gold);
+  box-shadow: inset 3px 0 0 var(--gold);
+}
+
+html[data-theme="polar-sled"] .candidate-list-item {
+  background: var(--soft);
+  color: var(--ink);
+  border-color: var(--line);
+  font-family: var(--font-body);
+}
+
+html[data-theme="polar-sled"] .candidate-list-item[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--paper);
+  border-color: var(--accent);
+}
+
+/* Fiefs / outposts, convoy manifest, route chart, worker and re-supply controls. */
+
+html[data-theme="polar-sled"] .migration-required,
+html[data-theme="polar-sled"] .migration-founding {
+  color: var(--gold);
+  border-color: var(--gold);
+}
+
+html[data-theme="polar-sled"] .migration-attrition {
+  color: var(--danger) !important;
+  background: var(--soft);
+  border-left-color: var(--danger);
+}
+
+html[data-theme="polar-sled"] .migration-expedition-card.is-danger,
+html[data-theme="polar-sled"] .migration-expedition-actions button.is-danger {
+  border-color: var(--danger);
+  background: var(--danger);
+  color: var(--paper);
+}
+
+html[data-theme="polar-sled"] .trade-open-button {
+  background: var(--soft);
+  color: var(--muted);
+  border-color: var(--line);
+  border-radius: var(--radius);
+}
+
+html[data-theme="polar-sled"] .trade-open-button.is-ready,
+html[data-theme="polar-sled"] .trade-open-button.is-ready:hover {
+  background: var(--success);
+  color: var(--paper);
+  border-color: var(--success);
+}
+
+html[data-theme="polar-sled"] .trade-route-network {
+  background: linear-gradient(135deg, #d6eaf2, #f5fbff);
+  border-color: var(--line);
+  border-radius: var(--radius);
+}
+
+html[data-theme="polar-sled"] .trade-network-edge {
+  stroke: #7098ad;
+  stroke-dasharray: none;
+}
+
+html[data-theme="polar-sled"] .trade-network-edge:hover,
+html[data-theme="polar-sled"] .trade-network-edge.is-selected,
+html[data-theme="polar-sled"] .trade-network-edge:focus {
+  stroke: var(--accent);
+}
+
+html[data-theme="polar-sled"] .trade-network-node circle {
+  fill: var(--card);
+  stroke: var(--accent);
+}
+
+html[data-theme="polar-sled"] .trade-network-node.is-founding circle {
+  fill: var(--soft);
+  stroke: var(--danger);
+}
+
+html[data-theme="polar-sled"] .trade-network-node text {
+  fill: var(--ink);
+  font-family: var(--font-body);
+  font-weight: 700;
+}
+
+html[data-theme="polar-sled"] [data-resupply-field] {
+  accent-color: var(--accent);
+}
+
+/* Physical object: book fittings / cold-weather radio. */
+
+html[data-theme="polar-sled"] .phone-shell {
+  width: min(100%, 352px);
+  height: auto;
+  min-height: 690px;
+  padding: 14px 17px 24px;
+  border: 4px solid var(--case-edge);
+  border-radius: 26px 26px 34px 34px;
+  background: radial-gradient(circle at 10px 10px, #4d7085 0 2px, transparent 3px) 0 0 / 100% 100%, linear-gradient(105deg, #adc4ce, #f7fcff 20%, #dfeaf0 74%, #a5bfcb);
+  box-shadow: inset 0 0 0 2px #f7fdff, inset 0 -12px 0 #7a9baa, 0 8px 0 #102b40, 0 25px 55px #04182b80;
+}
+
+html[data-theme="polar-sled"] .phone-shell::before {
+  top: -19px;
+  right: 24px;
+  width: 23px;
+  height: 49px;
+  border: 3px solid #19364a;
+  border-radius: 7px;
+  background: repeating-linear-gradient(0deg, #304f62 0 5px, #153448 5px 7px);
+  z-index: -1;
+  box-shadow: none;
+  pointer-events: none;
+}
+
+html[data-theme="polar-sled"] .phone-shell::after {
+  top: 17px;
+  right: 14px;
+  width: 9px;
+  height: 9px;
+  border: 2px solid #486678;
+  background: #54a48b;
+  box-shadow: 0 0 0 2px #ecf9fc;
+  pointer-events: none;
+}
+
+html[data-theme="polar-sled"] .speaker-slot {
+  width: 60px;
+  height: 11px;
+  border-radius: 2px;
+  background: repeating-linear-gradient(90deg, #27495e 0 2px, transparent 2px 5px);
+  filter: none;
+}
+
+html[data-theme="polar-sled"] .phone-brand {
+  min-width: 0;
+  max-width: 85%;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: .16em;
+  line-height: 1.2;
+  padding: 5px 8px;
+  background: transparent;
+  color: #244b60;
+  border: 0;
+  border-radius: 2px;
+}
+
+html[data-theme="polar-sled"] .screen-frame {
+  background: linear-gradient(#24465d, #17384f);
+  border: 2px solid #19394e;
+  border-radius: 14px;
+  box-shadow: inset 0 1px 0 #ffffff40, 0 4px 7px #00000030;
+}
+
+html[data-theme="polar-sled"] .status-strip div {
+  background: var(--screen);
+  border: 1px solid #759fac;
+  border-radius: 2px;
+  box-shadow: inset 0 1px 2px #0000000a;
+}
+
+html[data-theme="polar-sled"] .stat-label {
+  color: var(--screen-ink);
+  font-family: var(--font-ui);
+  font-size: .57rem;
+  line-height: 1.2;
+}
+
+html[data-theme="polar-sled"] .status-strip strong {
+  font-family: var(--font-body);
+  font-variant-numeric: tabular-nums;
+  font-size: 1.05rem;
+  text-shadow: none;
+}
+
+html[data-theme="polar-sled"] .grid-select {
+  background: var(--screen);
+  color: var(--screen-ink);
+  border-color: var(--line);
+  font-family: var(--font-body);
+}
+
+html[data-theme="polar-sled"] .screen-bezel {
+  border: 1px solid #759fac;
+  border-radius: 3px;
+  background: var(--screen);
+  box-shadow: inset 0 0 12px #42749324;
+}
+
+html[data-theme="polar-sled"] #game {
+  border-color: #6c94aa99;
+  border-radius: 1px;
+  background: var(--screen);
+}
+
+html[data-theme="polar-sled"] .screen-plate {
+  background: var(--panel);
+  color: var(--screen-ink);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 12px #00000025;
+  max-width: 100%;
+}
+
+html[data-theme="polar-sled"] #stateText {
+  font-family: var(--font-display);
+  font-size: 1.45rem;
+  line-height: 1.2;
+  font-weight: 600;
+  text-transform: uppercase;
+}
+
+html[data-theme="polar-sled"] .screen-hint {
+  color: #dbedf7;
+  font-family: var(--font-body);
+  font-size: .67rem;
+  line-height: 1.3;
+}
+
+/* Personalization, save data and formation screens. */
+
+html[data-theme="polar-sled"] .personalization-screen,
+html[data-theme="polar-sled"] .broodline-screen {
+  background: var(--panel);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: inset 0 0 0 3px #ffffff30;
+  scrollbar-color: var(--line) var(--panel);
+}
+
+html[data-theme="polar-sled"] .personalization-heading,
+html[data-theme="polar-sled"] .mobile-controls-settings {
+  border-color: var(--line);
+}
+
+html[data-theme="polar-sled"] .personalization-heading strong {
+  font-family: var(--font-display);
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+html[data-theme="polar-sled"] .personalization-back,
+html[data-theme="polar-sled"] .mobile-control-toggle,
+html[data-theme="polar-sled"] .broodline-card {
+  background: var(--card);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  font-family: var(--font-ui);
+  line-height: 1.3;
+}
+
+html[data-theme="polar-sled"] .mobile-control-toggle[aria-pressed="true"],
+html[data-theme="polar-sled"] .broodline-card.is-selected {
+  background: var(--accent);
+  color: var(--paper);
+  border-color: var(--accent);
+}
+
+html[data-theme="polar-sled"] .save-data-area {
+  background: var(--card);
+  color: var(--ink);
+  border-color: var(--line);
+  font-family: ui-monospace, Consolas, monospace;
+  line-height: 1.5;
+}
+
+html[data-theme="polar-sled"] .snake-speed-icon {
+  filter: grayscale(1) sepia(.2) hue-rotate(150deg);
+  max-width: 100%;
+}
+
+html[data-theme="polar-sled"] .snake-speed-options .mobile-control-toggle[aria-pressed="true"] .snake-speed-icon {
+  filter: grayscale(1) drop-shadow(0 0 2px #d8f4ff);
+}
+
+html[data-theme="polar-sled"] .color-swatch {
+  border-color: var(--line);
+  border-radius: var(--radius);
+  box-shadow: inset 0 1px 0 #ffffff60;
+}
+
+html[data-theme="polar-sled"] .color-swatch[aria-pressed="true"] {
+  outline-color: var(--accent);
+  outline-width: 2px;
+}
+
+html[data-theme="polar-sled"] .color-swatch[data-color="#29391f"] {
+  background: #306582;
+}
+
+html[data-theme="polar-sled"] .color-swatch[data-color="#32204f"] {
+  background: #4b417e;
+}
+
+html[data-theme="polar-sled"] .color-swatch[data-color="#16465a"] {
+  background: #255b79;
+}
+
+html[data-theme="polar-sled"] .color-swatch[data-color="#176052"] {
+  background: #267378;
+}
+
+html[data-theme="polar-sled"] .color-swatch[data-color="#843b2f"] {
+  background: #9c493b;
+}
+
+html[data-theme="polar-sled"] .color-swatch[data-color="#a55b25"] {
+  background: #b25a2b;
+}
+
+html[data-theme="polar-sled"] .color-swatch[data-color="#702c57"] {
+  background: #91466f;
+}
+
+html[data-theme="polar-sled"] .color-swatch[data-color="#252a32"] {
+  background: #35485d;
+}
+
+html[data-theme="polar-sled"] .color-swatch[data-color="#182413"] {
+  background: #16394b;
+}
+
+html[data-theme="polar-sled"] .color-swatch[data-color="#583b83"] {
+  background: #7458a0;
+}
+
+html[data-theme="polar-sled"] .color-swatch[data-color="#267b91"] {
+  background: #337dae;
+}
+
+html[data-theme="polar-sled"] .color-swatch[data-color="#2d8b68"] {
+  background: #247964;
+}
+
+html[data-theme="polar-sled"] .color-swatch[data-color="#b3483d"] {
+  background: #b13d4b;
+}
+
+html[data-theme="polar-sled"] .color-swatch[data-color="#b0802d"] {
+  background: #ab7824;
+}
+
+html[data-theme="polar-sled"] .color-swatch[data-color="#9b477e"] {
+  background: #aa5c91;
+}
+
+html[data-theme="polar-sled"] .color-swatch[data-color="#596474"] {
+  background: #667c94;
+}
+
+/* Keys, explicit action colours, large D-pad and expanded field. */
+
+html[data-theme="polar-sled"] .nav-key,
+html[data-theme="polar-sled"] .phone-key,
+html[data-theme="polar-sled"] .action-key,
+html[data-theme="polar-sled"] .phone-nav.is-large-dpad .nav-key {
+  background: linear-gradient(var(--key-light), var(--key));
+  color: var(--paper);
+  border: 1px solid var(--case-edge);
+  border-radius: 7px;
+  box-shadow: inset 0 1px 0 #ffffff40, 0 3px 0 var(--case-edge);
+  font-family: var(--font-ui);
+}
+
+html[data-theme="polar-sled"] .nav-left,
+html[data-theme="polar-sled"] .nav-right {
+  transform: none;
+}
+
+html[data-theme="polar-sled"] .phone-key {
+  min-height: 25px;
+}
+
+html[data-theme="polar-sled"] .minigame-key.is-locked {
+  background: #a9bfc9;
+  color: #334f62;
+  filter: none;
+  box-shadow: inset 0 1px 0 #ffffff20;
+  opacity: .85;
+}
+
+html[data-theme="polar-sled"] #startButton {
+  background: linear-gradient(#388c76, #23634f);
+  color: #fff9e9;
+}
+
+html[data-theme="polar-sled"] #pauseButton {
+  background: linear-gradient(var(--key-light), var(--key));
+  color: var(--paper);
+}
+
+html[data-theme="polar-sled"] #resetButton {
+  background: linear-gradient(#d8763c, #a9451f);
+  color: #fffaf0;
+}
+
+html[data-theme="polar-sled"] .nav-key.is-pressed,
+html[data-theme="polar-sled"] .nav-key:active,
+html[data-theme="polar-sled"] .action-key.is-active,
+html[data-theme="polar-sled"] .action-key:active,
+html[data-theme="polar-sled"] .phone-nav.is-large-dpad .nav-key.is-pressed {
+  box-shadow: inset 0 0 0 2px var(--trim);
+  filter: brightness(1.12);
+}
+
+html[data-theme="polar-sled"] .phone-nav.is-large-dpad {
+  background: radial-gradient(circle, #c5dbe5, #7396a9);
+  border-color: var(--case-edge);
+  box-shadow: inset 0 0 0 3px var(--trim), 0 4px 0 var(--case-edge);
+}
+
+html[data-theme="polar-sled"] .phone-nav.is-large-dpad .nav-chevron {
+  color: var(--paper);
+}
+
+html[data-theme="polar-sled"] .controls.is-large-dpad-controls .minigame-keypad.is-open {
+  background: var(--case);
+  border-color: var(--case-edge);
+  box-shadow: 0 4px 12px #00000040;
+}
+
+html[data-theme="polar-sled"] .controls.is-large-dpad-controls .minimized-keypad-button,
+html[data-theme="polar-sled"] .controls.is-large-dpad-controls .large-dpad-personalize-button {
+  background: var(--soft);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  font-family: var(--font-ui);
+}
+
+html[data-theme="polar-sled"] body.is-fullscreen-mode .phone-shell {
+  width: 100%;
+  height: calc(100dvh - 48px);
+  min-height: 520px;
+  border-radius: 12px;
+  padding: 10px;
+  box-shadow: inset 0 0 0 2px var(--trim), 0 16px 40px #00000040;
+}
+
+html[data-theme="polar-sled"] body.is-fullscreen-mode .screen-bezel {
+  box-shadow: inset 0 0 16px rgba(var(--screen-ink-rgb), .12);
+}
+
+html[data-theme="polar-sled"] body.is-fullscreen-mode .fullscreen-controls .action-key {
+  font-family: var(--font-ui);
+  line-height: 1.3;
+}
+
+@media (max-width: 800px) {
+
+html[data-theme="polar-sled"] .app-layout,
+html[data-theme="polar-sled"] .app-layout.has-fullscreen-option,
+html[data-theme="polar-sled"] body.is-fullscreen-mode .app-layout.has-fullscreen-option {
+  grid-template-columns: minmax(0, 1fr);
+  width: min(100%, 380px);
+  gap: 22px;
+}
+
+html[data-theme="polar-sled"] .phone-shell {
+  grid-row: 1;
+  justify-self: center;
+}
+
+html[data-theme="polar-sled"] .menu-panel {
+  grid-row: 2;
+  width: 100%;
+  max-height: none;
+}
+
+html[data-theme="polar-sled"] body.is-fullscreen-mode .app-layout.has-fullscreen-option {
+  width: 100%;
+}
+
+html[data-theme="polar-sled"] body.is-fullscreen-mode .phone-shell {
+  height: 80dvh;
+}
+
+}
+
+@media (max-width: 480px) {
+
+html[data-theme="polar-sled"] body {
+  padding: 24px 12px 54px;
+}
+
+html[data-theme="polar-sled"] .phone-shell {
+  width: min(100%, 340px);
+  min-height: 0;
+  padding: 12px 14px 24px;
+}
+
+html[data-theme="polar-sled"] .menu-panel {
+  padding: 12px;
+}
+
+html[data-theme="polar-sled"] .menu-tab {
+  font-size: .67rem;
+}
+
+html[data-theme="polar-sled"] body.is-fullscreen-mode .phone-shell {
+  padding: 6px;
+}
+
+html[data-theme="polar-sled"] body.is-fullscreen-mode .controls,
+html[data-theme="polar-sled"] body.is-fullscreen-mode .controls.is-large-dpad-controls {
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+}
+
+html[data-theme="polar-sled"] body.is-fullscreen-mode .keypad,
+html[data-theme="polar-sled"] body.is-fullscreen-mode .controls.is-large-dpad-controls .keypad {
+  flex: 1 1 100%;
+  transform: none;
+  padding-bottom: 8px;
+}
+
+}
+
+@keyframes polar-sled-beacon {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.12); }
+}
+
+@keyframes polar-sled-tail {
+  0%, 100% { transform: rotate(0); }
+  40% { transform: rotate(-8deg); }
+  70% { transform: rotate(8deg); }
+}
+
+html[data-theme="polar-sled"][data-reduced-motion="true"] *,
+html[data-theme="polar-sled"][data-reduced-motion="true"] *::before,
+html[data-theme="polar-sled"][data-reduced-motion="true"] *::after { animation: none !important; transition: none !important; }
+
+html[data-theme="polar-sled"][data-reduced-motion="true"] .notable-hold-confirm.is-holding::after { width: 100%; }
+
+@media (prefers-reduced-motion: reduce) {
+
+html[data-theme="polar-sled"] *,
+html[data-theme="polar-sled"] *::before,
+html[data-theme="polar-sled"] *::after {
+  animation: none !important;
+  transition: none !important;
+}
+
+html[data-theme="polar-sled"] .notable-hold-confirm.is-holding::after {
+  width: 100%;
+}
+
+}

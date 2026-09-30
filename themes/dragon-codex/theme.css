@@ -1,1 +1,1095 @@
-/* Dragon Codex (Codex): placeholder. */
+/* Dragon Codex: illuminated vellum, rubricated initials and a gilt reliquary. */
+
+html[data-theme="dragon-codex"] {
+  color-scheme: light;
+  --case: #68342e;
+  --case-light: #935441;
+  --case-dark: #382322;
+  --case-edge: #342530;
+  --trim: #b88d3e;
+  --screen: #f0dfb3;
+  --screen-ink: #29213b;
+  --screen-shadow: #b09a6c;
+  --key: #273956;
+  --key-light: #455879;
+  --paper: #fff2ce;
+  --green: #386746;
+  --orange: #ab3f2c;
+  --screen-ink-rgb: 41, 33, 59;
+  --paper-rgb: 255, 242, 206;
+  --font-body: "Alegreya", Georgia, serif;
+  --font-ui: "Alegreya", Georgia, serif;
+  --font-display: "Uncial Antiqua", Georgia, serif;
+  --panel: #f1e3c1;
+  --card: #faf0d7;
+  --ink: #382d32;
+  --muted: #6b574a;
+  --line: #b49a6a;
+  --accent: #315082;
+  --accent-light: #d8e0e5;
+  --gold: #946d27;
+  --danger: #982f28;
+  --success: #346340;
+  --soft: #e4d2a9;
+  --radius: 3px;
+  --body-snake: #31466e;
+  --head-snake: #29213b;
+  background: #211e29;
+}
+
+html[data-theme="dragon-codex"] body {
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='96' height='96' viewBox='0 0 96 96'%3E%3Cpath d='M0 48h96M48 0v96M24 24l24-18 24 18-24 18zM24 72l24-18 24 18-24 18z' fill='none' stroke='%23bb9148' stroke-opacity='.09'/%3E%3C/svg%3E"), radial-gradient(ellipse at 50% 0, #655041 0, transparent 65%), linear-gradient(135deg, #302b38, #171820);
+  background-attachment: fixed;
+  color: var(--ink);
+  font-family: var(--font-body);
+  padding: 24px 14px 54px;
+}
+
+html[data-theme="dragon-codex"] .app-layout {
+  width: min(100%, 980px);
+  grid-template-columns: minmax(260px, 310px) minmax(300px, 352px);
+  gap: clamp(24px, 5vw, 70px);
+  position: relative;
+}
+
+html[data-theme="dragon-codex"] .app-layout > *,
+html[data-theme="dragon-codex"] .menu-panel-content,
+html[data-theme="dragon-codex"] .upgrade-card-heading > div,
+html[data-theme="dragon-codex"] .habitat-card-heading > div,
+html[data-theme="dragon-codex"] .nursery-card-heading > div,
+html[data-theme="dragon-codex"] .trade-worker-row > span,
+html[data-theme="dragon-codex"] .notables-heading > div {
+  min-width: 0;
+}
+
+html[data-theme="dragon-codex"] button,
+html[data-theme="dragon-codex"] input,
+html[data-theme="dragon-codex"] select,
+html[data-theme="dragon-codex"] textarea {
+  font-family: var(--font-ui);
+  max-width: 100%;
+}
+
+html[data-theme="dragon-codex"] button:focus-visible,
+html[data-theme="dragon-codex"] select:focus-visible,
+html[data-theme="dragon-codex"] input:focus-visible,
+html[data-theme="dragon-codex"] textarea:focus-visible,
+html[data-theme="dragon-codex"] .habitat-capacity:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 3px;
+}
+
+html[data-theme="dragon-codex"] button,
+html[data-theme="dragon-codex"] p,
+html[data-theme="dragon-codex"] strong,
+html[data-theme="dragon-codex"] label {
+  overflow-wrap: anywhere;
+}
+
+/* Desk / field station. Surface colours are explicit because the base has literal green fills. */
+
+html[data-theme="dragon-codex"] .menu-panel {
+  max-height: calc(100dvh - 48px);
+  background: radial-gradient(ellipse at 10% 0, #fff7df, transparent 55%), repeating-linear-gradient(0deg, #936d2910 0 1px, transparent 1px 5px), var(--panel);
+  color: var(--ink);
+  border: 4px double var(--line);
+  border-radius: 5px 16px 16px 5px;
+  padding: 16px;
+  box-shadow: inset 5px 0 0 #cfb889, inset 7px 0 0 #f9efd4, 0 18px 48px #09081166;
+  scrollbar-color: var(--line) var(--panel);
+}
+
+html[data-theme="dragon-codex"] .menu-panel h1 {
+  font-family: var(--font-display);
+  font-size: 1.55rem;
+  font-weight: 400;
+  line-height: 1.15;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--accent);
+  padding-bottom: 10px;
+  border-bottom: 3px double var(--line);
+}
+
+html[data-theme="dragon-codex"] .menu-panel h1::first-letter {
+  color: var(--danger);
+  font-size: 1.5em;
+  text-shadow: 1px 1px 0 #c6a35a;
+}
+
+html[data-theme="dragon-codex"] .menu-section-heading,
+html[data-theme="dragon-codex"] .menu-section-mark {
+  color: var(--muted);
+}
+
+html[data-theme="dragon-codex"] .menu-stat {
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: linear-gradient(110deg, #f8e7b8, #e7cb84);
+  color: var(--ink);
+  box-shadow: inset 0 0 0 3px #fff0c6;
+}
+
+html[data-theme="dragon-codex"] .menu-stat span {
+  color: var(--muted);
+  font-size: .7rem;
+  letter-spacing: .14em;
+}
+
+html[data-theme="dragon-codex"] #seedsTotal {
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  font-weight: 400;
+  letter-spacing: .035em;
+}
+
+html[data-theme="dragon-codex"] .menu-tabs {
+  background: var(--soft);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 3px;
+  gap: 2px;
+}
+
+html[data-theme="dragon-codex"] .menu-tab {
+  font-family: var(--font-ui);
+  font-size: .68rem;
+  line-height: 1.2;
+  color: var(--muted);
+  border-radius: var(--radius);
+  min-height: 30px;
+}
+
+html[data-theme="dragon-codex"] .menu-tab.is-active,
+html[data-theme="dragon-codex"] .menu-tab[aria-selected="true"] {
+  color: var(--paper);
+  background: var(--accent);
+  border-color: var(--accent);
+  box-shadow: inset 0 -2px 0 #00000020;
+}
+
+html[data-theme="dragon-codex"] .menu-tab:disabled {
+  opacity: .6;
+  color: var(--muted);
+}
+
+html[data-theme="dragon-codex"] .menu-tab-notification {
+  background: var(--danger);
+  color: #fff9ec;
+}
+
+html[data-theme="dragon-codex"] .upgrade-card,
+html[data-theme="dragon-codex"] .nursery-goal-card,
+html[data-theme="dragon-codex"] .nest-card,
+html[data-theme="dragon-codex"] .nursery-yard-card,
+html[data-theme="dragon-codex"] .colony-placeholder,
+html[data-theme="dragon-codex"] .habitat-card,
+html[data-theme="dragon-codex"] .notable-card,
+html[data-theme="dragon-codex"] .migration-summary-card,
+html[data-theme="dragon-codex"] .migration-builder,
+html[data-theme="dragon-codex"] .migration-expedition-card,
+html[data-theme="dragon-codex"] .trade-route-builder,
+html[data-theme="dragon-codex"] .trade-route-header,
+html[data-theme="dragon-codex"] .trade-direction-card,
+html[data-theme="dragon-codex"] .notable-candidates,
+html[data-theme="dragon-codex"] .candidate-decision {
+  background: linear-gradient(100deg, #fff8e850, transparent 45%), var(--card);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: inset 3px 0 0 #ddc58d, 0 2px 0 #8a683610;
+}
+
+html[data-theme="dragon-codex"] .upgrade-card.is-maxed {
+  border-color: var(--success);
+  box-shadow: inset 3px 0 0 var(--success);
+}
+
+html[data-theme="dragon-codex"] .upgrade-card-heading strong,
+html[data-theme="dragon-codex"] .nursery-card-heading strong,
+html[data-theme="dragon-codex"] .nursery-goal-card strong,
+html[data-theme="dragon-codex"] .habitat-name,
+html[data-theme="dragon-codex"] .notables-heading strong,
+html[data-theme="dragon-codex"] .notable-card > strong,
+html[data-theme="dragon-codex"] .colony-placeholder strong,
+html[data-theme="dragon-codex"] .migration-expedition-card h3,
+html[data-theme="dragon-codex"] .trade-route-header h3,
+html[data-theme="dragon-codex"] .trade-direction-card h4 {
+  color: var(--ink);
+  line-height: 1.15;
+}
+
+html[data-theme="dragon-codex"] .upgrade-label,
+html[data-theme="dragon-codex"] .upgrade-level,
+html[data-theme="dragon-codex"] .nursery-meta,
+html[data-theme="dragon-codex"] .nursery-meta span:last-child,
+html[data-theme="dragon-codex"] .nursery-timer,
+html[data-theme="dragon-codex"] .colony-note,
+html[data-theme="dragon-codex"] .colony-placeholder p,
+html[data-theme="dragon-codex"] .nursery-goal-card p,
+html[data-theme="dragon-codex"] .habitat-bonus,
+html[data-theme="dragon-codex"] .habitat-output-types,
+html[data-theme="dragon-codex"] .migration-field,
+html[data-theme="dragon-codex"] .migration-cargo-note,
+html[data-theme="dragon-codex"] .migration-expedition-card p,
+html[data-theme="dragon-codex"] .trade-direction-derived,
+html[data-theme="dragon-codex"] .trade-direction-fields label,
+html[data-theme="dragon-codex"] .notable-service {
+  color: var(--muted);
+  line-height: 1.35;
+}
+
+html[data-theme="dragon-codex"] .upgrade-level {
+  padding: 2px 5px;
+  background: var(--soft);
+  border: 1px solid var(--line);
+  border-radius: 3px;
+  font-variant-numeric: tabular-nums;
+}
+
+html[data-theme="dragon-codex"] .upgrade-card p,
+html[data-theme="dragon-codex"] .hatchling-row,
+html[data-theme="dragon-codex"] .habitat-primary-row,
+html[data-theme="dragon-codex"] .trade-worker-row {
+  color: var(--ink);
+  line-height: 1.35;
+}
+
+html[data-theme="dragon-codex"] .upgrade-next {
+  color: var(--accent) !important;
+}
+
+html[data-theme="dragon-codex"] .upgrade-button,
+html[data-theme="dragon-codex"] .notables-open-button,
+html[data-theme="dragon-codex"] .notables-back-button,
+html[data-theme="dragon-codex"] .notable-actions button,
+html[data-theme="dragon-codex"] .candidate-pagination button,
+html[data-theme="dragon-codex"] .trade-route-button,
+html[data-theme="dragon-codex"] .migration-expedition-actions button,
+html[data-theme="dragon-codex"] .nursery-feeding-button {
+  background: linear-gradient(#f3dda2, #dec17e);
+  color: var(--ink);
+  border: 1px solid var(--gold);
+  border-radius: var(--radius);
+  box-shadow: inset 0 1px 0 #ffffff40, 0 2px 0 #baa06c;
+  font-family: var(--font-ui);
+  line-height: 1.25;
+  min-height: 29px;
+  padding-block: 5px;
+}
+
+html[data-theme="dragon-codex"] .upgrade-button:hover:not(:disabled),
+html[data-theme="dragon-codex"] .notables-open-button:hover:not(:disabled),
+html[data-theme="dragon-codex"] .notables-back-button:hover:not(:disabled),
+html[data-theme="dragon-codex"] .notable-actions button:hover:not(:disabled),
+html[data-theme="dragon-codex"] .candidate-pagination button:hover:not(:disabled),
+html[data-theme="dragon-codex"] .trade-route-button:hover:not(:disabled),
+html[data-theme="dragon-codex"] .migration-expedition-actions button:hover:not(:disabled),
+html[data-theme="dragon-codex"] .nursery-feeding-button:hover:not(:disabled) {
+  filter: brightness(1.08);
+  border-color: var(--accent);
+}
+
+html[data-theme="dragon-codex"] .upgrade-button:disabled,
+html[data-theme="dragon-codex"] .notables-open-button:disabled,
+html[data-theme="dragon-codex"] .notables-back-button:disabled,
+html[data-theme="dragon-codex"] .notable-actions button:disabled,
+html[data-theme="dragon-codex"] .candidate-pagination button:disabled,
+html[data-theme="dragon-codex"] .trade-route-button:disabled,
+html[data-theme="dragon-codex"] .migration-expedition-actions button:disabled,
+html[data-theme="dragon-codex"] .nursery-feeding-button:disabled,
+html[data-theme="dragon-codex"] .trade-open-button:disabled {
+  color: var(--muted);
+  background: var(--soft);
+  border-color: var(--line);
+  box-shadow: none;
+  filter: none;
+  opacity: .8;
+  cursor: not-allowed;
+}
+
+html[data-theme="dragon-codex"] .upgrade-select,
+html[data-theme="dragon-codex"] .migration-field select,
+html[data-theme="dragon-codex"] .migration-field input,
+html[data-theme="dragon-codex"] .notable-actions select,
+html[data-theme="dragon-codex"] .trade-direction-fields input,
+html[data-theme="dragon-codex"] .trade-direction-fields select,
+html[data-theme="dragon-codex"] .trade-route-pair select {
+  min-width: 0;
+  max-width: 100%;
+  background: var(--panel);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  font-family: var(--font-body);
+  line-height: 1.3;
+  padding: 5px;
+}
+
+html[data-theme="dragon-codex"] option {
+  background: var(--panel);
+  color: var(--ink);
+}
+
+/* Hold controls retain their progress fills. Reduced motion removes decorative movement. */
+
+html[data-theme="dragon-codex"] .reset-progress {
+  border-top-color: var(--line);
+}
+
+html[data-theme="dragon-codex"] .reset-progress-button {
+  background: var(--card);
+  color: var(--danger);
+  border: 1px solid var(--danger);
+  border-radius: var(--radius);
+  box-shadow: none;
+  font-family: var(--font-ui);
+  line-height: 1.3;
+}
+
+html[data-theme="dragon-codex"] .reset-progress-fill {
+  background: #e5b6a2;
+}
+
+html[data-theme="dragon-codex"] .reset-progress-button.is-holding .reset-progress-fill {
+  animation: none;
+}
+
+html[data-theme="dragon-codex"] .reset-progress-button.is-holding {
+  border-color: var(--danger);
+  box-shadow: inset 0 0 0 1px var(--danger);
+}
+
+html[data-theme="dragon-codex"] .notable-hold-confirm::after {
+  background: var(--danger);
+}
+
+/* Clutch / kennel, including the full 12 by 15 DOM grid. */
+
+html[data-theme="dragon-codex"] .nursery-currency,
+html[data-theme="dragon-codex"] .colony-income-summary {
+  background: var(--soft);
+  color: var(--muted);
+  border-color: var(--line);
+  border-radius: var(--radius);
+}
+
+html[data-theme="dragon-codex"] .nursery-currency strong,
+html[data-theme="dragon-codex"] .colony-income-summary strong,
+html[data-theme="dragon-codex"] .colony-summary-heading,
+html[data-theme="dragon-codex"] .hatchling-row-heading span:last-child,
+html[data-theme="dragon-codex"] .habitat-notable,
+html[data-theme="dragon-codex"] .notables-panel h3 {
+  color: var(--accent);
+}
+
+html[data-theme="dragon-codex"] .colony-summary-assigned {
+  border-bottom-color: var(--line);
+}
+
+html[data-theme="dragon-codex"] .egg-progress-rate {
+  background: var(--soft);
+  color: var(--gold);
+  border-color: var(--line);
+}
+
+html[data-theme="dragon-codex"] .nest-visual,
+html[data-theme="dragon-codex"] .nest-visual.has-egg {
+  border-color: var(--line);
+  color: var(--accent);
+  background: radial-gradient(ellipse at 50% 120%, #9c673a 0 25%, #c6a363 26% 35%, transparent 36%), #ead8ad;
+  border-radius: var(--radius);
+}
+
+html[data-theme="dragon-codex"] .egg-shape {
+  border: 2px solid var(--gold);
+  background: radial-gradient(circle at 38% 32%, #fff0ba 0 10%, transparent 12%), repeating-linear-gradient(35deg, #dab768 0 4px, #eacf8c 4px 8px);
+  box-shadow: inset 2px 1px 0 #ffffff80, 0 3px 6px #00000025;
+}
+
+html[data-theme="dragon-codex"] .nest-visual.has-egg .egg-shape {
+  animation: dragon-codex-gilt 5s ease-in-out infinite;
+}
+
+html[data-theme="dragon-codex"] .nursery-feeding-button[aria-pressed="true"] {
+  background: var(--soft);
+  color: var(--ink);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+html[data-theme="dragon-codex"] .nursery-grid {
+  background: var(--screen);
+  border-color: var(--line);
+  box-shadow: inset 0 0 0 2px #ffffff30;
+  border-radius: var(--radius);
+}
+
+html[data-theme="dragon-codex"] .nursery-cell {
+  background: rgba(var(--screen-ink-rgb), .04);
+}
+
+html[data-theme="dragon-codex"] .nursery-cell:nth-child(odd) {
+  background: rgba(var(--screen-ink-rgb), .09);
+}
+
+html[data-theme="dragon-codex"] .nursery-cell.is-body::after,
+html[data-theme="dragon-codex"] .nursery-cell.is-tail::after {
+  background: var(--body-snake);
+  border-radius: 25% 10%;
+}
+
+html[data-theme="dragon-codex"] .nursery-cell.is-head::after {
+  background: var(--head-snake);
+  border-radius: 15%;
+}
+
+html[data-theme="dragon-codex"] .nursery-cell.is-head::before {
+  background: var(--paper);
+  box-shadow: 4px 0 0 var(--paper);
+}
+
+html[data-theme="dragon-codex"] .nursery-cell.is-tail.is-wiggling::after {
+  animation-name: dragon-codex-tail;
+}
+
+html[data-theme="dragon-codex"] .growth-bar {
+  height: 6px;
+  background: var(--soft);
+  border-color: var(--line);
+  border-radius: 2px;
+}
+
+html[data-theme="dragon-codex"] .growth-bar span {
+  background: linear-gradient(90deg, #816026, #c49c42);
+}
+
+/* Realm / camps and every capacity state. */
+
+html[data-theme="dragon-codex"] .habitat-card.is-locked {
+  background: var(--soft);
+  border-color: var(--line);
+  box-shadow: none;
+}
+
+html[data-theme="dragon-codex"] .habitat-card.is-locked .habitat-name {
+  color: var(--muted);
+}
+
+html[data-theme="dragon-codex"] .habitat-card.produces-provisions:not(.is-locked) {
+  border-left: 3px solid var(--gold);
+}
+
+html[data-theme="dragon-codex"] .habitat-card.produces-provisions:not(.is-locked) .habitat-production,
+html[data-theme="dragon-codex"] .habitat-card.produces-provisions:not(.is-locked) .habitat-output-types {
+  color: var(--gold);
+}
+
+html[data-theme="dragon-codex"] .habitat-card.produces-branches:not(.is-locked) {
+  border-left: 3px solid var(--success);
+}
+
+html[data-theme="dragon-codex"] .habitat-card.produces-branches:not(.is-locked) .habitat-production,
+html[data-theme="dragon-codex"] .habitat-card.produces-branches:not(.is-locked) .habitat-output-types {
+  color: var(--success);
+}
+
+html[data-theme="dragon-codex"] .habitat-card.speeds-egg-hatch:not(.is-locked) {
+  border-left: 3px solid var(--accent);
+}
+
+html[data-theme="dragon-codex"] .habitat-card.speeds-egg-hatch:not(.is-locked) .habitat-production,
+html[data-theme="dragon-codex"] .habitat-card.speeds-egg-hatch:not(.is-locked) .habitat-output-types {
+  color: var(--accent);
+}
+
+html[data-theme="dragon-codex"] .habitat-production {
+  color: var(--accent);
+}
+
+html[data-theme="dragon-codex"] .habitat-natural-count.is-over-natural,
+html[data-theme="dragon-codex"] .habitat-over-capacity-row {
+  color: var(--gold);
+}
+
+html[data-theme="dragon-codex"] .habitat-max-count.is-at-maximum,
+html[data-theme="dragon-codex"] .habitat-idle-snakes,
+html[data-theme="dragon-codex"] .migration-error {
+  color: var(--danger);
+}
+
+html[data-theme="dragon-codex"] .habitat-card.is-hard-over-capacity {
+  border: 2px solid var(--danger);
+  box-shadow: inset 3px 0 0 var(--danger);
+}
+
+html[data-theme="dragon-codex"] .habitat-capacity-tooltip {
+  background: var(--ink);
+  color: var(--paper);
+  border-color: var(--gold);
+  border-radius: var(--radius);
+  box-shadow: 0 5px 16px #00000030;
+  max-width: min(220px, 65vw);
+}
+
+html[data-theme="dragon-codex"] .habitat-capacity-tooltip strong {
+  color: #fff1bd;
+}
+
+html[data-theme="dragon-codex"] .notable-card.is-pending {
+  border-color: var(--gold);
+  box-shadow: inset 3px 0 0 var(--gold);
+}
+
+html[data-theme="dragon-codex"] .candidate-list-item {
+  background: var(--soft);
+  color: var(--ink);
+  border-color: var(--line);
+  font-family: var(--font-body);
+}
+
+html[data-theme="dragon-codex"] .candidate-list-item[aria-pressed="true"] {
+  background: var(--accent);
+  color: var(--paper);
+  border-color: var(--accent);
+}
+
+/* Fiefs / outposts, convoy manifest, route chart, worker and re-supply controls. */
+
+html[data-theme="dragon-codex"] .migration-required,
+html[data-theme="dragon-codex"] .migration-founding {
+  color: var(--gold);
+  border-color: var(--gold);
+}
+
+html[data-theme="dragon-codex"] .migration-attrition {
+  color: var(--danger) !important;
+  background: var(--soft);
+  border-left-color: var(--danger);
+}
+
+html[data-theme="dragon-codex"] .migration-expedition-card.is-danger,
+html[data-theme="dragon-codex"] .migration-expedition-actions button.is-danger {
+  border-color: var(--danger);
+  background: var(--danger);
+  color: var(--paper);
+}
+
+html[data-theme="dragon-codex"] .trade-open-button {
+  background: var(--soft);
+  color: var(--muted);
+  border-color: var(--line);
+  border-radius: var(--radius);
+}
+
+html[data-theme="dragon-codex"] .trade-open-button.is-ready,
+html[data-theme="dragon-codex"] .trade-open-button.is-ready:hover {
+  background: var(--success);
+  color: var(--paper);
+  border-color: var(--success);
+}
+
+html[data-theme="dragon-codex"] .trade-route-network {
+  background: radial-gradient(ellipse at center, #f9edcb, #ddc792);
+  border-color: var(--line);
+  border-radius: var(--radius);
+}
+
+html[data-theme="dragon-codex"] .trade-network-edge {
+  stroke: #9e8254;
+  stroke-dasharray: 7 3;
+}
+
+html[data-theme="dragon-codex"] .trade-network-edge:hover,
+html[data-theme="dragon-codex"] .trade-network-edge.is-selected,
+html[data-theme="dragon-codex"] .trade-network-edge:focus {
+  stroke: var(--accent);
+}
+
+html[data-theme="dragon-codex"] .trade-network-node circle {
+  fill: var(--card);
+  stroke: var(--accent);
+}
+
+html[data-theme="dragon-codex"] .trade-network-node.is-founding circle {
+  fill: var(--soft);
+  stroke: var(--danger);
+}
+
+html[data-theme="dragon-codex"] .trade-network-node text {
+  fill: var(--ink);
+  font-family: var(--font-body);
+  font-weight: 700;
+}
+
+html[data-theme="dragon-codex"] [data-resupply-field] {
+  accent-color: var(--accent);
+}
+
+/* Physical object: book fittings / cold-weather radio. */
+
+html[data-theme="dragon-codex"] .phone-shell {
+  width: min(100%, 352px);
+  height: auto;
+  min-height: 690px;
+  padding: 14px 17px 24px;
+  border: 4px solid #ae8438;
+  border-radius: 12px 27px 27px 12px;
+  background: repeating-linear-gradient(90deg, #00000009 0 1px, transparent 1px 4px), linear-gradient(100deg, #3c2630 0 4%, #7b3c32 5% 9%, #9c6b46 10%, #62302d 12% 85%, #7a4334);
+  box-shadow: inset 5px 0 0 #e2c475, inset -5px 0 0 #d0b46e, inset 0 0 0 2px #482a26, 8px 6px 0 #bbab8b, 11px 8px 0 #4e3030, 0 25px 55px #05040980;
+}
+
+html[data-theme="dragon-codex"] .phone-shell::before {
+  top: 18px;
+  left: 5px;
+  right: auto;
+  width: 5px;
+  height: calc(100% - 40px);
+  border: 1px solid #d1ac55;
+  border-radius: 2px;
+  background: repeating-linear-gradient(0deg, #b2883c 0 42px, #ebd394 42px 47px);
+  z-index: 0;
+  box-shadow: none;
+  pointer-events: none;
+}
+
+html[data-theme="dragon-codex"] .phone-shell::after {
+  top: 24px;
+  right: 18px;
+  width: 13px;
+  height: 13px;
+  border: 2px solid #d7b862;
+  border-radius: 2px;
+  transform: rotate(45deg);
+  background: radial-gradient(circle at 35% 30%, #f0be94, #982e24 45%, #5b2425);
+  box-shadow: 0 0 0 2px #49313a;
+  pointer-events: none;
+}
+
+html[data-theme="dragon-codex"] .speaker-slot {
+  width: 65px;
+  height: 11px;
+  border-radius: 2px;
+  background: repeating-linear-gradient(45deg, #d6b56c 0 2px, #512f2c 2px 6px);
+  filter: none;
+}
+
+html[data-theme="dragon-codex"] .phone-brand {
+  min-width: 0;
+  max-width: 85%;
+  font-family: var(--font-display);
+  font-size: .86rem;
+  font-weight: 400;
+  letter-spacing: .035em;
+  line-height: 1.2;
+  padding: 5px 8px;
+  background: #372939;
+  color: #f0d38c;
+  border: 1px solid #ad843e;
+  border-radius: 2px;
+}
+
+html[data-theme="dragon-codex"] .screen-frame {
+  background: linear-gradient(135deg, #d6b974, #9c773c 35%, #e0c47d 65%, #ac8442);
+  border: 2px solid #5b3c31;
+  border-radius: 7px;
+  box-shadow: inset 0 1px 0 #ffffff40, 0 4px 7px #00000030;
+}
+
+html[data-theme="dragon-codex"] .status-strip div {
+  background: var(--screen);
+  border: 1px solid var(--gold);
+  border-radius: 2px;
+  box-shadow: inset 0 1px 2px #0000000a;
+}
+
+html[data-theme="dragon-codex"] .stat-label {
+  color: var(--screen-ink);
+  font-family: var(--font-ui);
+  font-size: .57rem;
+  line-height: 1.2;
+}
+
+html[data-theme="dragon-codex"] .status-strip strong {
+  font-family: var(--font-body);
+  font-variant-numeric: tabular-nums;
+  font-size: 1.05rem;
+  text-shadow: none;
+}
+
+html[data-theme="dragon-codex"] .grid-select {
+  background: var(--screen);
+  color: var(--screen-ink);
+  border-color: var(--line);
+  font-family: var(--font-body);
+}
+
+html[data-theme="dragon-codex"] .screen-bezel {
+  border: 1px solid var(--gold);
+  border-radius: 3px;
+  background: var(--screen);
+  box-shadow: inset 0 0 12px #8c65262e;
+}
+
+html[data-theme="dragon-codex"] #game {
+  border-color: #9a784b88;
+  border-radius: 1px;
+  background: var(--screen);
+}
+
+html[data-theme="dragon-codex"] .screen-plate {
+  background: var(--panel);
+  color: var(--screen-ink);
+  border: 3px double var(--gold);
+  border-radius: var(--radius);
+  box-shadow: 0 4px 12px #00000025;
+  max-width: 100%;
+}
+
+html[data-theme="dragon-codex"] #stateText {
+  font-family: var(--font-display);
+  font-size: 1.08rem;
+  line-height: 1.2;
+  font-weight: 400;
+  text-transform: none;
+}
+
+html[data-theme="dragon-codex"] .screen-hint {
+  color: #352938;
+  font-family: var(--font-body);
+  font-size: .67rem;
+  line-height: 1.3;
+}
+
+/* Personalization, save data and formation screens. */
+
+html[data-theme="dragon-codex"] .personalization-screen,
+html[data-theme="dragon-codex"] .broodline-screen {
+  background: var(--panel);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  box-shadow: inset 0 0 0 3px #ffffff30;
+  scrollbar-color: var(--line) var(--panel);
+}
+
+html[data-theme="dragon-codex"] .personalization-heading,
+html[data-theme="dragon-codex"] .mobile-controls-settings {
+  border-color: var(--line);
+}
+
+html[data-theme="dragon-codex"] .personalization-heading strong {
+  font-family: var(--font-display);
+  font-weight: 400;
+  line-height: 1.2;
+}
+
+html[data-theme="dragon-codex"] .personalization-back,
+html[data-theme="dragon-codex"] .mobile-control-toggle,
+html[data-theme="dragon-codex"] .broodline-card {
+  background: var(--card);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  font-family: var(--font-ui);
+  line-height: 1.3;
+}
+
+html[data-theme="dragon-codex"] .mobile-control-toggle[aria-pressed="true"],
+html[data-theme="dragon-codex"] .broodline-card.is-selected {
+  background: var(--accent);
+  color: var(--paper);
+  border-color: var(--accent);
+}
+
+html[data-theme="dragon-codex"] .save-data-area {
+  background: var(--card);
+  color: var(--ink);
+  border-color: var(--line);
+  font-family: ui-monospace, Consolas, monospace;
+  line-height: 1.5;
+}
+
+html[data-theme="dragon-codex"] .snake-speed-icon {
+  filter: sepia(.7) saturate(.65);
+  max-width: 100%;
+}
+
+html[data-theme="dragon-codex"] .snake-speed-options .mobile-control-toggle[aria-pressed="true"] .snake-speed-icon {
+  filter: sepia(.65) drop-shadow(0 0 2px #e3c784);
+}
+
+html[data-theme="dragon-codex"] .color-swatch {
+  border-color: var(--line);
+  border-radius: var(--radius);
+  box-shadow: inset 0 1px 0 #ffffff60;
+}
+
+html[data-theme="dragon-codex"] .color-swatch[aria-pressed="true"] {
+  outline-color: var(--accent);
+  outline-width: 2px;
+}
+
+html[data-theme="dragon-codex"] .color-swatch[data-color="#29391f"] {
+  background: #31466e;
+}
+
+html[data-theme="dragon-codex"] .color-swatch[data-color="#32204f"] {
+  background: #503571;
+}
+
+html[data-theme="dragon-codex"] .color-swatch[data-color="#16465a"] {
+  background: #255d82;
+}
+
+html[data-theme="dragon-codex"] .color-swatch[data-color="#176052"] {
+  background: #28706d;
+}
+
+html[data-theme="dragon-codex"] .color-swatch[data-color="#843b2f"] {
+  background: #923e2e;
+}
+
+html[data-theme="dragon-codex"] .color-swatch[data-color="#a55b25"] {
+  background: #9c571e;
+}
+
+html[data-theme="dragon-codex"] .color-swatch[data-color="#702c57"] {
+  background: #8b385d;
+}
+
+html[data-theme="dragon-codex"] .color-swatch[data-color="#252a32"] {
+  background: #3d3541;
+}
+
+html[data-theme="dragon-codex"] .color-swatch[data-color="#182413"] {
+  background: #29213b;
+}
+
+html[data-theme="dragon-codex"] .color-swatch[data-color="#583b83"] {
+  background: #775093;
+}
+
+html[data-theme="dragon-codex"] .color-swatch[data-color="#267b91"] {
+  background: #307ca1;
+}
+
+html[data-theme="dragon-codex"] .color-swatch[data-color="#2d8b68"] {
+  background: #287153;
+}
+
+html[data-theme="dragon-codex"] .color-swatch[data-color="#b3483d"] {
+  background: #ae3329;
+}
+
+html[data-theme="dragon-codex"] .color-swatch[data-color="#b0802d"] {
+  background: #9c771d;
+}
+
+html[data-theme="dragon-codex"] .color-swatch[data-color="#9b477e"] {
+  background: #ab5071;
+}
+
+html[data-theme="dragon-codex"] .color-swatch[data-color="#596474"] {
+  background: #626375;
+}
+
+/* Keys, explicit action colours, large D-pad and expanded field. */
+
+html[data-theme="dragon-codex"] .nav-key,
+html[data-theme="dragon-codex"] .phone-key,
+html[data-theme="dragon-codex"] .action-key,
+html[data-theme="dragon-codex"] .phone-nav.is-large-dpad .nav-key {
+  background: linear-gradient(var(--key-light), var(--key));
+  color: var(--paper);
+  border: 1px solid var(--case-edge);
+  border-radius: 5px;
+  box-shadow: inset 0 1px 0 #ffffff40, 0 3px 0 var(--case-edge);
+  font-family: var(--font-ui);
+}
+
+html[data-theme="dragon-codex"] .nav-left,
+html[data-theme="dragon-codex"] .nav-right {
+  transform: none;
+}
+
+html[data-theme="dragon-codex"] .phone-key {
+  min-height: 25px;
+}
+
+html[data-theme="dragon-codex"] .minigame-key.is-locked {
+  background: #755950;
+  color: #ede0c2;
+  filter: none;
+  box-shadow: inset 0 1px 0 #ffffff20;
+  opacity: .85;
+}
+
+html[data-theme="dragon-codex"] #startButton {
+  background: linear-gradient(#59815a, #315638);
+  color: #fff9e9;
+}
+
+html[data-theme="dragon-codex"] #pauseButton {
+  background: linear-gradient(var(--key-light), var(--key));
+  color: var(--paper);
+}
+
+html[data-theme="dragon-codex"] #resetButton {
+  background: linear-gradient(#b15137, #86372e);
+  color: #fffaf0;
+}
+
+html[data-theme="dragon-codex"] .nav-key.is-pressed,
+html[data-theme="dragon-codex"] .nav-key:active,
+html[data-theme="dragon-codex"] .action-key.is-active,
+html[data-theme="dragon-codex"] .action-key:active,
+html[data-theme="dragon-codex"] .phone-nav.is-large-dpad .nav-key.is-pressed {
+  box-shadow: inset 0 0 0 2px var(--trim);
+  filter: brightness(1.12);
+}
+
+html[data-theme="dragon-codex"] .phone-nav.is-large-dpad {
+  background: radial-gradient(circle, #bc9751, #705033);
+  border-color: var(--case-edge);
+  box-shadow: inset 0 0 0 3px var(--trim), 0 4px 0 var(--case-edge);
+}
+
+html[data-theme="dragon-codex"] .phone-nav.is-large-dpad .nav-chevron {
+  color: var(--paper);
+}
+
+html[data-theme="dragon-codex"] .controls.is-large-dpad-controls .minigame-keypad.is-open {
+  background: var(--case);
+  border-color: var(--case-edge);
+  box-shadow: 0 4px 12px #00000040;
+}
+
+html[data-theme="dragon-codex"] .controls.is-large-dpad-controls .minimized-keypad-button,
+html[data-theme="dragon-codex"] .controls.is-large-dpad-controls .large-dpad-personalize-button {
+  background: var(--soft);
+  color: var(--ink);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  font-family: var(--font-ui);
+}
+
+html[data-theme="dragon-codex"] body.is-fullscreen-mode .phone-shell {
+  width: 100%;
+  height: calc(100dvh - 48px);
+  min-height: 520px;
+  border-radius: 12px;
+  padding: 10px;
+  box-shadow: inset 0 0 0 2px var(--trim), 0 16px 40px #00000040;
+}
+
+html[data-theme="dragon-codex"] body.is-fullscreen-mode .screen-bezel {
+  box-shadow: inset 0 0 16px rgba(var(--screen-ink-rgb), .12);
+}
+
+html[data-theme="dragon-codex"] body.is-fullscreen-mode .fullscreen-controls .action-key {
+  font-family: var(--font-ui);
+  line-height: 1.3;
+}
+
+@media (max-width: 800px) {
+
+html[data-theme="dragon-codex"] .app-layout,
+html[data-theme="dragon-codex"] .app-layout.has-fullscreen-option,
+html[data-theme="dragon-codex"] body.is-fullscreen-mode .app-layout.has-fullscreen-option {
+  grid-template-columns: minmax(0, 1fr);
+  width: min(100%, 380px);
+  gap: 22px;
+}
+
+html[data-theme="dragon-codex"] .phone-shell {
+  grid-row: 1;
+  justify-self: center;
+}
+
+html[data-theme="dragon-codex"] .menu-panel {
+  grid-row: 2;
+  width: 100%;
+  max-height: none;
+}
+
+html[data-theme="dragon-codex"] body.is-fullscreen-mode .app-layout.has-fullscreen-option {
+  width: 100%;
+}
+
+html[data-theme="dragon-codex"] body.is-fullscreen-mode .phone-shell {
+  height: 80dvh;
+}
+
+}
+
+@media (max-width: 480px) {
+
+html[data-theme="dragon-codex"] body {
+  padding: 24px 12px 54px;
+}
+
+html[data-theme="dragon-codex"] .phone-shell {
+  width: min(100%, 340px);
+  min-height: 0;
+  padding: 12px 14px 24px;
+}
+
+html[data-theme="dragon-codex"] .menu-panel {
+  padding: 12px;
+}
+
+html[data-theme="dragon-codex"] .menu-tab {
+  font-size: .67rem;
+}
+
+html[data-theme="dragon-codex"] body.is-fullscreen-mode .phone-shell {
+  padding: 6px;
+}
+
+html[data-theme="dragon-codex"] body.is-fullscreen-mode .controls,
+html[data-theme="dragon-codex"] body.is-fullscreen-mode .controls.is-large-dpad-controls {
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+}
+
+html[data-theme="dragon-codex"] body.is-fullscreen-mode .keypad,
+html[data-theme="dragon-codex"] body.is-fullscreen-mode .controls.is-large-dpad-controls .keypad {
+  flex: 1 1 100%;
+  transform: none;
+  padding-bottom: 8px;
+}
+
+}
+
+@keyframes dragon-codex-gilt {
+  0%, 100% { filter: brightness(1); }
+  50% { filter: brightness(1.12); }
+}
+
+@keyframes dragon-codex-tail {
+  0%, 100% { transform: rotate(0); }
+  40% { transform: rotate(-8deg); }
+  70% { transform: rotate(8deg); }
+}
+
+html[data-theme="dragon-codex"][data-reduced-motion="true"] *,
+html[data-theme="dragon-codex"][data-reduced-motion="true"] *::before,
+html[data-theme="dragon-codex"][data-reduced-motion="true"] *::after { animation: none !important; transition: none !important; }
+
+html[data-theme="dragon-codex"][data-reduced-motion="true"] .notable-hold-confirm.is-holding::after { width: 100%; }
+
+@media (prefers-reduced-motion: reduce) {
+
+html[data-theme="dragon-codex"] *,
+html[data-theme="dragon-codex"] *::before,
+html[data-theme="dragon-codex"] *::after {
+  animation: none !important;
+  transition: none !important;
+}
+
+html[data-theme="dragon-codex"] .notable-hold-confirm.is-holding::after {
+  width: 100%;
+}
+
+}
