@@ -11,7 +11,8 @@
     "check": "npm run check:syntax && npm run check:authority && npm test",
     "test:browser": "playwright test",
     "serve": "node scripts/serve.js",
-    "play": "node scripts/play.js"
+    "play": "node scripts/play.js",
+    "theme-lab": "node scripts/theme-lab.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.56.1"

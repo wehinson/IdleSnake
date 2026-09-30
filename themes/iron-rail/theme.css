@@ -124,8 +124,8 @@ html[data-theme="iron-rail"] .menu-stat span {
 
 html[data-theme="iron-rail"] .menu-stat strong {
   color: #fff6de;
-  font-family: var(--ir-display);
-  font-weight: 400;
+  font-family: var(--font-body);
+  font-weight: 700;
 }
 
 html[data-theme="iron-rail"] .menu-tabs {
@@ -507,8 +507,8 @@ html[data-theme="iron-rail"] .stat-label {
 }
 
 html[data-theme="iron-rail"] .status-strip strong {
-  font-family: var(--ir-display);
-  font-weight: 400;
+  font-family: var(--font-body);
+  font-weight: 700;
   text-shadow: none;
 }
 
@@ -622,8 +622,8 @@ html[data-theme="iron-rail"] .phone-key:focus-visible {
 }
 
 html[data-theme="iron-rail"] .phone-key {
-  font-family: var(--ir-display);
-  font-weight: 400;
+  font-family: var(--font-body);
+  font-weight: 700;
 }
 
 html[data-theme="iron-rail"] .action-key {

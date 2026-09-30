@@ -39,3 +39,11 @@ A theme changes only presentation. It never changes session state, engine data, 
   - the redraw on theme change
 - The Original theme must look and read exactly as before. The Playwright tests run against Original.
 - `npm run check` must pass, including `themes/themes.test.js`.
+
+## Theme Lab (one server for both games)
+
+```
+npm run theme-lab
+```
+
+This opens <http://localhost:8090>. The index lists both games and every theme. `/sweep/` serves the IdleSweep redesign worktree, and `/snake/` serves the IdleSnake redesign worktree. They must be sibling folders (`C:\Code\IdleSweep-redesign` and `C:\Code\IdleSnake-redesign`), or you can set `SWEEP_ROOT` and `SNAKE_ROOT`. Each game's own `npm run serve` also works; use the picker there.
