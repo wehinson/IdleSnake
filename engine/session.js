@@ -149,6 +149,7 @@
         selectedDuelGridSize: normalDuelGridSize(legacy.selectedDuelGridSize ?? legacy.board?.selectedDuelGridSize ?? legacy.settings?.selectedDuelGridSize ?? legacy.settings?.duelGridSize),
         snakeSpeed: normalSnakeSpeed(legacy.snakeSpeed),
         reducedMotion: normalReducedMotion(legacy.reducedMotion ?? legacy.accessibility?.reducedMotion ?? legacy.settings?.reducedMotion),
+        fullscreenMode: legacy.fullscreenMode === true || legacy.settings?.fullscreenMode === true,
         mobileControls: normalMobileControls(legacy.mobileControls ?? legacy.settings?.mobileControls, mobileControlsDefault),
         cosmetics: clone(legacy.settings?.snakeColors || legacy.cosmetics || { body: null, head: null }),
         snakebirdProgress: clone(legacy.snakebird || legacy.snakebirdProgress || { unlockedLevel: 1, clearedLevels: [], bestMoves: [], lastSelectedLevel: 1 }),
@@ -190,6 +191,7 @@
       selectedDuelGridSize: normalDuelGridSize(raw.selectedDuelGridSize ?? raw.board?.selectedDuelGridSize ?? raw.settings?.selectedDuelGridSize ?? raw.settings?.duelGridSize),
       snakeSpeed: normalSnakeSpeed(raw.snakeSpeed),
       reducedMotion: normalReducedMotion(raw.reducedMotion ?? raw.accessibility?.reducedMotion ?? raw.settings?.reducedMotion),
+      fullscreenMode: raw.fullscreenMode === true,
       mobileControls: normalMobileControls(raw.mobileControls ?? raw.settings?.mobileControls, mobileControlsDefault),
       cosmetics: raw.cosmetics && typeof raw.cosmetics === "object" ? clone(raw.cosmetics) : { body: null, head: null },
       snakebirdProgress: raw.snakebirdProgress && typeof raw.snakebirdProgress === "object" ? clone(raw.snakebirdProgress) : { unlockedLevel: 1, clearedLevels: [], bestMoves: [], lastSelectedLevel: 1 },
@@ -354,7 +356,7 @@
     const snapshot = {
       saveVersion: SAVE_VERSION, mode: state.mode, phase: state.phase, elapsedMs: state.elapsedMs, modeAccumulatorMs: state.modeAccumulatorMs,
       seeds: state.seeds, provisions: state.provisions, branches: state.branches, best: state.best, records: memoizedFrozenClone(state.snapshotCache.records, state.records), upgrades: memoizedFrozenClone(state.snapshotCache.upgrades, state.upgrades), selectedBoardLevel: state.selectedBoardLevel,
-      selectedDuelGridSize: state.selectedDuelGridSize, snakeSpeed: state.snakeSpeed, reducedMotion: state.reducedMotion, mobileControls: memoizedFrozenClone(state.snapshotCache.mobileControls, state.mobileControls),
+      selectedDuelGridSize: state.selectedDuelGridSize, snakeSpeed: state.snakeSpeed, reducedMotion: state.reducedMotion, fullscreenMode: state.fullscreenMode, mobileControls: memoizedFrozenClone(state.snapshotCache.mobileControls, state.mobileControls),
       cosmetics: memoizedFrozenClone(state.snapshotCache.cosmetics, state.cosmetics), snakebirdProgress: memoizedFrozenClone(state.snapshotCache.snakebirdProgress, state.snakebirdProgress), nursery: clone(state.nursery), habitats: clone(state.habitats), notables: clone(state.notables), eggBoardCountdown: state.eggBoardCountdown, active,
       migration: clone(state.migration), migrationChallenge: clone(state.migrationChallenge), tradeRoutes: clone(state.tradeRoutes),
       activeResupplyMissions: clone(state.activeResupplyMissions), completedResupplyMissions: clone(state.completedResupplyMissions), resupplyTotals: clone(state.resupplyTotals),
@@ -379,7 +381,7 @@
     if (state.active && state.mode === "maze") active.open = [...state.active.open];
     return freeze({
       mode: state.mode, phase: state.phase, elapsedMs: state.elapsedMs, modeAccumulatorMs: state.modeAccumulatorMs,
-      seeds: state.seeds, provisions: state.provisions, branches: state.branches, best: state.best, records: memoizedFrozenClone(state.snapshotCache.records, state.records), selectedDuelGridSize: state.selectedDuelGridSize, snakeSpeed: state.snakeSpeed, reducedMotion: state.reducedMotion, mobileControls: memoizedFrozenClone(state.snapshotCache.mobileControls, state.mobileControls), active,
+      seeds: state.seeds, provisions: state.provisions, branches: state.branches, best: state.best, records: memoizedFrozenClone(state.snapshotCache.records, state.records), selectedDuelGridSize: state.selectedDuelGridSize, snakeSpeed: state.snakeSpeed, reducedMotion: state.reducedMotion, fullscreenMode: state.fullscreenMode, mobileControls: memoizedFrozenClone(state.snapshotCache.mobileControls, state.mobileControls), active,
       hud: { score: active && Number(active.score) || 0, best: bestForMode(state), seeds: state.seeds, provisions: state.provisions, branches: state.branches, elapsedMs: state.elapsedMs },
       prompt: state.phase === "ready" ? "Ready" : state.phase === "paused" ? "Paused" : state.phase === "gameover" ? "Game Over" : ""
     });
@@ -1138,6 +1140,11 @@
         case "setReducedMotion":
           if (typeof action.reducedMotion !== "boolean") return reject("invalidReducedMotion");
           state.reducedMotion = action.reducedMotion; events.push(event("reducedMotionChanged", { reducedMotion: state.reducedMotion })); break;
+        case "setFullscreenMode":
+          if (typeof action.fullscreenMode !== "boolean") return reject("invalidFullscreenMode");
+          if (action.fullscreenMode && state.upgrades.boardLevel < 1) return reject("fullscreenLocked");
+          state.fullscreenMode = action.fullscreenMode;
+          events.push(event("fullscreenModeChanged", { fullscreenMode: state.fullscreenMode })); break;
         case "setMobileControls": {
           const controls = action.mobileControls;
           if (!controls || typeof controls.swipeControls !== "boolean" || typeof controls.biggerDpad !== "boolean") return reject("invalidMobileControls");

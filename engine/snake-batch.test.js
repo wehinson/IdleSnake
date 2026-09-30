@@ -168,3 +168,28 @@ test("a corrected move restores a shield consumed by the original collision", ()
   assert.equal(corrected.active.shieldImpact, null);
   assert.deepEqual(corrected.active.snake[0], { x: 11, y: 0 });
 });
+
+test("fullscreen is an engine preference that preserves the run and survives save, reload, and frame snapshots", () => {
+  const session = game();
+  assert.equal(session.snapshot().fullscreenMode, false);
+  assert.ok(session.dispatch({ type: "setFullscreenMode", fullscreenMode: true }).events.some((e) => e.reason === "fullscreenLocked"));
+  session.dispatch({ type: "addSeeds", amount: 18 });
+  session.dispatch({ type: "buyUpgrade", upgrade: "board" });
+  const before = session.snapshot().active;
+  const expanded = session.dispatch({ type: "setFullscreenMode", fullscreenMode: true }).snapshot;
+  assert.deepEqual(expanded.active, before);
+  assert.equal(expanded.fullscreenMode, true);
+  assert.equal(session.tick(1, { snapshot: "frame" }).snapshot.fullscreenMode, true);
+  const save = session.serialize();
+  assert.equal(validateSaveCandidate(save).ok, true);
+  const restored = createGameSession({ save, now: save.savedAt });
+  assert.equal(restored.snapshot().fullscreenMode, true);
+  assert.deepEqual(restored.snapshot().active, session.snapshot().active);
+  restored.dispatch({ type: "setFullscreenMode", fullscreenMode: false });
+  assert.equal(createGameSession({ save: restored.serialize(), now: save.savedAt }).snapshot().fullscreenMode, false);
+  for (const invalid of [null, 0, "true", {}, []]) {
+    assert.ok(restored.dispatch({ type: "setFullscreenMode", fullscreenMode: invalid }).events.some((e) => e.reason === "invalidFullscreenMode"));
+  }
+  save.session.fullscreenMode = "true";
+  assert.equal(validateSaveCandidate(save).ok, false);
+});
