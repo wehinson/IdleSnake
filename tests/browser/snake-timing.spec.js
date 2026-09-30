@@ -23,8 +23,8 @@ test("opt-in timing log records input, counted time, movement state, and frames"
   expect(action.direction).toBe("right");
   expect(action.after.head).toEqual({ x: 11, y: 10 });
   expect(tick.rawDtMs).toBeGreaterThanOrEqual(250);
-  expect(tick.countedDtMs).toBe(100);
-  expect(tick.discardedDtMs).toBe(tick.rawDtMs - 100);
+  expect(tick.countedDtMs).toBe(tick.rawDtMs);
+  expect(tick.discardedDtMs).toBe(0);
   expect(tick.after.tickMs).toBe(200);
   expect(move.after.head).toEqual({ x: 12, y: 10 });
   expect(frame.animationTimeMs).toEqual(expect.any(Number));

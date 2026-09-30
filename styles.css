@@ -355,6 +355,21 @@ button {
   line-height: 1.2;
 }
 
+.nursery-yard-card .nursery-card-heading { gap: 8px; flex-wrap: wrap; }
+.nursery-yard-card .nursery-card-heading > div { margin-left: auto; }
+.nursery-feeding-button {
+  padding: 5px 7px;
+  border: 1px solid #9cac77;
+  border-radius: 4px;
+  background: transparent;
+  color: #d4ddbd;
+  font: inherit;
+  font-size: 0.6rem;
+  cursor: pointer;
+}
+.nursery-feeding-button[aria-pressed="true"] { background: #34452b; }
+.nursery-feeding-button:focus-visible { outline: 2px solid #d4ddbd; outline-offset: 2px; }
+
 .nursery-goal-card .upgrade-button {
   margin-top: 2px;
 }

@@ -43,7 +43,7 @@ test("settlement economy normalization survives capped nursery data and cross-se
   game.dispatch({ type: "configureTradeDirection", routeId, direction: "AToB", resourceType: "seeds", shipmentTarget: 100, reserveThreshold: 0, now: 0 });
   game.dispatch({ type: "setTradeWorkers", routeId, direction: "AToB", workersAssigned: 1, now: 0 });
   game.dispatch({ type: "dispatchResupply", routeId, direction: "AToB", notableIds: ["notable-1"], adultCount: 1, eggCount: 1, now: 0 });
-  game.advanceOffline(600000);
+  game.advanceOffline(nurseryConfig.growthMs);
 
   const settlements = game.snapshot().migration.settlements;
   for (const settlement of settlements) {
@@ -58,8 +58,8 @@ test("inactive colony totals retain the existing normalization limit after gradu
   const save = largeSettlementSave();
   const remote = save.session.migration.settlements[1].economy;
   remote.nursery.colonyCount = Number.MAX_SAFE_INTEGER;
-  remote.nursery.seedTickAccumulatorMs = 950;
-  remote.nursery.hatchlings.forEach((item) => { item.progressMs = 599950; });
+  remote.nursery.seedTickAccumulatorMs = nurseryConfig.seedIntervalMs - 50;
+  remote.nursery.hatchlings.forEach((item) => { item.progressMs = nurseryConfig.growthMs - 50; });
   const game = createGameSession({ save, now: 0, rng: () => 0.5 });
   game.tick(100);
   assert.ok(game.snapshot().migration.settlements[1].economy.nursery.colonyCount > Number.MAX_SAFE_INTEGER);

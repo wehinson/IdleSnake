@@ -5,7 +5,7 @@ const snake = require("./snake.js");
 const { snakeConfig, upgradeConfig } = require("./config.js");
 const { validateSaveCandidate } = require("./save-guard.js");
 
-test("S curve uses mastery-relative knees and a maximum based on each starting speed", () => {
+test("linear thirds preserve starting speed, presets, board scaling, and a 3x maximum", () => {
   for (const size of upgradeConfig.board.levels) {
     const [columns, rows] = size.split("x").map(Number);
     const states = Object.values(snakeConfig.speedPresets).map(speedMultiplier =>
@@ -14,12 +14,13 @@ test("S curve uses mastery-relative knees and a maximum based on each starting s
     assert.ok(Math.abs(initial[0] / initial[1] - 0.75) < 1e-9);
     assert.ok(Math.abs(initial[2] / initial[1] - 1.5) < 1e-9);
     const target = snake.masteryScore({ columns, rows });
-    for (const [fraction, minimum, maximum] of [[0.30, 0.08, 0.11], [0.525, 0.49, 0.51], [0.75, 0.89, 0.91], [1, 0.98, 1]]) {
+    const total = 1 + 1.15 + 1.15 ** 2;
+    for (const [fraction, expected] of [[0, 0], [1 / 3, 1 / total], [2 / 3, 2.15 / total], [1, 1], [2, 1]]) {
       states.forEach((state, i) => {
         state.score = target * fraction;
         const speed = 1000 / snake.movementInterval(state);
         const curveProgress = (speed - initial[i]) / (initial[i] * snakeConfig.maximumSpeedMultiplier - initial[i]);
-        assert.ok(curveProgress >= minimum && curveProgress <= maximum,
+        assert.ok(Math.abs(curveProgress - expected) < 1e-9,
           `${size} at ${fraction * 100}% mastery has curve progress ${curveProgress}`);
       });
     }
@@ -27,19 +28,23 @@ test("S curve uses mastery-relative knees and a maximum based on each starting s
       const startingInterval = 1000 / (1000 / state.initialTickMs * state.speedMultiplier);
       state.score = target;
       const atMastery = snake.movementInterval(state);
-      assert.ok(atMastery > startingInterval / snakeConfig.maximumSpeedMultiplier);
-      assert.ok(atMastery < startingInterval / (snakeConfig.maximumSpeedMultiplier * 0.98));
+      assert.equal(snakeConfig.maximumSpeedMultiplier, 3);
+      assert.ok(Math.abs(atMastery - startingInterval / 3) < 1e-9);
     });
   }
 });
 
-test("food gains ramp after 30% mastery and shrink after 75% mastery", () => {
+test("speed gain per food is constant in each third and rises by 15% at each boundary", () => {
   const state = snake.createSnakeMode({ columns: 20, rows: 25 });
   const target = snake.masteryScore(state.grid);
   const speed = n => { state.score = n; return 1000 / snake.movementInterval(state); };
   const gainAt = fraction => speed(target * fraction + 1) - speed(target * fraction);
-  assert.ok(gainAt(0.10) < gainAt(0.40));
-  assert.ok(gainAt(0.85) < gainAt(0.60));
+  assert.ok(Math.abs(gainAt(0.10) - gainAt(0.20)) < 1e-9);
+  assert.ok(Math.abs(gainAt(0.50) / gainAt(0.10) - 1.15) < 1e-9);
+  assert.ok(Math.abs(gainAt(0.85) / gainAt(0.50) - 1.15) < 1e-9);
+  for (const boundary of [1 / 3, 2 / 3]) {
+    assert.ok(Math.abs(speed(target * boundary - 1e-7) - speed(target * boundary + 1e-7)) < 1e-7);
+  }
   state.score = target * 0.525;
   snake.setSpeedMultiplier(state, 1.5);
   const rabbit = 1000 / state.tickMs;

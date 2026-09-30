@@ -447,7 +447,24 @@
     });
     // Injected randomness (default Math.random). A function, so it is dropped by
     // JSON serialization and never persisted into a save.
-    state.rng = typeof options.rng === "function" ? options.rng : Math.random;
+    const sourceRng = typeof options.rng === "function" ? options.rng : Math.random;
+    let randomQueue = [];
+    let recentMovement = null;
+    let replayingInput = false;
+    state.rng = () => {
+      const value = randomQueue.length ? randomQueue.shift() : sourceRng();
+      if (recentMovement && !replayingInput) recentMovement.draws.push(value);
+      return value;
+    };
+    if (migrated.session.mode === "snake" && !migrated.session.migrationChallenge) {
+      state.active = snake.restoreSnakeMode(migrated.session.active, {
+        upgrades: state.upgrades, seeds: state.seeds, best: state.best,
+        speedMultiplier: config.snakeConfig.speedPresets[state.snakeSpeed]
+      });
+      if (state.active) state.modeAccumulatorMs = Math.max(-state.active.tickMs / 2,
+        Math.min(state.active.tickMs, Number(migrated.session.modeAccumulatorMs) || 0));
+    }
+    if (!state.active) { state.phase = "ready"; state.elapsedMs = 0; state.modeAccumulatorMs = 0; }
     // Optional narrow test instrumentation. It receives only the snapshot kind
     // and never exposes authoritative state to the host.
     state.snapshotObserver = typeof options.snapshotObserver === "function" ? options.snapshotObserver : null;
@@ -455,6 +472,49 @@
     // advanceOffline(now) credits the real elapsed idle time.
     let savedAt = Number.isFinite(Number(migrated.savedAt)) ? Number(migrated.savedAt) : now;
     let simulationNow = savedAt;
+    function restoreCheckpoint(checkpoint) {
+      const rng = state.rng; const observer = state.snapshotObserver;
+      for (const key of Object.keys(state)) delete state[key];
+      Object.assign(state, clone(checkpoint), { rng, snapshotObserver: observer });
+    }
+    function correctRecentDirection(action) {
+      const history = recentMovement;
+      const inputAt = action.inputAt;
+      if (!history || state.mode !== "snake" || state.phase !== "running" || !Number.isFinite(inputAt)
+        || !history.eligible || inputAt < history.start || inputAt > history.deadline
+        || simulationNow - history.deadline > config.snakeConfig.inputLateToleranceMs) return null;
+      const trial = clone(state.active);
+      if (!snake.queueDirection(trial, action.direction)) return null;
+      const end = simulationNow;
+      recentMovement = null;
+      replayingInput = true;
+      restoreCheckpoint(history.before);
+      simulationNow = history.start;
+      randomQueue = history.draws.concat(randomQueue);
+      const replayEvents = [];
+      let submitted = false;
+      try {
+        for (const delta of history.ticks) {
+          const tickEnd = simulationNow + delta;
+          if (!submitted && inputAt <= tickEnd) {
+            const prefix = Math.max(0, inputAt - simulationNow);
+            if (prefix) replayEvents.push(...tickCore(prefix).events);
+            replayEvents.push(...dispatch({ type: "direction", direction: action.direction }).events);
+            submitted = true;
+            if (tickEnd > simulationNow) replayEvents.push(...tickCore(tickEnd - simulationNow).events);
+          } else replayEvents.push(...tickCore(delta).events);
+        }
+      } finally { replayingInput = false; }
+      // The host has already displayed the old tick events. Return only new
+      // effects, plus a correction event to remove any stale animation.
+      const oldEvents = history.events.map((item) => JSON.stringify(item));
+      const changedEvents = replayEvents.filter((item) => {
+        const index = oldEvents.indexOf(JSON.stringify(item));
+        if (index < 0) return true;
+        oldEvents.splice(index, 1); return false;
+      });
+      return result(state, [event("movementCorrected", { inputAt, deadline: history.deadline, processedAt: end }), ...changedEvents]);
+    }
     const puzzleSelections = { snakebird: null, sokoban: 0 };
     // Settlement economies are mutated in place between cross-settlement
     // boundaries. Keep the normalized object when those mutations preserve
@@ -614,6 +674,11 @@
     }
     function dispatch(action) {
       action = action && typeof action === "object" ? action : {};
+      if (!replayingInput && ["direction", "playDirection"].includes(action.type)) {
+        const corrected = correctRecentDirection(action);
+        if (corrected) return corrected;
+      }
+      if (!replayingInput) recentMovement = null;
       const events = [];
       const seedsBefore = state.seeds;
       const reject = (reason) => { events.push(event("actionRejected", { action: action.type || null, reason })); return result(state, events); };
@@ -654,7 +719,7 @@
           if (!directions.has(action.direction)) return reject("invalidDirection");
           if (state.phase === "gameover") return dispatch({ type: "resetRun" });
           if (state.mode === "breakout" && !["left", "right"].includes(action.direction)) return reject("invalidDirection");
-          return dispatch({ type: "direction", direction: action.direction });
+          return dispatch({ type: "direction", direction: action.direction, inputAt: action.inputAt });
         case "launchGame":
           if (!modeNames.has(action.mode)) return reject("invalidMode");
           if (!action.force && state.mode === action.mode && state.phase !== "gameover" && !["snake", "snakebird", "broodline"].includes(action.mode)) {
@@ -692,6 +757,10 @@
         case "pause":
           if (state.phase !== "running") return reject("notRunning");
           state.phase = "paused"; events.push(event("paused")); break;
+        case "toggleFeeding":
+          state.nursery.feedingPaused = !state.nursery.feedingPaused;
+          migration.storeActiveSettlement(state);
+          events.push(event("feedingToggled", { paused: state.nursery.feedingPaused })); break;
         case "resume":
           if (state.phase !== "paused") return reject("notPaused");
           state.phase = "running"; events.push(event("resumed")); break;
@@ -1108,12 +1177,11 @@
       }
       return result(state, events);
     }
-    function tick(dtMs, options) {
-      // Economy advances by the FULL delta so idle income catches up after the
-      // tab is throttled/backgrounded; gameplay uses a clamped delta so a lag
-      // spike never teleports the snake through several cells at once.
+    function tickCore(dtMs, options) {
+      // Classic Snake uses elapsed time even when frames stop in a hidden tab.
+      // Other modes retain their existing live-frame limit.
       const rawDt = Math.max(0, Number(dtMs) || 0);
-      const dt = Math.min(MAX_LIVE_DT, rawDt);
+      const dt = state.mode === "snake" ? rawDt : Math.min(MAX_LIVE_DT, rawDt);
       const events = [];
       const snapshotMode = options && options.snapshot === "frame" ? "frame" : "full";
       if (!rawDt) return result(state, events, snapshotMode);
@@ -1132,6 +1200,10 @@
           state.modeAccumulatorMs += dt;
           while (state.modeAccumulatorMs >= snake.nextMoveInterval(state.active) && state.phase === "running") {
             state.modeAccumulatorMs -= snake.nextMoveInterval(state.active);
+            if (recentMovement && !replayingInput) {
+              recentMovement.deadline = simulationNow - state.modeAccumulatorMs;
+              recentMovement.eligible = !state.active.directionQueue.length && !state.active.shieldImpact;
+            }
             moveSnake(events);
             if (state.active.collisionGraceRemainingMs !== null) {
               state.active.collisionGraceRemainingMs -= state.modeAccumulatorMs;
@@ -1227,16 +1299,32 @@
       migration.creditActiveSettlement(state); migration.storeActiveSettlement(state);
       return result(state, events, snapshotMode);
     }
+    function tick(dtMs, options) {
+      const rawDt = Math.max(0, Number(dtMs) || 0);
+      if (!replayingInput && state.mode === "snake" && state.phase === "running" && state.active
+        && state.active.collisionGraceRemainingMs === null && state.modeAccumulatorMs + rawDt >= snake.nextMoveInterval(state.active)) {
+        recentMovement = { before: clone(state), start: simulationNow, ticks: [], draws: [], events: [], deadline: null, eligible: false };
+      }
+      if (recentMovement) recentMovement.ticks.push(rawDt);
+      const output = tickCore(rawDt, options);
+      if (recentMovement) {
+        recentMovement.events.push(...output.events);
+        if (recentMovement.deadline === null || simulationNow - recentMovement.deadline > config.snakeConfig.inputLateToleranceMs) recentMovement = null;
+      }
+      return output;
+    }
     function advanceOffline(now) {
       const target = Math.max(savedAt, Number(now) || savedAt);
       // Offline catch-up is anchored to the last persisted wall-clock time.
       // In normal host usage this runs once at hydration; retaining that anchor
       // also preserves deterministic callers that live-tick before catch-up.
-      const dt = target - savedAt; const events = advanceSettlementWorld(dt); savedAt = target;
+      const dt = target - savedAt;
+      const events = state.mode === "snake" && state.active ? tick(dt).events : advanceSettlementWorld(dt);
+      savedAt = target;
       return result(state, events);
     }
     return { snapshot: () => makeSnapshot(state), dispatch, tick, advanceOffline,
-      serialize: () => { migration.creditActiveSettlement(state); migration.storeActiveSettlement(state); return { saveVersion: SAVE_VERSION, savedAt: simulationNow, session: clone({ ...state, active: null, migrationChallenge: null }) }; } };
+      serialize: () => { migration.creditActiveSettlement(state); migration.storeActiveSettlement(state); return { saveVersion: SAVE_VERSION, savedAt: simulationNow, session: clone({ ...state, active: state.mode === "snake" && !state.migrationChallenge ? state.active : null, migrationChallenge: null }) }; } };
   }
   return { SAVE_VERSION, MAX_LIVE_DT, migrateLegacy, createGameSession };
 });

@@ -61,7 +61,8 @@
       extraEggs, eggHeld, primaryHatching, hatching, nestMaxed,
       canUpgradeNest: !isFounding(snapshot) && !nestMaxed && snapshot.branches >= nestCost,
       canUpgradeNursery: !isFounding(snapshot) && snapshot.branches >= cost.branches && snapshot.seeds >= cost.seeds,
-      growthPaused: snapshot.seeds < activeCount,
+      feedingPaused: n.feedingPaused,
+      growthPaused: n.feedingPaused || snapshot.seeds < activeCount,
       provisionsPerSecond: economy.calculateHabitatActivation(snapshot.habitats.counts, economy.foodValueFromUpgrades(snapshot.upgrades), snapshot.notables, snapshot.habitats.upgradeLevels).provisionsProducedPerSecond
     };
   }
@@ -115,7 +116,7 @@
       canDepart: home?.status === "established" && Boolean(notable) && destinationAvailable && manifest.adults >= config.migrationConfig.requirements.adults && manifest.provisions >= config.migrationConfig.requirements.provisions && cost <= m.availablePoints };
   }
   function fullscreenAvailable(snapshot) {
-    return snapshot.upgrades.boardLevel >= config.upgradeConfig.board.levels.indexOf("15x21");
+    return snapshot.upgrades.boardLevel >= 1;
   }
   return { fullscreenAvailable, isFounding, habitatPanel, nurseryPanel, upgradePanel, exactOptionLosses, migrationPreview, capabilities, foodInfo, tradeConstruction };
 });

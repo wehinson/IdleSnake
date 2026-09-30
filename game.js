@@ -346,6 +346,7 @@ const nestTimerEl = document.querySelector("#nestTimer");
 const nestUpgradeButtonEl = document.querySelector("#nestUpgradeButton");
 const nurseryBranchTotalEl = document.querySelector("#nurseryBranchTotal");
 const nurseryCapacityEl = document.querySelector("#nurseryCapacity");
+const pauseFeedingButtonEl = document.querySelector("#pauseFeedingButton");
 const nurseryUpgradeButtonEl = document.querySelector("#nurseryUpgradeButton");
 const nurseryGrowthStatusEl = document.querySelector("#nurseryGrowthStatus");
 const nurseryGridEl = document.querySelector("#nurseryGrid");
@@ -623,6 +624,18 @@ function launchMode(mode, force = false) {
 }
 function freshGame() { return launchMode("snake"); }
 
+function presentLoadedGame() {
+  if (!gameView.snake.length || gameView.gameMode !== "snake") return freshGame();
+  boardMetrics = getBoardMetrics();
+  if (gameView.state === "ready") presentReadyGame();
+  else if (gameView.state === "paused") showOverlay("Paused");
+  else if (gameView.state === "gameover") {
+    directionInputLockedUntil = Date.now() + 1000;
+    showOverlay("Game Over");
+  } else hideOverlay();
+  syncHud(); render(); persistConsolidatedSave();
+}
+
 function readSnakeColors() {
   const fallback = {
     body: snakeColorChoices.body[0].value,
@@ -764,7 +777,7 @@ function importSaveData() {
     acceptSnapshot(importedSnapshot);
     applySessionSnapshot(importedSnapshot, canonicalCandidate.savedAt);
     initializeSessionClocks(importedSnapshot);
-    freshGame();
+    presentLoadedGame();
     const finalized = safeStorage("set", consolidatedSaveKey, JSON.stringify(gatherSaveState()));
     if (!finalized.ok) throw Object.assign(new Error("storage finalization failed"), { storageKind: finalized.kind });
   } catch (error) {
@@ -776,7 +789,7 @@ function importSaveData() {
       acceptSnapshot(session.snapshot());
       applySessionSnapshot(latestSnapshot, previousLive.savedAt);
       initializeSessionClocks(latestSnapshot);
-      freshGame();
+      presentLoadedGame();
     } catch (restoreError) { console.warn("IdleSnake live rollback failed.", restoreError); }
     if (error.storageKind) reportStorageFailure(error.storageKind, true);
     else saveDataStatus.textContent = "Import safely rolled back.";
@@ -1270,6 +1283,8 @@ function syncNurseryPanel(now = Date.now()) {
   }
 
   setText(nurseryCapacityEl, `${activeCount} / ${capacity}`);
+  setText(pauseFeedingButtonEl, panel.feedingPaused ? "Resume feeding" : "Pause feeding");
+  pauseFeedingButtonEl.setAttribute("aria-pressed", String(panel.feedingPaused));
   setText(nurseryBranchTotalEl, formatWholeNumber(gameView.branchesTotal));
 
   nestUpgradeButtonEl.disabled = !panel.canUpgradeNest;
@@ -1278,10 +1293,12 @@ function syncNurseryPanel(now = Date.now()) {
   nurseryUpgradeButtonEl.textContent = `Upgrade Nursery · ${formatNumber(nurseryBranchCost)} Branches + ${formatNumber(nurserySeedCost)} Seeds`;
   if (activeCount === 0) {
     setText(nurseryGrowthStatusEl, "Waiting for a hatchling");
+  } else if (panel.feedingPaused) {
+    setText(nurseryGrowthStatusEl, "Growth paused · feeding stopped");
   } else if (panel.growthPaused) {
     setText(nurseryGrowthStatusEl, "Growth paused · seed bank too low");
   } else {
-    setText(nurseryGrowthStatusEl, "Growing · 1 seed/sec each");
+    setText(nurseryGrowthStatusEl, "Growing · 1 Seed / 900 ms each");
   }
 
   syncHatchlingRows();
@@ -1349,8 +1366,8 @@ function tickIdleWorld(source = "other") {
     source,
     wallTimeMs: now,
     rawDtMs: dt,
-    countedDtMs: Math.min(window.IdleSnakeSession.MAX_LIVE_DT, dt),
-    discardedDtMs: Math.max(0, dt - window.IdleSnakeSession.MAX_LIVE_DT),
+    countedDtMs: snapshot.mode === "snake" ? dt : Math.min(window.IdleSnakeSession.MAX_LIVE_DT, dt),
+    discardedDtMs: snapshot.mode === "snake" ? 0 : Math.max(0, dt - window.IdleSnakeSession.MAX_LIVE_DT),
     before,
     after: snakeTimingState(snapshot),
     events: events.map((item) => item.type),
@@ -1679,6 +1696,12 @@ function interpretSessionEvents(events) {
       case "hatch":
       case "eggBoardHatched": idleLastPanelAt = 0; break;
       case "eat": if (gameView.gameMode === "snake") { startDigestionAnimation(); startCrumbAnimation(event.at); startTailWiggle(); } break;
+      case "movementCorrected":
+        digestionAnimations = []; crumbAnimations = []; tailWiggleStartedAt = null; deathAnimation = null;
+        clearTimeout(deathOverlayTimer); deathOverlayTimer = null;
+        if (gameView.state === "running") hideOverlay();
+        idleLastPanelAt = 0;
+        break;
       case "shield": if (gameView.gameMode === "snake") { acceptSnapshot(session.snapshot()); saveUpgrades(); } break;
       case "bestScore": if (gameView.gameMode === "snake") setSaveItem("best", String(gameView.best)); break;
       case "gameOver": if (gameView.gameMode === "snake") { directionInputLockedUntil = Date.now() + 1000; startDeathAnimation(); syncHud(); showDeathOverlay("Game Over"); } break;
@@ -1855,9 +1878,16 @@ function gameLoop(now) {
 // tinted with the player's snake colors) and the score/wave/game-over events.
 function launchCentipede(force = false) { return launchMode("centipede", force); }
 
-function queueDirection(direction) {
+function queueDirection(direction, inputTimestamp) {
+  const processedAt = Date.now();
+  const timestamp = Number.isFinite(inputTimestamp)
+    ? (inputTimestamp > performance.timeOrigin ? inputTimestamp - performance.timeOrigin : inputTimestamp)
+    : performance.now();
+  const inputAt = processedAt - Math.max(0, performance.now() - timestamp);
   interpretSessionEvents(tickIdleWorld("direction"));
-  return presentGameResult(dispatchSession({ type: "playDirection", direction }));
+  // Advancing time can end the run. Recheck before playDirection can reset it.
+  if (Date.now() < directionInputLockedUntil) return false;
+  return presentGameResult(dispatchSession({ type: "playDirection", direction, inputAt }));
 }
 
 function updateDirectionButtonPressed(directionName) {
@@ -4180,7 +4210,7 @@ document.addEventListener("keydown", (event) => {
     event.preventDefault();
     if (event.code.startsWith("Arrow") && Date.now() < directionInputLockedUntil) return;
     const directionName = keyMap[event.code];
-    if (gameView.gameMode !== "snake" || !event.repeat) queueDirection(directionName);
+    if (gameView.gameMode !== "snake" || !event.repeat) queueDirection(directionName, event.timeStamp);
     if (!event.repeat) {
       activeDirectionKeys.add(event.code);
       updateDirectionButtonPressed(directionName);
@@ -4241,7 +4271,7 @@ window.addEventListener("blur", () => {
 
 document.querySelectorAll("[data-direction]").forEach((button) => {
   button.addEventListener("pointerdown", (event) => {
-    queueDirection(button.dataset.direction);
+    queueDirection(button.dataset.direction, event.timeStamp);
     directionPointerStarts.set(event.pointerId, {
       directionName: button.dataset.direction,
       startedAt: performance.now()
@@ -4552,7 +4582,7 @@ buildHabitatList();
 // Build the session (economy + offline catch-up) FIRST, since freshGame() now
 // creates the snake run inside it. Then let gameLoop drive both on one clock.
 initIdleWorld();
-freshGame();
+presentLoadedGame();
 // Populate the initially hidden Colony markup once so it is ready when the
 // player opens the tab; subsequent refreshes are visibility-gated.
 renderHabitats();
@@ -4562,4 +4592,27 @@ cancelAnimationFrame(animationId);
 animationId = requestAnimationFrame((now) => {
   ;
   gameLoop(now);
+});
+
+pauseFeedingButtonEl.addEventListener("click", () => {
+  interpretSessionEvents(tickIdleWorld("feeding"));
+  const result = dispatchSession({ type: "toggleFeeding" });
+  interpretSessionEvents(result.events);
+  syncNurseryPanel(); persistConsolidatedSave();
+});
+
+// Animation frames stop in hidden tabs. Timers can also be throttled, so each
+// callback accounts for the entire elapsed time; returning focus catches up too.
+setInterval(() => {
+  if (document.hidden || !document.hasFocus()) interpretSessionEvents(tickIdleWorld("background"));
+}, 100);
+function catchUpGame() {
+  interpretSessionEvents(tickIdleWorld("focus"));
+  syncHud(); render(); persistConsolidatedSave();
+}
+window.addEventListener("focus", catchUpGame);
+document.addEventListener("visibilitychange", catchUpGame);
+window.addEventListener("pagehide", () => {
+  interpretSessionEvents(tickIdleWorld("pagehide"));
+  persistConsolidatedSave(); flushPendingSaves();
 });

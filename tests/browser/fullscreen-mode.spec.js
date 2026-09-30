@@ -12,7 +12,7 @@ async function unlock(page, boardLevel = 6) {
 
 test("fullscreen unlock follows the purchased board and expands without resetting play", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
-  await unlock(page, 4);
+  await unlock(page, 0);
   const button = page.locator("#fullscreenModeButton");
   await expect(button).toBeHidden();
   await page.evaluate(() => {

@@ -1,5 +1,17 @@
 # Branch status
 
+## working — Snake and nursery changes
+
+- Category: gameplay, persistence, controls, and nursery UI.
+- Agent: Codex.
+- Status: Active; browser checks and full verification are pending.
+- Purpose: address all nine requested changes. The three linear speed segments in item 9 replace item 4's S-curve requirement; maximum speed is 3x.
+- Changes: save the active Classic board; use elapsed time in hidden tabs and after reload; recheck the death lock after advancing time; correct timestamped turns through 34 ms late; grow hatchlings for 15 minutes at one Seed per 900 ms; save a feeding pause; unlock fullscreen after the first board upgrade.
+- Tests: all 15 focused engine tests passed. Existing speed and nursery fixtures now use the requested rules.
+- Version impact: optional active Snake board and nursery feeding fields in the existing version 5 envelope; old saves remain supported.
+- Last update: 2026-09-30.
+- Notes: work stays on working. No release is requested.
+
 ## working — Frame lag plan
 
 - Category: performance planning.

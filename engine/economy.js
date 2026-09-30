@@ -54,6 +54,8 @@
           y: clampNumber(raw.y, 0, nurseryConfig.rows - 1, index === 0 ? 4 : nurseryConfig.rows - 5),
           direction: vectors[raw.direction] ? raw.direction : (index % 2 === 0 ? "right" : "left"),
           progressMs: clampNumber(raw.progressMs, 0, nurseryConfig.growthMs, 0),
+          feedingAccumulatorMs: clampNumber(raw.feedingAccumulatorMs, 0, nurseryConfig.seedIntervalMs,
+            clampNumber(raw.progressMs, 0, nurseryConfig.growthMs, 0) % nurseryConfig.seedIntervalMs),
           tailWiggle: Boolean(raw.tailWiggle),
           temporary: Boolean(raw.temporary)
         }))
@@ -85,6 +87,7 @@
       eggProgress: clampNumber(saved.eggProgress, 0, Number.MAX_SAFE_INTEGER, 0),
       eggsStarted: Math.floor(clampNumber(saved.eggsStarted, 0, Number.MAX_SAFE_INTEGER, 0)),
       hatchlings,
+      feedingPaused: saved.feedingPaused === true,
       colonyCount: clampNumber(saved.colonyCount, 0, Number.MAX_SAFE_INTEGER, 0),
       seedTickAccumulatorMs: clampNumber(saved.seedTickAccumulatorMs, 0, nurseryConfig.seedIntervalMs, 0),
       movementAccumulatorMs: clampNumber(saved.movementAccumulatorMs, 0, nurseryConfig.moveIntervalMs, 0)
@@ -190,6 +193,7 @@
       y: index === 0 ? 4 : nurseryConfig.rows - 5,
       direction: index % 2 === 0 ? "right" : "left",
       progressMs: 0,
+      feedingAccumulatorMs: 0,
       tailWiggle: false,
       temporary: index >= (capacity == null ? nurseryConfig.capacity : capacity)
     };
@@ -269,18 +273,23 @@
       return { seeds, changed: false };
     }
 
-    nursery.seedTickAccumulatorMs += deltaMs;
-    while (nursery.seedTickAccumulatorMs >= nurseryConfig.seedIntervalMs && nursery.hatchlings.length > 0) {
+    let remainingMs = deltaMs;
+    while (!nursery.feedingPaused && remainingMs > 0 && nursery.hatchlings.length > 0) {
       const activeCount = nursery.hatchlings.length;
-      if (seeds < activeCount) {
-        nursery.seedTickAccumulatorMs = 0;
-        break;
-      }
-      seeds -= activeCount;
-      nursery.seedTickAccumulatorMs -= nurseryConfig.seedIntervalMs;
+      if (seeds < activeCount) break;
+      const slice = Math.min(remainingMs, ...nursery.hatchlings.map((h) => Math.min(
+        nurseryConfig.seedIntervalMs - (h.feedingAccumulatorMs ?? (h.progressMs % nurseryConfig.seedIntervalMs)),
+        nurseryConfig.growthMs - h.progressMs)));
       nursery.hatchlings.forEach((hatchling) => {
-        hatchling.progressMs = Math.min(nurseryConfig.growthMs, hatchling.progressMs + nurseryConfig.seedIntervalMs);
+        hatchling.feedingAccumulatorMs = (hatchling.feedingAccumulatorMs ?? (hatchling.progressMs % nurseryConfig.seedIntervalMs)) + slice;
+        hatchling.progressMs = Math.min(nurseryConfig.growthMs, hatchling.progressMs + slice);
+        if (hatchling.feedingAccumulatorMs >= nurseryConfig.seedIntervalMs || hatchling.progressMs >= nurseryConfig.growthMs) {
+          seeds -= 1;
+          hatchling.feedingAccumulatorMs = 0;
+        }
       });
+      remainingMs -= slice;
+      nursery.seedTickAccumulatorMs = nursery.hatchlings[0]?.feedingAccumulatorMs || 0;
       changed = true;
 
       const graduates = nursery.hatchlings.filter((h) => h.progressMs >= nurseryConfig.growthMs);

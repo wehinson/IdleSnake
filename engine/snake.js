@@ -229,18 +229,45 @@
   }
 
   function accelerationProgress(score, target) {
-    const boardProgress = Math.max(0, Number(score) || 0) / Math.max(1, Number(target) || 1);
-    const start = snakeConfig.accelerationStartProgress;
-    const asymptote = snakeConfig.accelerationAsymptoteProgress;
-    const midpoint = (start + asymptote) / 2;
-    // Put 10% and 90% of the raw logistic curve at the configured knees.
-    const steepness = (2 * Math.log(9)) / (asymptote - start);
-    const logistic = (progress) => 1 / (1 + Math.exp(-steepness * (progress - midpoint)));
-    const baseline = logistic(0);
-    return Math.max(0, Math.min(1, (logistic(boardProgress) - baseline) / (1 - baseline)));
+    const progress = Math.max(0, Math.min(1, (Number(score) || 0) / Math.max(1, Number(target) || 1)));
+    const rate = snakeConfig.accelerationRateIncrease;
+    const thirds = progress * 3;
+    return (Math.min(1, thirds) + Math.max(0, Math.min(1, thirds - 1)) * rate
+      + Math.max(0, thirds - 2) * rate * rate) / (1 + rate + rate * rate);
   }
 
-  // Preset and board determine both the starting speed and its asymptote.
+  // Restore an active Classic board without drawing new food or consuming RNG.
+  function restoreSnakeMode(saved, opts) {
+    if (!saved || !saved.grid || !Array.isArray(saved.snake) || !Array.isArray(saved.foods)) return null;
+    const { columns, rows } = saved.grid;
+    if (!Number.isInteger(columns) || !Number.isInteger(rows) || columns < 3 || rows < 3 || columns > 100 || rows > 100) return null;
+    const validPoint = (p) => p && Number.isInteger(p.x) && Number.isInteger(p.y) && !isWallHit(saved.grid, p);
+    if (!saved.snake.length || saved.snake.length > columns * rows || !saved.snake.every(validPoint)
+      || saved.foods.length > columns * rows || !saved.foods.every((p) => validPoint(p) && ["seed", "egg"].includes(p.kind))
+      || !vectors[saved.direction]) return null;
+    const occupied = [...saved.snake, ...saved.foods].map((p) => `${p.x},${p.y}`);
+    if (new Set(occupied).size !== occupied.length) return null;
+    const state = JSON.parse(JSON.stringify(saved));
+    state.upgrades = opts.upgrades;
+    state.seeds = opts.seeds; state.best = opts.best;
+    state.initialTickMs = Number.isFinite(saved.initialTickMs) && saved.initialTickMs > 0 ? saved.initialTickMs : startTickMs;
+    state.speedMultiplier = opts.speedMultiplier;
+    state.score = Math.max(0, Math.min(masteryScore(state.grid), Math.floor(Number(saved.score) || 0)));
+    state.runSeedsEarned = Math.max(0, Number(saved.runSeedsEarned) || 0);
+    state.directionQueue = [];
+    for (const direction of Array.isArray(saved.directionQueue) ? saved.directionQueue.slice(0, maxQueuedDirections) : []) queueDirection(state, direction);
+    state.nextDirection = state.directionQueue.at(-1) || state.direction;
+    state.collisionGraceRemainingMs = Number.isFinite(saved.collisionGraceRemainingMs)
+      ? Math.max(0, Math.min(snakeConfig.collisionGraceMs, saved.collisionGraceRemainingMs)) : null;
+    state.shieldImpact = saved.shieldImpact && vectors[saved.shieldImpact.redirectDirection]
+      && vectors[saved.shieldImpact.incomingDirection] && Number.isInteger(saved.shieldImpact.ticksRemaining)
+      && saved.shieldImpact.ticksRemaining >= 1 && saved.shieldImpact.ticksRemaining <= 3
+      ? state.shieldImpact : null;
+    state.tickMs = movementInterval(state);
+    return state;
+  }
+
+  // Preset and board scale the entire speed curve, including its maximum.
   function movementInterval(state) {
     const startingSpeed = 1000 / (state.initialTickMs || startTickMs) * (state.speedMultiplier || 1);
     const maximumSpeed = startingSpeed * snakeConfig.maximumSpeedMultiplier;
@@ -403,6 +430,7 @@
     queueDirectionAfterShield,
     turnDirection,
     createSnakeMode,
+    restoreSnakeMode,
     setSpeedMultiplier,
     movementInterval,
     canMoveDirection,

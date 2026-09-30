@@ -88,12 +88,11 @@ test("board speed increases preserve food acceleration and scale the maximum spe
     };
     feed();
     assert.ok(state.tickMs < expected[index]);
-    assert.ok(snake.accelerationProgress(state.score, snake.masteryScore(state.grid)) < 0.02,
-      "the first food stays below the 30% acceleration knee");
+    assert.ok(snake.accelerationProgress(state.score, snake.masteryScore(state.grid)) > 0,
+      "the first food increases speed on every board");
     state.score = snake.masteryScore(state.grid);
     feed();
-    assert.ok(state.tickMs > expected[index] / snakeConfig.maximumSpeedMultiplier);
-    assert.ok(state.tickMs < expected[index] / (snakeConfig.maximumSpeedMultiplier * 0.98));
+    assert.ok(Math.abs(state.tickMs - expected[index] / 3) < 1e-9);
   });
 });
 
@@ -101,7 +100,8 @@ test("custom starting speed remains the baseline after eating", () => {
   const state = snake.createSnakeMode({ columns: 9, rows: 9 }, { tickMs: 200, rng: seededRng(42) });
   state.foods = [{ x: state.snake[0].x, y: state.snake[0].y - 1 }];
   snake.stepSnake(state, { rng: seededRng(42) });
-  assert.ok(state.tickMs < 200 && state.tickMs > 199);
+  assert.ok(state.tickMs < 200 && state.tickMs > 190);
+  assert.equal(state.initialTickMs, 200);
 });
 
 test("mastery score fills the complete area on odd and even boards", () => {
