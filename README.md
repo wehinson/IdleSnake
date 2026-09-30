@@ -91,6 +91,8 @@ The session owns game state and game controls for all 11 modes. The browser send
 - resetRun: restart the current run, or continue a completed puzzle.
 - playDirection: use a direction control, including reset after game over.
 
+When paused, each gameplay control resumes the current run. The first input resumes without moving, resetting, or selecting another game. This applies to directions, Start, Pause, Reset, and minigame choices. Settings opens its menu during Game Over. Keyboard play clears focus from game buttons; pause does not leave a button highlighted. Swallowed Seed, crumb, and tail effects freeze during pause and continue from the same point after resume.
+
 Board purchases, food-count purchases, board selection, and settlement selection create their new Snake board inside the session. The engine/queries.js module provides panel costs, production, availability, and migration estimates. The engine/save-projection.js module handles legacy storage projection. The browser still handles storage I/O and visual effects.
 
 Run Snake without a browser:
@@ -107,6 +109,6 @@ Direction input uses its event timestamp. A turn pressed before a movement deadl
 
 Each hatchling consumes one Seed every 900 ms while feeding. It grows a second block at 5 minutes, a third block at 10 minutes, and graduates at 15 minutes after consuming 1,000 Seeds. Growth stops when Seeds run out. The nursery's Pause feeding button stops feeding and growth while keeping Seeds. This setting is saved and applies during offline progress. The nursery heading places the title on the left, the button in the middle, and capacity on the right.
 
-Fullscreen mode is available after the first board upgrade and is saved across reloads. It keeps the menu at its normal size and expands the play field. Screen scanlines, tint, and bezel shading are 25% weaker in fullscreen. Returning after a background death shows a static Game Over screen. A death animation in progress is also cleared when the tab loses focus.
+Fullscreen mode is available after the first board upgrade and is saved across reloads. It expands the play field and makes the side menu 25% wider, within the screen width. Its Minigames button sits between Start and Phone Mode and lists game names with their unlock state. The controls sit 10 px higher. Screen scanlines, tint, and bezel shading are 25% weaker in fullscreen. Returning after a background death shows a static Game Over screen. A death animation in progress is also cleared when the tab loses focus.
 
 Fatal classic Snake collisions have a 120 ms grace period, set by snakeConfig.collisionGraceMs. The snake holds on its last safe square; a legal safe turn during this window completes the pending move and starts a full movement interval. Unsafe input does not extend the window. Pause freezes it and reset clears it. Shields keep their existing immediate rescue behavior.

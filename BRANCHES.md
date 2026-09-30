@@ -1,5 +1,17 @@
 # Branch status
 
+## working-codex-controls — Controls and fullscreen follow-up
+
+- Category: engine controls and display.
+- Agent: Codex.
+- Status: Ready for review.
+- Changes: Settings opens during Game Over; game controls clear button focus without a green mark; all gameplay controls resume a paused run; pause freezes swallowed Seeds, crumbs, and tail motion; fullscreen menu width increases by 25%; a Minigames button between Start and Phone Mode lists game names with engine-owned unlocks; fullscreen controls move up 10 px.
+- Tests: `npm run check` passed syntax, authority checks, and all 292 Node tests. New checks cover every gameplay control in every mode, minigame names and unlocks, and display time across repeated pauses.
+- UI verification: a focused browser check is prepared. Permission was requested; no reply received yet. Button focus, settings display, paused food effects, and fullscreen layout have not been checked in a browser for this batch.
+- Version impact: none.
+- Last update: 2026-09-30.
+- Notes: this batch uses a separate checkout because another chat was active. No release requested.
+
 ## working — Nursery and fullscreen follow-up
 
 - Category: display and saved preferences.
