@@ -688,17 +688,19 @@
       const reject = (reason) => { events.push(event("actionRejected", { action: action.type || null, reason })); return result(state, events); };
       switch (action.type) {
         case "openMinigame": {
+          if (state.phase === "paused") return dispatch({ type: "resume" });
           if (state.phase === "gameover") return dispatch({ type: "resetRun" });
           const number = action.number;
           if (number === 9 && state.mode === "duel") return dispatch({ type: "launchGame", mode: "runner" });
-          const modes = [null, "duel", "maze", "breakout", "crossing", "snakebird", "sokoban", "broodline", "battleship", "centipede"];
-          if (!Number.isInteger(number) || number < 1 || number >= modes.length) return reject("invalidMinigame");
+          if (!Number.isInteger(number) || number < 1 || number > config.minigameCatalog.length) return reject("invalidMinigame");
           if (number > state.upgrades.minigamesLevel) return reject("minigameLocked");
-          return dispatch({ type: "launchGame", mode: modes[number] });
+          return dispatch({ type: "launchGame", mode: config.minigameCatalog[number - 1].mode });
         }
         case "resetRun":
+          if (state.phase === "paused") return dispatch({ type: "resume" });
           return dispatch({ type: isPuzzleMode(state.mode) ? "continuePuzzle" : "restart" });
         case "primaryAction": {
+          if (state.phase === "paused") return dispatch({ type: "resume" });
           const priorEvents = [];
           if (state.phase === "gameover") {
             priorEvents.push(...dispatch({ type: "resetRun" }).events);
@@ -721,6 +723,7 @@
           return dispatch({ type: state.phase === "paused" ? "resume" : "pause" });
         case "playDirection":
           if (!directions.has(action.direction)) return reject("invalidDirection");
+          if (state.phase === "paused") return dispatch({ type: "resume" });
           if (state.phase === "gameover") return dispatch({ type: "resetRun" });
           if (state.mode === "breakout" && !["left", "right"].includes(action.direction)) return reject("invalidDirection");
           return dispatch({ type: "direction", direction: action.direction, inputAt: action.inputAt });

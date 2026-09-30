@@ -12,6 +12,17 @@
   const gameplaySpeed = 1;
   const slowedTick = (milliseconds) => Math.round(milliseconds / gameplaySpeed);
   const boardLevels = ["5x8", "5x10", "8x10", "11x11", "12x15", "15x21", "15x22", "20x25"];
+  const minigameCatalog = [
+    { mode: "duel", name: "Vs Snake" },
+    { mode: "maze", name: "Snake Forever" },
+    { mode: "breakout", name: "Brick Breakout" },
+    { mode: "crossing", name: "Snakeger" },
+    { mode: "snakebird", name: "Snakebird" },
+    { mode: "sokoban", name: "Sokoban" },
+    { mode: "broodline", name: "Broodline" },
+    { mode: "battleship", name: "Venom Strike" },
+    { mode: "centipede", name: "Centipede" }
+  ];
   const upgradeConfig = {
     board: {
       levels: boardLevels,
@@ -258,5 +269,5 @@
     completedResupplyMissions: 50
   };
 
-  return { gameplaySpeed, upgradeConfig, snakeConfig, nurseryConfig, habitatConfig, notableConfig, boardMasteryConfig, migrationConfig, tradeRouteConfig, resupplyConfig, historyRetentionConfig };
+  return { gameplaySpeed, minigameCatalog, upgradeConfig, snakeConfig, nurseryConfig, habitatConfig, notableConfig, boardMasteryConfig, migrationConfig, tradeRouteConfig, resupplyConfig, historyRetentionConfig };
 });

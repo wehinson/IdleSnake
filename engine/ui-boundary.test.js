@@ -48,6 +48,51 @@ test("engine controls own start, pause, resume, and reset in every mode", () => 
   }
 });
 
+test("every gameplay control resumes a paused run without resetting or applying a turn", () => {
+  let seed = 42;
+  const session = createGameSession({ now: 0, rng: () => ((seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 4294967296) });
+  const controls = [
+    { type: "primaryAction" }, { type: "togglePause" }, { type: "resetRun" },
+    { type: "openMinigame", number: 1 },
+    ...["up", "down", "left", "right"].map((direction) => ({ type: "playDirection", direction }))
+  ];
+  for (const mode of session.snapshot().supportedModes) {
+    session.dispatch({ type: "launchGame", mode, force: true });
+    if (mode === "battleship") session.dispatch({ type: "battleshipShuffle" });
+    session.dispatch({ type: "primaryAction" });
+    const before = session.snapshot();
+    for (const control of controls) {
+      session.dispatch({ type: "pause" });
+      session.tick(10_000);
+      const result = session.dispatch(control);
+      assert.equal(result.snapshot.phase, "running", `${mode}: ${JSON.stringify(control)}`);
+      assert.equal(result.snapshot.mode, mode);
+      assert.deepEqual(result.snapshot.active, before.active);
+      assert.equal(result.snapshot.elapsedMs, before.elapsedMs);
+      assert.deepEqual(result.events.map((event) => event.type), ["resumed"]);
+    }
+  }
+});
+
+test("named minigames agree with engine launches and unlocks, including the Runner shortcut", () => {
+  const session = createGameSession({ now: 0, rng: () => 0.3 });
+  const names = ["Vs Snake", "Snake Forever", "Brick Breakout", "Snakeger", "Snakebird", "Sokoban", "Broodline", "Venom Strike", "Centipede"];
+  const options = queries.minigameOptions(session.snapshot());
+  assert.deepEqual(options.map((option) => option.name), names);
+  assert.equal(options.every((option) => !option.unlocked), true);
+  session.dispatch({ type: "addSeeds", amount: 1e9 });
+  for (let i = 0; i < 9; i++) session.dispatch({ type: "buyUpgrade", upgrade: "minigames" });
+  for (const option of queries.minigameOptions(session.snapshot())) {
+    session.dispatch({ type: "launchGame", mode: "snake" });
+    assert.equal(option.unlocked, true);
+    assert.equal(session.dispatch({ type: "openMinigame", number: option.number }).snapshot.mode, option.mode);
+  }
+  session.dispatch({ type: "launchGame", mode: "duel" });
+  const runner = queries.minigameOptions(session.snapshot())[8];
+  assert.equal(runner.name, "Snake Runner");
+  assert.equal(session.dispatch({ type: "openMinigame", number: runner.number }).snapshot.mode, runner.mode);
+});
+
 test("headless play uses the browser controls to solve and advance Sokoban", () => {
   const session = createGameSession({ now: 0 });
   session.dispatch({ type: "launchGame", mode: "sokoban" });

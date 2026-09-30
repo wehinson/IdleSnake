@@ -118,5 +118,12 @@
   function fullscreenAvailable(snapshot) {
     return snapshot.upgrades.boardLevel >= 1;
   }
-  return { fullscreenAvailable, isFounding, habitatPanel, nurseryPanel, upgradePanel, exactOptionLosses, migrationPreview, capabilities, foodInfo, tradeConstruction };
+  function minigameOptions(snapshot) {
+    return config.minigameCatalog.map((game, index) => {
+      const runnerShortcut = index === 8 && snapshot.mode === "duel";
+      return { ...game, number: index + 1, unlocked: runnerShortcut || index < snapshot.upgrades.minigamesLevel,
+        ...(runnerShortcut ? { mode: "runner", name: "Snake Runner" } : {}) };
+    });
+  }
+  return { minigameOptions, fullscreenAvailable, isFounding, habitatPanel, nurseryPanel, upgradePanel, exactOptionLosses, migrationPreview, capabilities, foodInfo, tradeConstruction };
 });
