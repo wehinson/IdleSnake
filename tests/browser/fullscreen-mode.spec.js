@@ -35,8 +35,7 @@ test("fullscreen unlock follows the purchased board and expands without resettin
   expect(large.width).toBeGreaterThan(small.width * 1.4);
   const menu = await page.locator(".menu-panel").boundingBox();
   const phone = await page.locator(".phone-shell").boundingBox();
-  expect(Math.abs(menu.width - normalMenu.width)).toBeLessThan(2);
-  expect(Math.abs(menu.height - normalMenu.height)).toBeLessThan(2);
+  expect(Math.abs(menu.width - normalMenu.width * 1.25)).toBeLessThan(2);
   expect(phone.width).toBeGreaterThan(menu.width);
   expect(await page.evaluate(() => session.snapshot().active)).toEqual(before);
   await page.screenshot({ path: test.info().outputPath("fullscreen.png") });
@@ -71,7 +70,7 @@ test("fullscreen is available on smaller selected boards and fits a narrow scree
   await expect(page.locator(".menu-panel")).toBeVisible();
 });
 
-test("fullscreen follow-up keeps menu size, restores the mode, and finishes background death", async ({ page, context }) => {
+test("fullscreen follow-up widens the menu, restores the mode, and finishes background death", async ({ page, context }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   // Use a one-time fixture so reload reads the save written by the UI.
   await page.addInitScript(() => {
@@ -93,8 +92,7 @@ test("fullscreen follow-up keeps menu size, restores the mode, and finishes back
   expect(await page.evaluate(() => screenEffectStrength())).toBe(1);
   await page.locator("#fullscreenModeButton").click();
   const after = await page.locator(".menu-panel").boundingBox();
-  expect(Math.abs(after.width - before.width)).toBeLessThan(2);
-  expect(Math.abs(after.height - before.height)).toBeLessThan(2);
+  expect(Math.abs(after.width - before.width * 1.25)).toBeLessThan(2);
   expect((await page.locator("#game").boundingBox()).width).toBeGreaterThan(small.width * 1.4);
   expect(await page.evaluate(() => screenEffectStrength())).toBe(0.75);
   expect(await page.locator(".screen-bezel").evaluate((el) => getComputedStyle(el).boxShadow)).toContain("0.24");

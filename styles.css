@@ -1515,11 +1515,8 @@ canvas {
 .nav-key:focus-visible,
 .action-key:focus-visible,
 .phone-key:focus-visible {
-  box-shadow:
-    inset 0 0 0 2px #9cac77,
-    inset 0 2px 0 rgba(255,255,255,0.16),
-    inset 0 -5px 7px rgba(0,0,0,0.38),
-    0 3px 0 #050607;
+  outline: 2px solid var(--paper);
+  outline-offset: 2px;
 }
 
 .nav-key {
@@ -1673,7 +1670,7 @@ canvas {
 .nav-key:active,
 .nav-key.is-pressed,
 .action-key:active,
-.action-key.is-active {
+.phone-key:active {
   transform: translateY(3px);
   box-shadow:
     inset 0 1px 0 rgba(255,255,255,0.12),
@@ -1947,7 +1944,7 @@ html[data-reduced-motion="true"] *::after { animation-duration: .01ms !important
    shortening the transition still made controls jump between raised/pressed
    positions, especially for keyboard-driven D-pad input. */
 html[data-reduced-motion="true"] :is(.menu-tab, .notables-back-button, .notables-open-button, .upgrade-button, .personalization-back, .color-swatch, .mobile-control-toggle, .nav-key, .action-key):active,
-html[data-reduced-motion="true"] :is(.nav-key.is-pressed, .action-key.is-active) {
+html[data-reduced-motion="true"] .nav-key.is-pressed {
   transform: none !important;
 }
 
@@ -1973,11 +1970,11 @@ html[data-reduced-motion="true"] :is(.nav-key.is-pressed, .action-key.is-active)
   filter: drop-shadow(0 0 3px rgba(219, 229, 173, 0.7));
 }
 
-/* Expand the play field while keeping the menu's normal dimensions. */
+/* Expand the play field and give the menu 25% more width. */
 .is-fullscreen-mode .app-layout.has-fullscreen-option {
   width: 100%;
   max-width: none;
-  grid-template-columns: minmax(230px, 300px) minmax(0, 1fr);
+  grid-template-columns: minmax(287.5px, 375px) minmax(0, 1fr);
 }
 .is-fullscreen-mode .phone-shell {
   width: 100%;
@@ -1993,7 +1990,29 @@ html[data-reduced-motion="true"] :is(.nav-key.is-pressed, .action-key.is-active)
 .is-fullscreen-mode .minigame-keypad,
 .is-fullscreen-mode .minimized-keypad-button,
 .is-fullscreen-mode .large-dpad-personalize-button { display: none !important; }
-.is-fullscreen-mode .fullscreen-controls { display: grid; }
+.is-fullscreen-mode .fullscreen-controls { display: contents; }
+.is-fullscreen-mode #startButton { grid-area: 1 / 1; }
+.is-fullscreen-mode #fullscreenMinigamesButton { grid-area: 1 / 2; }
+.is-fullscreen-mode #phoneModeButton { grid-area: 1 / 3; }
+.is-fullscreen-mode #pauseButton { grid-area: 2 / 1; }
+.is-fullscreen-mode #resetButton { grid-area: 2 / 2; }
+.is-fullscreen-mode #fullscreenSettingsButton { grid-area: 2 / 3; }
+.fullscreen-minigame-menu {
+  position: absolute;
+  bottom: calc(100% + 14px);
+  right: 0;
+  z-index: 20;
+  width: min(100%, 440px);
+  padding: 10px;
+  border: 2px solid #07090c;
+  border-radius: 8px;
+  background: var(--key);
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+.fullscreen-minigame-menu[hidden] { display: none; }
+.fullscreen-minigame-menu .action-key { top: 0; min-height: 40px; }
 .is-fullscreen-mode .screen-frame {
   min-height: 0;
   display: flex;
@@ -2021,6 +2040,7 @@ html[data-reduced-motion="true"] :is(.nav-key.is-pressed, .action-key.is-active)
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  transform: translateY(-10px);
 }
 .is-fullscreen-mode .phone-nav,
 .is-fullscreen-mode .phone-nav.is-large-dpad {
@@ -2031,6 +2051,7 @@ html[data-reduced-motion="true"] :is(.nav-key.is-pressed, .action-key.is-active)
 .is-fullscreen-mode .keypad,
 .is-fullscreen-mode .controls.is-large-dpad-controls .keypad {
   flex: 1;
+  position: relative;
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 6px;
@@ -2045,7 +2066,7 @@ html[data-reduced-motion="true"] :is(.nav-key.is-pressed, .action-key.is-active)
 }
 
 @media (max-width: 640px) {
-  .is-fullscreen-mode .menu-panel { width: min(100%, 340px); }
+  .is-fullscreen-mode .menu-panel { width: min(100%, 425px); }
 }
 
 .snake-timing-download {

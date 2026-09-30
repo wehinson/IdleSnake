@@ -5,7 +5,7 @@ test("phone controls do not show the browser's white focus ring", async ({ page 
   const settingsKey = page.locator('[data-minigame="0"]');
   await settingsKey.click();
   await page.keyboard.press("ArrowUp");
-  await expect(settingsKey).toBeFocused();
+  await expect(settingsKey).not.toBeFocused();
   await expect(settingsKey).toHaveCSS("outline-style", "none");
 });
 

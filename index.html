@@ -394,7 +394,9 @@
             <button id="resetButton" class="action-key" type="button">Reset</button>
             <div class="fullscreen-controls" aria-label="Fullscreen controls">
               <button id="fullscreenSettingsButton" class="action-key" type="button">Settings</button>
+              <button id="fullscreenMinigamesButton" class="action-key" type="button" aria-expanded="false" aria-controls="fullscreenMinigameMenu">Minigames</button>
               <button id="phoneModeButton" class="action-key" type="button">Phone Mode</button>
+              <div id="fullscreenMinigameMenu" class="fullscreen-minigame-menu" role="group" aria-label="Minigames" hidden></div>
             </div>
           </div>
         </section>
@@ -425,6 +427,7 @@
     <script src="engine/queries.js"></script>
     <script src="engine/state-reader.js"></script>
     <script src="scripts/snake-timing.js"></script>
+    <script src="scripts/animation-clock.js"></script>
     <script src="game.js"></script>
   </body>
 </html>

@@ -268,6 +268,8 @@ const scoreLabelEl = document.querySelector("#scoreLabel");
 const bestLabelEl = document.querySelector("#bestLabel");
 const boardSizeSelect = document.querySelector("#boardSizeSelect");
 const minigameKeys = document.querySelectorAll("[data-minigame]");
+const fullscreenMinigamesButton = document.querySelector("#fullscreenMinigamesButton");
+const fullscreenMinigameMenu = document.querySelector("#fullscreenMinigameMenu");
 const personalizationScreen = document.querySelector("#personalizationScreen");
 const personalizationBackButton = document.querySelector("#personalizationBackButton");
 const openSaveDataButton = document.querySelector("#openSaveDataButton");
@@ -510,6 +512,8 @@ let snakeColors = readSnakeColors();
 let digestionAnimations = [];
 let crumbAnimations = [];
 let tailWiggleStartedAt = null;
+const snakeAnimationClock = window.IdleSnakeAnimationClock.createAnimationClock();
+const snakeAnimationNow = () => snakeAnimationClock.now(performance.now());
 let deathAnimation = null;
 
 const activeDirectionKeys = new Set();
@@ -585,6 +589,7 @@ function applySessionSnapshot(snapshot, savedAt = Date.now()) {
 }
 
 function presentReadyGame() {
+  snakeAnimationClock.reset();
   digestionAnimations = []; crumbAnimations = []; tailWiggleStartedAt = null; deathAnimation = null;
   clearTimeout(deathOverlayTimer); deathOverlayTimer = null;
   hideBroodlineFormation(); boardMetrics = getBoardMetrics();
@@ -625,7 +630,7 @@ function presentLoadedGame() {
   if (!gameView.snake.length || gameView.gameMode !== "snake") return freshGame();
   boardMetrics = getBoardMetrics();
   if (gameView.state === "ready") presentReadyGame();
-  else if (gameView.state === "paused") showOverlay("Paused");
+  else if (gameView.state === "paused") { snakeAnimationClock.pause(performance.now()); showOverlay("Paused"); }
   else if (gameView.state === "gameover") {
     directionInputLockedUntil = Date.now() + 1000;
     showOverlay("Game Over");
@@ -1690,6 +1695,8 @@ function interpretSessionEvents(events) {
   if (!events || events.length === 0) return;
   for (const event of events) {
     switch (event.type) {
+      case "paused": snakeAnimationClock.pause(performance.now()); break;
+      case "resumed": snakeAnimationClock.resume(performance.now()); break;
       case "hatch":
       case "eggBoardHatched": idleLastPanelAt = 0; break;
       case "eat": if (gameView.gameMode === "snake") { startDigestionAnimation(); startCrumbAnimation(event.at); startTailWiggle(); } break;
@@ -2853,13 +2860,13 @@ function drawSnake() {
   const reducedMotion = effectiveReducedMotion();
   if (reducedMotion) digestionAnimations = [];
   else pruneDigestionAnimations();
-  const now = performance.now();
+  const now = snakeAnimationNow();
   const cell = boardMetrics.cellSize;
 
   if (deathAnimation && gameView.state === "gameover") {
     if (reducedMotion) deathAnimation = null;
     else {
-      drawDeathAnimation(now);
+      drawDeathAnimation(performance.now());
       return;
     }
   }
@@ -3236,7 +3243,7 @@ function contrastingEyeColor(color) {
 
 function startDigestionAnimation() {
   if (effectiveReducedMotion()) return;
-  digestionAnimations.push({ startedAt: performance.now(), snakeLength: gameView.snake.length });
+  digestionAnimations.push({ startedAt: snakeAnimationNow(), snakeLength: gameView.snake.length });
 }
 
 const TAIL_WIGGLE_DURATION_MS = 420;
@@ -3244,10 +3251,10 @@ const TAIL_WIGGLE_CYCLES = 2.5;
 const TAIL_WIGGLE_SIZE = 0.16;
 
 function startTailWiggle() {
-  tailWiggleStartedAt = effectiveReducedMotion() ? null : performance.now();
+  tailWiggleStartedAt = effectiveReducedMotion() ? null : snakeAnimationNow();
 }
 
-function tailWiggleAmount(now = performance.now()) {
+function tailWiggleAmount(now = snakeAnimationNow()) {
   if (tailWiggleStartedAt === null || effectiveReducedMotion()) return 0;
   const progress = (now - tailWiggleStartedAt) / TAIL_WIGGLE_DURATION_MS;
   if (progress < 0) return 0;
@@ -3290,7 +3297,7 @@ function crumbDirectionForBite(head) {
 function startCrumbAnimation(head) {
   if (effectiveReducedMotion() || !head) return;
   crumbAnimations.push({
-    startedAt: performance.now(),
+    startedAt: snakeAnimationNow(),
     head: { ...head },
     direction: crumbDirectionForBite(head),
     particles: Array.from({ length: CRUMBS_PER_BITE }, (_, index) => ({
@@ -3331,7 +3338,7 @@ function drawCrumbs() {
     return;
   }
 
-  const now = performance.now();
+  const now = snakeAnimationNow();
   const cell = boardMetrics.cellSize;
   crumbAnimations = crumbAnimations.filter((animation) => now - animation.startedAt < CRUMB_MAX_DURATION_MS + CRUMBS_PER_BITE * 22);
 
@@ -3378,7 +3385,7 @@ function digestionSegmentDelay() {
 }
 
 function pruneDigestionAnimations() {
-  const now = performance.now();
+  const now = snakeAnimationNow();
   const segmentDelay = digestionSegmentDelay();
   digestionAnimations = digestionAnimations.filter((animation) => {
     // Done once the lump has passed the last segment.
@@ -3479,7 +3486,6 @@ function syncHud() {
     setHidden(gridLabelEl, false);
     setText(gridLabelEl, `${battleshipGrid.columns}x${battleshipGrid.rows}`);
     setText(timerEl, formatTime(gameView.elapsedMs));
-    pauseButton.classList.toggle("is-active", gameView.state === "paused");
     return;
   }
   if (gameView.gameMode === "broodline" && gameView.broodline) {
@@ -3532,7 +3538,6 @@ function syncHud() {
     : gameView.gameMode === "broodline" ? `R${gameView.broodline?.round || 1} W${gameView.broodline?.wave || 1}/${broodlineWavesPerRound}`
     : `${gameView.grid.columns}x${gameView.grid.rows}`);
   setText(timerEl, formatTime(gameView.elapsedMs));
-  pauseButton.classList.toggle("is-active", gameView.state === "paused");
   // NOTE: syncNurseryPanel()/syncUpgradeMenu() are intentionally NOT called here.
   // syncHud() runs every animation frame; the idle panels only change on the
   // 250ms nursery clock and on discrete actions, which refresh them via
@@ -3844,6 +3849,7 @@ function syncFullscreenMode() {
   button.hidden = !unlocked;
   document.querySelector(".app-layout").classList.toggle("has-fullscreen-option", unlocked);
   const expanded = unlocked && latestSnapshot.fullscreenMode;
+  if (!expanded) hideFullscreenMinigames();
   document.body.classList.toggle("is-fullscreen-mode", expanded);
   button.setAttribute("aria-pressed", String(expanded));
   const label = expanded ? "Exit Fullscreen" : "Fullscreen";
@@ -3923,6 +3929,20 @@ function syncUpgradeMenu() {
 }
 
 function syncMinigameKeys() {
+  const options = engineQueries.minigameOptions(latestSnapshot);
+  if (!fullscreenMinigameMenu.children.length) {
+    fullscreenMinigameMenu.replaceChildren(...options.map((option) => {
+      const button = document.createElement("button");
+      button.type = "button"; button.className = "action-key";
+      button.dataset.fullscreenMinigame = String(option.number);
+      return button;
+    }));
+  }
+  options.forEach((option, index) => {
+    const button = fullscreenMinigameMenu.children[index];
+    setText(button, option.name); button.disabled = !option.unlocked;
+    button.title = option.unlocked ? `Launch ${option.name}` : "Purchase Minigame Upgrade to Unlock.";
+  });
   const available = new Set(engineQueries.capabilities(latestSnapshot).minigames);
   minigameKeys.forEach((key) => {
     const unlocked = available.has(Number(key.dataset.minigame));
@@ -4172,6 +4192,14 @@ function isLocalDevelopmentMode(locationLike = window.location) {
 }
 
 document.addEventListener("keydown", (event) => {
+  if (event.code === "Escape" && !fullscreenMinigameMenu.hidden) {
+    event.preventDefault(); hideFullscreenMinigames(); return;
+  }
+  if (keyMap[event.code] || event.code === "Space" || event.code === "Enter") {
+    const focused = document.activeElement;
+    if (focused?.matches(".nav-key, .action-key, .phone-key")) focused.blur();
+    hideFullscreenMinigames();
+  }
   if (gameView.state === "gameover" && event.code === "Escape") {
     event.preventDefault();
     resetGame();
@@ -4554,11 +4582,8 @@ upgradeButtons.foodCount.addEventListener("click", () => purchaseUpgrade("foodCo
 upgradeButtons.shield.addEventListener("click", () => purchaseUpgrade("shield"));
 upgradeButtons.minigames.addEventListener("click", () => purchaseUpgrade("minigames"));
 function activatePersonalizationKey() {
-  if (gameView.state === "gameover") {
-    resetGame();
-    return;
-  }
-  if (!personalizationScreen.hidden || gameView.gameMode === "duel" || gameView.gameMode === "maze" || gameView.gameMode === "breakout" || gameView.gameMode === "runner" || gameView.gameMode === "crossing" || gameView.gameMode === "snakebird" || gameView.gameMode === "sokoban" || gameView.gameMode === "broodline" || gameView.gameMode === "battleship" || gameView.gameMode === "centipede") {
+  hideFullscreenMinigames();
+  if (!personalizationScreen.hidden) {
     returnToRegularSnake();
   } else {
     showPersonalization();
@@ -4566,6 +4591,26 @@ function activatePersonalizationKey() {
 }
 
 document.querySelector("#fullscreenSettingsButton").addEventListener("click", activatePersonalizationKey);
+document.querySelector(".fullscreen-controls").addEventListener("keydown", (event) => {
+  if (["Enter", " "].includes(event.key)) event.stopPropagation();
+});
+
+function hideFullscreenMinigames() {
+  fullscreenMinigameMenu.hidden = true;
+  fullscreenMinigamesButton.setAttribute("aria-expanded", "false");
+}
+fullscreenMinigamesButton.addEventListener("click", () => {
+  syncMinigameKeys();
+  fullscreenMinigameMenu.hidden = !fullscreenMinigameMenu.hidden;
+  fullscreenMinigamesButton.setAttribute("aria-expanded", String(!fullscreenMinigameMenu.hidden));
+});
+fullscreenMinigameMenu.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-fullscreen-minigame]");
+  if (!button || button.disabled) return;
+  hideFullscreenMinigames();
+  hideSnakebirdPicker(); hidePersonalization(); hideBroodlineFormation();
+  presentGameResult(dispatchSession({ type: "openMinigame", number: Number(button.dataset.fullscreenMinigame) }));
+});
 
 minigameKeys.forEach((key) => {
   key.addEventListener("click", () => {
