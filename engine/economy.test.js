@@ -130,13 +130,12 @@ test("hatchlings burn seeds to grow and graduate into the colony", () => {
   state.nursery.hatchlings = [{ id: "a", x: 2, y: 4, direction: "right", progressMs: 0 }];
   const rng = seededRng(2);
 
-  // Growth requires growthMs of seed-ticks (1 seed/sec for a lone hatchling).
+  // One Seed per 900 ms funds 15 minutes of growth for a lone hatchling.
   economy.tickEconomy(state, nurseryConfig.growthMs, { rng });
 
   assert.equal(state.nursery.colonyCount, 1, "hatchling graduated");
   assert.equal(state.nursery.hatchlings.length, 0, "pen is empty after graduation");
-  // ~growthMs seconds of upkeep were spent (1 seed/sec).
-  assert.ok(state.seeds <= 100000 - nurseryConfig.growthMs / 1000 + 1);
+  assert.equal(state.seeds, 99000);
 });
 
 test("growth stalls when seeds run out and resumes when refilled", () => {
@@ -145,7 +144,7 @@ test("growth stalls when seeds run out and resumes when refilled", () => {
   const rng = seededRng(3);
 
   economy.tickEconomy(state, nurseryConfig.growthMs, { rng });
-  // Only 3 seeds => at most 3 seconds of growth, nowhere near graduating.
+  // Three Seeds fund 2700 ms of growth, nowhere near graduation.
   assert.equal(state.nursery.colonyCount, 0);
   assert.ok(state.nursery.hatchlings[0].progressMs <= 3 * nurseryConfig.seedIntervalMs);
   assert.ok(state.seeds < 1);

@@ -74,11 +74,11 @@ The first valid direction from Ready moves immediately. The Start button keeps i
 
 ## Snake timing log
 
-Open `http://127.0.0.1:4173/?snakeTiming=1`, play a few games, then click **Download timing log** at the top right. Send the downloaded JSON with the video. The log records direction actions, frame timing, each clock update, the time discarded by the 100 ms gameplay limit, movement state, and Seed events. It stays in the browser until you download it; it does not include the saved game or send data to a server. A long session keeps the latest 20,000 records and reports how many older records were dropped.
+Open `http://127.0.0.1:4173/?snakeTiming=1`, play a few games, then click **Download timing log** at the top right. Send the downloaded JSON with the video. The log records direction actions, frame timing, each clock update, movement state, and Seed events. Classic Snake counts the full elapsed time; other modes keep their 100 ms frame limit. The log stays in the browser until you download it. It does not include the saved game or send data to a server. A long session keeps the latest 20,000 records and reports how many older records were dropped.
 
 ## Snake speed
 
-Open the 0 settings menu to select Turtle (75%), Snake (100%, default), or Rabbit (150%). The preset and board size scale the complete speed curve. Each board approaches four times its own starting speed. The setting applies immediately and is saved with the game. Other minigames and the idle economy keep their existing speed. Headless hosts can dispatch { type: "setSnakeSpeed", snakeSpeed: "turtle" | "snake" | "rabbit" }.
+Open the 0 settings menu to select Turtle (75%), Snake (100%, default), or Rabbit (150%). The preset and board size scale the complete speed curve. Each board reaches three times its own starting speed at mastery. The setting applies immediately and is saved with the game. Other minigames and the idle economy keep their existing speed. Headless hosts can dispatch { type: "setSnakeSpeed", snakeSpeed: "turtle" | "snake" | "rabbit" }.
 
 ## Engine and UI boundary
 
@@ -99,8 +99,12 @@ Run Snake without a browser:
 
 The command prints events, the final HUD, and a save envelope. It does not write a save. Use --actions actions.json for a JSON array of session actions, one per simulation step; use null for a step without input. Use --save save.json to load progress. Use --step-ms 100 to set simulated time per step. The default controller sends one direction and then lets time advance; it is not a solver for every mode.
 
-Lower-level actions such as selectMode and custom setup remain available for tests and simulations. Save envelopes retain progress, not an in-progress board or random-generator state.
+Lower-level actions such as selectMode and custom setup remain available for tests and simulations. Save envelopes retain the active Classic Snake board, food, phase, queued turns, and movement clock. Reload keeps that board. A running Snake continues through elapsed time after reload or loss of focus. An explicit pause stays paused. Other active minigame boards and random-generator state are not saved.
 
-Food acceleration uses a logistic curve based on the board mastery target. The curve reaches its first knee at 30% mastery and starts approaching its asymptote at 75% mastery. Speed is starting speed + (maximum speed - starting speed) * curve progress. Intervals retain fractional milliseconds.
+Food acceleration uses three continuous linear segments, one for each third of the board mastery target. Speed gain per food is constant within each segment. The middle segment gains speed 15% faster than the first; the final segment gains speed 15% faster than the middle. The segments scale from the existing starting speed to exactly 3x at mastery. Intervals retain fractional milliseconds.
+
+Direction input uses its event timestamp. A turn pressed before a movement deadline can correct the latest movement when processed up to 34 ms after that deadline. The correction restores food, rewards, shields, and other effects before applying the turn. Movement speed and the collision grace stay unchanged. Arrow input rechecks the one-second death lock after advancing time, so an input that causes death cannot also reset the run.
+
+Each hatchling consumes one Seed every 900 ms while feeding. It grows a second block at 5 minutes, a third block at 10 minutes, and graduates at 15 minutes after consuming 1,000 Seeds. Growth stops when Seeds run out. The nursery's Pause feeding button stops feeding and growth while keeping Seeds. This setting is saved and applies during offline progress. Fullscreen mode is available after the first board upgrade.
 
 Fatal classic Snake collisions have a 120 ms grace period, set by snakeConfig.collisionGraceMs. The snake holds on its last safe square; a legal safe turn during this window completes the pending move and starts a full movement interval. Unsafe input does not extend the window. Pause freezes it and reset clears it. Shields keep their existing immediate rescue behavior.

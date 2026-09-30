@@ -52,8 +52,8 @@ test("grown nursery snakes use a pointed final tail segment", async ({ page }) =
     savedAt: Date.now(),
     nursery: { hatchlings: [
       { id: "one", x: 2, y: 2, direction: "right", progressMs: 0, temporary: false },
-      { id: "two", x: 6, y: 5, direction: "right", progressMs: 2 * 60 * 1000, tailWiggle: true, temporary: false },
-      { id: "three", x: 9, y: 10, direction: "down", progressMs: 7 * 60 * 1000, temporary: true }
+      { id: "two", x: 6, y: 5, direction: "right", progressMs: 5 * 60 * 1000, tailWiggle: true, temporary: false },
+      { id: "three", x: 9, y: 10, direction: "down", progressMs: 10 * 60 * 1000, temporary: true }
     ] }
   };
   await page.addInitScript((fixture) => localStorage.setItem("snake-forever-save", JSON.stringify(fixture)), save);

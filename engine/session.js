@@ -472,6 +472,7 @@
     // advanceOffline(now) credits the real elapsed idle time.
     let savedAt = Number.isFinite(Number(migrated.savedAt)) ? Number(migrated.savedAt) : now;
     let simulationNow = savedAt;
+    let lastSnakeMovementAt = simulationNow - Math.max(0, state.modeAccumulatorMs);
     function restoreCheckpoint(checkpoint) {
       const rng = state.rng; const observer = state.snapshotObserver;
       for (const key of Object.keys(state)) delete state[key];
@@ -481,7 +482,7 @@
       const history = recentMovement;
       const inputAt = action.inputAt;
       if (!history || state.mode !== "snake" || state.phase !== "running" || !Number.isFinite(inputAt)
-        || !history.eligible || inputAt < history.start || inputAt > history.deadline
+        || !history.eligible || inputAt <= history.lowerBound || inputAt >= history.deadline
         || simulationNow - history.deadline > config.snakeConfig.inputLateToleranceMs) return null;
       const trial = clone(state.active);
       if (!snake.queueDirection(trial, action.direction)) return null;
@@ -490,6 +491,7 @@
       replayingInput = true;
       restoreCheckpoint(history.before);
       simulationNow = history.start;
+      lastSnakeMovementAt = history.beforeMovementAt;
       randomQueue = history.draws.concat(randomQueue);
       const replayEvents = [];
       let submitted = false;
@@ -748,6 +750,7 @@
           if (state.mode === "snake") {
             const initialDelayMs = Math.max(0, Number(action.initialDelayMs) || 0);
             state.modeAccumulatorMs = -initialDelayMs;
+            lastSnakeMovementAt = simulationNow;
           }
           if (state.mode === "battleship") {
             if (state.active.player.ships.length !== battleship.FLEET.length) return reject("fleetIncomplete");
@@ -897,6 +900,7 @@
               state.active.collisionGraceRemainingMs = null;
               state.modeAccumulatorMs = 0;
               events.push(event("collisionAvoided"));
+              lastSnakeMovementAt = simulationNow;
               moveSnake(events, false);
               state.active.lastTurn = null; // A rescue starts a full interval.
               break;
@@ -910,6 +914,7 @@
               state.phase = "running";
               state.modeAccumulatorMs = 0;
               if (ready) events.push(event("runStarted", { mode: "snake" }));
+              lastSnakeMovementAt = simulationNow;
               moveSnake(events);
             } else {
               events.push(event("directionQueued", { direction: action.direction }));
@@ -1202,8 +1207,10 @@
             state.modeAccumulatorMs -= snake.nextMoveInterval(state.active);
             if (recentMovement && !replayingInput) {
               recentMovement.deadline = simulationNow - state.modeAccumulatorMs;
+              recentMovement.lowerBound = lastSnakeMovementAt;
               recentMovement.eligible = !state.active.directionQueue.length && !state.active.shieldImpact;
             }
+            lastSnakeMovementAt = simulationNow - state.modeAccumulatorMs;
             moveSnake(events);
             if (state.active.collisionGraceRemainingMs !== null) {
               state.active.collisionGraceRemainingMs -= state.modeAccumulatorMs;
@@ -1303,7 +1310,8 @@
       const rawDt = Math.max(0, Number(dtMs) || 0);
       if (!replayingInput && state.mode === "snake" && state.phase === "running" && state.active
         && state.active.collisionGraceRemainingMs === null && state.modeAccumulatorMs + rawDt >= snake.nextMoveInterval(state.active)) {
-        recentMovement = { before: clone(state), start: simulationNow, ticks: [], draws: [], events: [], deadline: null, eligible: false };
+        recentMovement = { before: clone(state), start: simulationNow, beforeMovementAt: lastSnakeMovementAt,
+          lowerBound: lastSnakeMovementAt, ticks: [], draws: [], events: [], deadline: null, eligible: false };
       }
       if (recentMovement) recentMovement.ticks.push(rawDt);
       const output = tickCore(rawDt, options);

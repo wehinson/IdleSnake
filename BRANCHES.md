@@ -4,13 +4,15 @@
 
 - Category: gameplay, persistence, controls, and nursery UI.
 - Agent: Codex.
-- Status: Active; browser checks and full verification are pending.
+- Status: Ready to Ship.
 - Purpose: address all nine requested changes. The three linear speed segments in item 9 replace item 4's S-curve requirement; maximum speed is 3x.
 - Changes: save the active Classic board; use elapsed time in hidden tabs and after reload; recheck the death lock after advancing time; correct timestamped turns through 34 ms late; grow hatchlings for 15 minutes at one Seed per 900 ms; save a feeding pause; unlock fullscreen after the first board upgrade.
-- Tests: all 15 focused engine tests passed. Existing speed and nursery fixtures now use the requested rules.
+- Tests: `npm run check` passed syntax, authority checks, and all 288 engine tests. Browser checks passed for reload, background death, the one-second lock, timestamp input, feeding pause and position, and the first-upgrade fullscreen unlock. The first full browser run passed 66 of 68 tests; duplicate pagehide flushing and an old growth-time fixture caused the two failures. Both were fixed, and all 8 affected browser checks passed. No further full browser run was needed.
 - Version impact: optional active Snake board and nursery feeding fields in the existing version 5 envelope; old saves remain supported.
 - Last update: 2026-09-30.
-- Notes: work stays on working. No release is requested.
+- Additional checks: delayed turns restore food rewards and shields; turns before the final pre-deadline frame are covered; each hatchling spends exactly 1,000 Seeds; extra nest eggs get growth time only after hatching; saved feeding pause stops offline growth.
+- Request audit: 1 board persistence; 2 elapsed background gameplay; 3 lock recheck after clock advancement; 4 3x maximum with existing starting speed and multipliers; 5 timestamp correction within 34 ms; 6 15-minute feeding with 5/10-minute blocks; 7 saved feeding button between counter and title; 8 fullscreen after the first upgrade; 9 continuous linear thirds with successive 15% increases. All addressed. Item 9 supersedes the S-curve clause in item 4.
+- Notes: work stays on working. No release is requested. The local test server remains at http://127.0.0.1:4173.
 
 ## working — Frame lag plan
 

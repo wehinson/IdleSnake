@@ -332,44 +332,37 @@
       nursery.nestEggs.push({ elapsedMs: 0, hatchDurationMs: nurseryConfig.eggHatchMs });
       nursery.resupplyEggHolding -= 1;
     }
-    // Extra nest slots incubate independently. Finished eggs stay in their
-    // slot until there is nursery-yard space, just like the original slot.
-    nursery.nestEggs = nursery.nestEggs.filter((egg) => {
-      egg.elapsedMs = Math.min(egg.hatchDurationMs, egg.elapsedMs + dtMs);
-      if (egg.elapsedMs < egg.hatchDurationMs || nursery.hatchlings.length >= nurseryCapacity(nursery)) return true;
-      nursery.hatchlings.push(createHatchling(nursery.hatchlings, rng, nurseryCapacity(nursery)));
-      events.push({ type: "eggHatched" });
-      return false;
-    });
-
-    // Hatch the finished nest egg if the yard has a slot; never discard it.
-    const hatchIfPossible = () => {
-      if (nursery.eggElapsedMs === null || nursery.eggElapsedMs < nursery.eggHatchDurationMs) return;
-      if (nursery.hatchlings.length >= nurseryCapacity(nursery)) return; // hold
-      nursery.hatchlings.push(createHatchling(nursery.hatchlings, rng, nurseryCapacity(nursery)));
-      events.push({ type: "hatch" });
-      nursery.eggElapsedMs = null;
-      nursery.seedTickAccumulatorMs = 0;
-    };
-
-    if (nursery.eggElapsedMs !== null) {
-      const remaining = Math.max(0, nursery.eggHatchDurationMs - nursery.eggElapsedMs);
-      if (dtMs >= remaining) {
-        // Age hatchlings up to the hatch instant (may graduate one, freeing a
-        // slot), attempt to hatch, then age the rest. If the yard was full the
-        // egg holds at eggHatchMs; a graduation during the remaining time frees a
-        // slot, so re-attempt the hatch afterwards rather than waiting a tick.
-        ({ seeds } = advanceNursery(nursery, seeds, remaining, rng));
-        nursery.eggElapsedMs = nursery.eggHatchDurationMs; // finished (held if full)
-        hatchIfPossible();
-        ({ seeds } = advanceNursery(nursery, seeds, dtMs - remaining, rng));
-        hatchIfPossible();
-        return { seeds, events };
+    // Split time at every hatch and graduation. A hatchling must not receive
+    // feeding time from the interval in which it was still an egg.
+    const hatchFinishedEggs = () => {
+      const capacity = nurseryCapacity(nursery);
+      if (nursery.eggElapsedMs !== null && nursery.eggElapsedMs >= nursery.eggHatchDurationMs
+        && nursery.hatchlings.length < capacity) {
+        nursery.hatchlings.push(createHatchling(nursery.hatchlings, rng, capacity));
+        nursery.eggElapsedMs = null;
+        events.push({ type: "hatch" });
       }
-      nursery.eggElapsedMs += dtMs;
+      nursery.nestEggs = nursery.nestEggs.filter((egg) => {
+        if (egg.elapsedMs < egg.hatchDurationMs || nursery.hatchlings.length >= capacity) return true;
+        nursery.hatchlings.push(createHatchling(nursery.hatchlings, rng, capacity));
+        events.push({ type: "eggHatched" }); return false;
+      });
+    };
+    hatchFinishedEggs();
+    let remainingMs = dtMs;
+    while (remainingMs > 0) {
+      const boundaries = nursery.nestEggs.map((egg) => egg.hatchDurationMs - egg.elapsedMs);
+      if (nursery.eggElapsedMs !== null) boundaries.push(nursery.eggHatchDurationMs - nursery.eggElapsedMs);
+      if (!nursery.feedingPaused && seeds >= nursery.hatchlings.length) {
+        boundaries.push(...nursery.hatchlings.map((h) => nurseryConfig.growthMs - h.progressMs));
+      }
+      const slice = Math.min(remainingMs, ...boundaries.filter((time) => time > 0));
+      ({ seeds } = advanceNursery(nursery, seeds, slice, rng));
+      if (nursery.eggElapsedMs !== null) nursery.eggElapsedMs = Math.min(nursery.eggHatchDurationMs, nursery.eggElapsedMs + slice);
+      nursery.nestEggs.forEach((egg) => { egg.elapsedMs = Math.min(egg.hatchDurationMs, egg.elapsedMs + slice); });
+      hatchFinishedEggs();
+      remainingMs -= slice;
     }
-
-    ({ seeds } = advanceNursery(nursery, seeds, dtMs, rng));
     return { seeds, events };
   }
 

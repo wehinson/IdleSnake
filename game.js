@@ -250,11 +250,6 @@ function saveBranches() {
   persistConsolidatedSave();
 }
 
-window.addEventListener("pagehide", flushPendingSaves);
-document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState === "hidden") flushPendingSaves();
-});
-
 const scoreEl = document.querySelector("#score");
 const timerEl = document.querySelector("#timer");
 const gridLabelEl = document.querySelector("#gridLabel");
@@ -4611,7 +4606,10 @@ function catchUpGame() {
   syncHud(); render(); persistConsolidatedSave();
 }
 window.addEventListener("focus", catchUpGame);
-document.addEventListener("visibilitychange", catchUpGame);
+document.addEventListener("visibilitychange", () => {
+  catchUpGame();
+  if (document.hidden) flushPendingSaves();
+});
 window.addEventListener("pagehide", () => {
   interpretSessionEvents(tickIdleWorld("pagehide"));
   persistConsolidatedSave(); flushPendingSaves();

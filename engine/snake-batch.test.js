@@ -101,6 +101,15 @@ test("a frame between movement and delayed input retains correction history", ()
   assert.equal(result.snapshot.modeAccumulatorMs, 34);
 });
 
+test("a turn pressed before the last pre-deadline frame still corrects the movement", () => {
+  const session = game(); session.dispatch({ type: "begin" });
+  session.tick(195); session.tick(10);
+  const result = session.dispatch({ type: "direction", direction: "right", inputAt: 1190 });
+  assert.ok(result.events.some((e) => e.type === "movementCorrected"));
+  assert.deepEqual(result.snapshot.active.snake[0], { x: 11, y: 10 });
+  assert.equal(result.snapshot.modeAccumulatorMs, 5);
+});
+
 test("each hatchling costs exactly 1000 Seeds over 15 minutes with blocks at 5 and 10 minutes", () => {
   const nursery = economy.createNursery({}, 0);
   nursery.hatchlings = [{ id: "a", x: 2, y: 4, direction: "right", progressMs: 0 }];
@@ -134,4 +143,28 @@ test("feeding stops without Seeds and the saved pause stops live and offline gro
   assert.equal(paused.snapshot().seeds, before.seeds - 1);
   assert.equal(paused.snapshot().nursery.hatchlings[0].progressMs, 900);
   assert.equal(nurseryConfig.growthMs / nurseryConfig.seedIntervalMs, 1000);
+});
+
+test("extra nest eggs start their 15-minute growth clock only when they hatch", () => {
+  const nursery = economy.createNursery({ nestLevel: 1, nestEggs: [{ elapsedMs: 0, hatchDurationMs: 300000 }] }, 0);
+  const hatched = economy.tickNursery(nursery, 1000, 300000, () => 0.5);
+  assert.equal(hatched.seeds, 1000);
+  assert.equal(nursery.hatchlings[0].progressMs, 0);
+  const grown = economy.tickNursery(nursery, hatched.seeds, 900000, () => 0.5);
+  assert.equal(grown.seeds, 0); assert.equal(nursery.colonyCount, 1);
+});
+
+test("a corrected move restores a shield consumed by the original collision", () => {
+  const original = game({ snake: [{ x: 10, y: 0 }, { x: 10, y: 1 }, { x: 10, y: 2 }] });
+  const saved = original.serialize();
+  saved.session.upgrades.shieldLevel = 1;
+  saved.session.migration.settlements[0].economy.upgrades.shieldLevel = 1;
+  const session = createGameSession({ save: saved, now: 1000, rng: () => 0.5 });
+  session.dispatch({ type: "begin" }); session.tick(210);
+  assert.equal(session.snapshot().upgrades.shieldLevel, 0);
+  assert.ok(session.snapshot().active.shieldImpact);
+  const corrected = session.dispatch({ type: "direction", direction: "right", inputAt: 1199 }).snapshot;
+  assert.equal(corrected.upgrades.shieldLevel, 1);
+  assert.equal(corrected.active.shieldImpact, null);
+  assert.deepEqual(corrected.active.snake[0], { x: 11, y: 0 });
 });
