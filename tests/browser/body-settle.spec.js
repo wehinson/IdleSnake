@@ -51,7 +51,7 @@ test("head snaps and the connected body settles forward within each new cell", a
       checks.push({
         direction,
         colors: initial.rects.map((rect) => rect.color),
-        expectedColors: [snakeColors.head, snakeColors.body, lightenColor(snakeColors.body, 0.2), snakeColors.body, lightenColor(snakeColors.body, 0.2)],
+        expectedColors: [snakeColors.head, snakeColors.body, lightenColor(snakeColors.body, 0.1), snakeColors.body, snakeColors.head],
         headExact: exact(initial.rects[0], moved.active.snake[0], 0) && exact(middle.rects[0], partial.active.snake[0], 0),
         moving: initial.rects.map((rect, index) => rect.x !== middle.rects[index].x || rect.y !== middle.rects[index].y),
         sideways: initial.rects.some((rect, index) => vector.x
@@ -77,10 +77,17 @@ test("head snaps and the connected body settles forward within each new cell", a
     const paletteChecks = snakeColorChoices.body.map((choice) => {
       snakeColors = { ...snakeColors, body: choice.value };
       const colors = capture().rects.map((rect) => rect.color);
-      return colors.every((color, index) => color === (index === 0 ? snakeColors.head
-        : index % 2 === 1 ? choice.value : lightenColor(choice.value, 0.2)));
+      return colors.every((color, index) => color === (index === 0 || index === colors.length - 1 ? snakeColors.head
+        : index % 2 === 1 ? choice.value : lightenColor(choice.value, 0.1)));
     });
     snakeColors = { ...snakeColors, body: originalBodyColor };
+    const originalHeadColor = snakeColors.head;
+    const headPaletteChecks = snakeColorChoices.head.map((choice) => {
+      snakeColors = { ...snakeColors, head: choice.value };
+      const colors = capture().rects.map((rect) => rect.color);
+      return colors[0] === choice.value && colors.at(-1) === choice.value;
+    });
+    snakeColors = { ...snakeColors, head: originalHeadColor };
     startDeathAnimation();
     rects = [];
     drawDeathAnimation(deathAnimation.startedAt);
@@ -96,7 +103,7 @@ test("head snaps and the connected body settles forward within each new cell", a
     accept(session.dispatch({ type: "begin" }));
     accept(session.tick(215));
     hideOverlay(); syncHud(); render();
-    return { checks, maxGap, reducedExact, reducedColors, paletteChecks, deathColors };
+    return { checks, maxGap, reducedExact, reducedColors, paletteChecks, headPaletteChecks, deathColors };
   });
   for (const check of result.checks) {
     expect(check.headExact, check.direction).toBe(true);
@@ -112,6 +119,7 @@ test("head snaps and the connected body settles forward within each new cell", a
   expect(result.reducedExact).toBe(true);
   expect(result.reducedColors).toEqual(result.checks[0].expectedColors);
   expect(result.paletteChecks.every(Boolean)).toBe(true);
+  expect(result.headPaletteChecks.every(Boolean)).toBe(true);
   expect(result.deathColors).toEqual(result.checks[0].expectedColors);
   await page.emulateMedia({ reducedMotion: "reduce" });
   await expect.poll(() => page.evaluate(() => effectiveReducedMotion())).toBe(true);

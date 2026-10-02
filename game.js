@@ -2872,7 +2872,7 @@ function drawSnake() {
   const points = snakeBodyMotion.points(latestFrameSnapshot, { reducedMotion }).map((point, index) => {
     return index === 0 ? shieldImpactPoint(point) : point;
   });
-  const bodyPalette = [snakeColors.body, lightenColor(snakeColors.body, 0.2)];
+  const bodyPalette = [snakeColors.body, lightenColor(snakeColors.body, 0.1)];
 
   // Connecting spine: a rounded path through segment centers, drawn UNDER the
   // blocks and narrower than them. The blocks cover most of it, leaving only a
@@ -2919,7 +2919,7 @@ function drawSnake() {
       ctx.fillRect(rect.x + shadowOffset, rect.y + shadowOffset, rect.size, rect.size);
     }
     const isTail = index !== 0 && index === gameView.snake.length - 1;
-    ctx.fillStyle = index === 0 ? snakeColors.head : bodyPalette[(index - 1) % 2];
+    ctx.fillStyle = index === 0 || isTail ? snakeColors.head : bodyPalette[(index - 1) % 2];
     if (isTail) {
       // Trails behind the segment ahead of it: a smaller wedge pointing away
       // from the body so the run terminates in a distinct tail piece.
@@ -3039,7 +3039,7 @@ function drawDeathAnimation(now) {
   if (!animation) return;
   const cell = boardMetrics.cellSize;
   const elapsed = now - animation.startedAt;
-  const bodyPalette = [snakeColors.body, lightenColor(snakeColors.body, 0.2)];
+  const bodyPalette = [snakeColors.body, lightenColor(snakeColors.body, 0.1)];
 
   // The pale necks are their own debris pieces. Keep each one in place until
   // the headward tile releases it, then give it a lower hop, a slower fall,
@@ -3112,7 +3112,7 @@ function drawDeathAnimation(now) {
     } else {
       drawRoundedRect(rect.x + shadowOffset, y + shadowOffset, rect.size, rect.size);
     }
-    ctx.fillStyle = index === 0 ? snakeColors.head : bodyPalette[(index - 1) % 2];
+    ctx.fillStyle = index === 0 || isTail ? snakeColors.head : bodyPalette[(index - 1) % 2];
     if (isTail) {
       const previousPart = animation.segments[index - 1];
       drawTail({ ...rect, y }, part, previousPart);

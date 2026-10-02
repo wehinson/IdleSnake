@@ -7,8 +7,8 @@
 - Status: Ready for William to test.
 - Changes: the head snaps to its exact cell. Each moving body block starts 13% of a cell behind its new center, then slides forward to the center within 60 ms. The tail uses 6% so its tip stays inside its new cell. The slide shortens at high speeds, freezes on pause, and stops with Reduced motion. Spine and tail use the same display points.
 - Direction: show forward progress from cell to cell; no sideways movement or waviness.
-- Color test: body segments and tail alternate the selected body color with a lighter shade of that color. Lightening is reduced from 28% to 20% at William's request. The shade stays with each segment as it moves and during the death effect. The head retains its selected color.
-- Tests: `npm run check` passed syntax, authority checks, and all 296 engine tests after the shade and slide adjustments. The focused isolated browser check passed for all four travel directions, instant head snaps, increased forward body travel, short connections at bends, pause, Reduced motion, all eight body color choices, and the death effect. Body blocks and the tail tip stay inside their new cells. The screenshot was inspected.
+- Color test: body segments alternate the selected body color with a 10% lighter shade, reduced from 20% at William's request. The head and tail both use the selected head color, including during the death effect. The forward slide remains active.
+- Tests: `npm run check` passed syntax, authority checks, and all 296 engine tests. The focused isolated browser check passed for the 10% light shade, tail matching all eight selected head colors, all eight body color choices, Reduced motion, and the death effect. Forward slides, instant head snaps, pause, and connections at bends also passed. The screenshot was inspected.
 - Version impact: none.
 - Last update: 2026-10-02.
 - Notes: William authorized this forward-slide replacement on the test branch. The original wave remains in commit `4caa200` for history. The separate test app runs at `http://127.0.0.1:4174`. No release requested.
