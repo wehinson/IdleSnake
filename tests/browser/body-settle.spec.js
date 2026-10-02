@@ -13,8 +13,8 @@ test("head snaps and the connected body settles forward within each new cell", a
     const originalBlock = drawRoundedRect;
     const originalTail = drawTail;
     let rects;
-    drawRoundedRect = (x, y, width, height) => { rects.push({ x, y, size: width }); originalBlock(x, y, width, height); };
-    drawTail = (rect, ...args) => { rects.push(rect); originalTail(rect, ...args); };
+    drawRoundedRect = (x, y, width, height) => { rects.push({ x, y, size: width, color: ctx.fillStyle }); originalBlock(x, y, width, height); };
+    drawTail = (rect, ...args) => { rects.push({ ...rect, color: ctx.fillStyle }); originalTail(rect, ...args); };
     const accept = (result) => { acceptSnapshot(result.snapshot); return result.snapshot; };
     const capture = () => {
       boardMetrics = getBoardMetrics();
@@ -50,6 +50,8 @@ test("head snaps and the connected body settles forward within each new cell", a
       const final = capture();
       checks.push({
         direction,
+        colors: initial.rects.map((rect) => rect.color),
+        expectedColors: [snakeColors.head, snakeColors.body, lightenColor(snakeColors.body, 0.28), snakeColors.body, lightenColor(snakeColors.body, 0.28)],
         headExact: exact(initial.rects[0], moved.active.snake[0], 0) && exact(middle.rects[0], partial.active.snake[0], 0),
         moving: initial.rects.map((rect, index) => rect.x !== middle.rects[index].x || rect.y !== middle.rects[index].y),
         sideways: initial.rects.some((rect, index) => vector.x
@@ -69,14 +71,36 @@ test("head snaps and the connected body settles forward within each new cell", a
     const reduced = accept(session.dispatch({ type: "setReducedMotion", reducedMotion: true }));
     const reducedFrame = capture();
     const reducedExact = reducedFrame.rects.every((rect, index) => exact(rect, reduced.active.snake[index], index));
+    const reducedColors = reducedFrame.rects.map((rect) => rect.color);
     accept(session.dispatch({ type: "setReducedMotion", reducedMotion: false }));
+    const originalBodyColor = snakeColors.body;
+    const paletteChecks = snakeColorChoices.body.map((choice) => {
+      snakeColors = { ...snakeColors, body: choice.value };
+      const colors = capture().rects.map((rect) => rect.color);
+      return colors.every((color, index) => color === (index === 0 ? snakeColors.head
+        : index % 2 === 1 ? choice.value : lightenColor(choice.value, 0.28)));
+    });
+    snakeColors = { ...snakeColors, body: originalBodyColor };
+    startDeathAnimation();
+    rects = [];
+    drawDeathAnimation(deathAnimation.startedAt);
+    const deathColors = rects.filter((rect) => rect.color.startsWith("#")).map((rect) => rect.color);
+    deathAnimation = null;
     drawRoundedRect = originalBlock;
     drawTail = originalTail;
+    accept(session.dispatch({ type: "selectMode", mode: "snake", setup: {
+      grid: { columns: 11, rows: 9 }, tickMs: 200, direction: "right",
+      snake: [{ x: 8, y: 3 }, { x: 7, y: 3 }, { x: 6, y: 3 }, { x: 5, y: 3 }, { x: 4, y: 3 }, { x: 3, y: 3 },
+        { x: 3, y: 4 }, { x: 3, y: 5 }, { x: 4, y: 5 }, { x: 5, y: 5 }, { x: 6, y: 5 }, { x: 7, y: 5 }]
+    } }));
+    accept(session.dispatch({ type: "begin" }));
+    accept(session.tick(215));
     hideOverlay(); syncHud(); render();
-    return { checks, maxGap, reducedExact };
+    return { checks, maxGap, reducedExact, reducedColors, paletteChecks, deathColors };
   });
   for (const check of result.checks) {
     expect(check.headExact, check.direction).toBe(true);
+    expect(check.colors).toEqual(check.expectedColors);
     expect(check.moving, check.direction).toEqual([false, true, true, true, true]);
     expect(check.sideways, check.direction).toBe(false);
     check.initialOffset.forEach((offset, index) => expect(offset).toBeCloseTo(index === 3 ? 0.06 : 0.1, 6));
@@ -86,6 +110,9 @@ test("head snaps and the connected body settles forward within each new cell", a
   }
   expect(result.maxGap).toBeLessThanOrEqual(1.100001);
   expect(result.reducedExact).toBe(true);
+  expect(result.reducedColors).toEqual(result.checks[0].expectedColors);
+  expect(result.paletteChecks.every(Boolean)).toBe(true);
+  expect(result.deathColors).toEqual(result.checks[0].expectedColors);
   await page.emulateMedia({ reducedMotion: "reduce" });
   await expect.poll(() => page.evaluate(() => effectiveReducedMotion())).toBe(true);
   await page.emulateMedia({ reducedMotion: "no-preference" });
