@@ -71,11 +71,13 @@ test("every theme is valid, unique, and scoped", () => {
   }
 });
 
-test("every theme renames the core game vocabulary and repaints the screen", () => {
-  const core = ["Snake Forever", "SNAKE FOREVER", "Seeds", "Branches", "Provisions", "Nursery", "Colony", "Settle", "Upgrades", "Hatchling", "Notables", "Elders", "Convoy", "Menu"];
+test("every theme keeps the game's words and follows the no-slop rules", () => {
   for (const theme of loadThemes()) {
-    for (const term of core) assert.ok(term in theme.phrases, `${theme.id} is missing a phrase for "${term}"`);
-    const colors = Object.keys(theme.canvas?.colors || {}).map((c) => c.toLowerCase());
-    for (const literal of ["#9cac77", "#182413", "#29391f"]) assert.ok(colors.includes(literal), `${theme.id} must remap canvas colour ${literal}`);
+    const wordKeys = Object.keys(theme.phrases || {}).filter((key) => /[A-Za-z]/.test(key));
+    assert.deepEqual(wordKeys, [], `${theme.id} must not rename game text`);
+    assert.equal(theme.labels, undefined, `${theme.id} must not replace labels`);
+    const css = readFileSync(join(themesDir, theme.id, "theme.css"), "utf8");
+    assert.doesNotMatch(css, /backdrop-filter/, `${theme.id} must not use backdrop-filter`);
+    assert.doesNotMatch(css, /\p{Extended_Pictographic}/u, `${theme.id} must not use emoji`);
   }
 });

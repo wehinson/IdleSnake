@@ -1,16 +1,18 @@
 # Theme redesigns
 
-This branch (`working-redesign`) holds five full reskins of Snake Forever. Use the
+This branch (`working-redesign`) holds five redesigns (round 2) of Snake Forever. Use the
 theme picker at the bottom-left of the page to switch between them. You can also
 open `?theme=<id>`. **Original** is the default, and it is unchanged.
 
 | id | Name | Designer |
 | --- | --- | --- |
-| `koi-garden` | Koi Garden | Claude |
-| `neon-drive` | Neon Drive | Claude |
-| `iron-rail` | Iron Rail | Claude |
-| `dragon-codex` | Dragon Codex | Codex |
-| `polar-sled` | Polar Sled | Codex |
+| `navy-brick` | Navy Brick | Claude |
+| `silver-slim` | Silver Slim | Claude |
+| `clear-cover` | Clear Cover | Claude |
+| `business-slate` | Business Slate | Codex |
+| `retail-box` | Retail Box | Codex |
+
+Round 2 keeps the game's concept and every word. Each theme is a new art direction and layout. See `DESIGN-BRIEF.md` for the rules and references.
 
 ## How a theme works
 
