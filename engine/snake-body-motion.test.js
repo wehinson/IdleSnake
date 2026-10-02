@@ -29,23 +29,25 @@ test("the head snaps while every moving body segment and tail slide only forward
     assert.deepEqual(start[0], moved.active.snake[0]);
     for (let index = 1; index < start.length; index += 1) {
       const cell = moved.active.snake[index];
-      const distance = index === start.length - 1 ? 0.06 : 0.1;
+      const distance = index === start.length - 1 ? 0.06 : 0.13;
       assert.ok(Math.abs(start[index].x - (cell.x - vector.x * distance)) < 1e-10);
       assert.ok(Math.abs(start[index].y - (cell.y - vector.y * distance)) < 1e-10);
       assert.equal(Math.floor(start[index].x + 0.5), cell.x);
       assert.equal(Math.floor(start[index].y + 0.5), cell.y);
       if (index === start.length - 1) {
         assert.ok(0.5 + 0.6 * (1 - 2 * 0.135) + distance < 1, "the tail tip stays inside its cell");
+      } else {
+        assert.ok(1 - 0.135 + distance < 1, "the body block stays inside its cell");
       }
     }
-    const half = accept(game.tick(22.5));
+    const half = accept(game.tick(30));
     const halfway = motion.points(half);
     for (let index = 1; index < start.length; index += 1) {
       const offset = Math.hypot(halfway[index].x - half.active.snake[index].x, halfway[index].y - half.active.snake[index].y);
-      assert.ok(offset > 0 && offset < 0.1);
+      assert.ok(offset > 0 && offset < 0.13);
       assert.deepEqual(halfway[0], half.active.snake[0]);
     }
-    const ended = accept(game.tick(22.5));
+    const ended = accept(game.tick(30));
     assert.deepEqual(motion.points(ended), ended.active.snake);
   }
 });
@@ -57,15 +59,15 @@ test("segments at turns use their own travel directions, with no lateral motion 
   const p1 = motion.points(first);
   assert.deepEqual(p1[0], { x: 10, y: 9 });
   assert.equal(p1[1].y, 10);
-  assert.equal(p1[1].x, 9.9);
+  assert.equal(p1[1].x, 9.87);
   const second = accept(game.tick(200));
   const p2 = motion.points(second);
   assert.deepEqual(p2[0], { x: 10, y: 8 });
-  assert.deepEqual(p2[1], { x: 10, y: 9.1 });
-  assert.deepEqual(p2[2], { x: 9.9, y: 10 });
+  assert.deepEqual(p2[1], { x: 10, y: 9.13 });
+  assert.deepEqual(p2[2], { x: 9.87, y: 10 });
   for (let index = 1; index < p2.length; index += 1) {
     const gap = Math.hypot(p2[index].x - p2[index - 1].x, p2[index].y - p2[index - 1].y);
-    assert.ok(gap <= 1.1 + 1e-10, "connector stays short");
+    assert.ok(gap <= 1.13 + 1e-10, "connector stays short");
   }
 });
 
@@ -88,7 +90,7 @@ test("pause freezes a partial slide and resume completes it using the session cl
   const paused = accept(game.tick(500));
   assert.deepEqual(motion.points(paused), points);
   accept(game.dispatch({ type: "resume" }));
-  const ended = accept(game.tick(30));
+  const ended = accept(game.tick(45));
   assert.deepEqual(motion.points(ended), ended.active.snake);
 });
 
@@ -108,7 +110,7 @@ test("high speed shortens the slide; late frames do not replay completed movemen
   const fast = fixture("right", 100);
   const moved = fast.accept(fast.game.tick(100));
   assert.notDeepEqual(fast.motion.points(moved), moved.active.snake);
-  const ended = fast.accept(fast.game.tick(25));
+  const ended = fast.accept(fast.game.tick(30));
   assert.deepEqual(fast.motion.points(ended), ended.active.snake);
   const late = fixture();
   const caughtUp = late.accept(late.game.tick(260));

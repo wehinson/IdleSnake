@@ -4,9 +4,9 @@
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   root.IdleSnakeBodyMotion = api;
 })(typeof window !== "undefined" ? window : globalThis, () => {
-  const distance = 0.1;
+  const distance = 0.13;
   const tailDistance = 0.06;
-  const maxDurationMs = 45;
+  const maxDurationMs = 60;
 
   function create(initialSnapshot = null) {
     let previous = initialSnapshot;
@@ -42,7 +42,7 @@
       }
       movement = {
         startedAt: snapshot.elapsedMs - Math.max(0, snapshot.modeAccumulatorMs || 0),
-        durationMs: Math.min(maxDurationMs, Math.max(1, snapshot.active.tickMs * 0.25)),
+        durationMs: Math.min(maxDurationMs, Math.max(1, snapshot.active.tickMs * 0.3)),
         directions: snake.map((part, index) => {
           const from = old[index] || old.at(-1);
           const x = part.x - from.x;

@@ -2872,7 +2872,7 @@ function drawSnake() {
   const points = snakeBodyMotion.points(latestFrameSnapshot, { reducedMotion }).map((point, index) => {
     return index === 0 ? shieldImpactPoint(point) : point;
   });
-  const bodyPalette = [snakeColors.body, lightenColor(snakeColors.body, 0.28)];
+  const bodyPalette = [snakeColors.body, lightenColor(snakeColors.body, 0.2)];
 
   // Connecting spine: a rounded path through segment centers, drawn UNDER the
   // blocks and narrower than them. The blocks cover most of it, leaving only a
@@ -3039,7 +3039,7 @@ function drawDeathAnimation(now) {
   if (!animation) return;
   const cell = boardMetrics.cellSize;
   const elapsed = now - animation.startedAt;
-  const bodyPalette = [snakeColors.body, lightenColor(snakeColors.body, 0.28)];
+  const bodyPalette = [snakeColors.body, lightenColor(snakeColors.body, 0.2)];
 
   // The pale necks are their own debris pieces. Keep each one in place until
   // the headward tile releases it, then give it a lower hop, a slower fall,

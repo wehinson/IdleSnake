@@ -46,12 +46,12 @@ test("head snaps and the connected body settles forward within each new cell", a
       accept(session.tick(500));
       const paused = capture();
       accept(session.dispatch({ type: "resume" }));
-      const ended = accept(session.tick(30));
+      const ended = accept(session.tick(45));
       const final = capture();
       checks.push({
         direction,
         colors: initial.rects.map((rect) => rect.color),
-        expectedColors: [snakeColors.head, snakeColors.body, lightenColor(snakeColors.body, 0.28), snakeColors.body, lightenColor(snakeColors.body, 0.28)],
+        expectedColors: [snakeColors.head, snakeColors.body, lightenColor(snakeColors.body, 0.2), snakeColors.body, lightenColor(snakeColors.body, 0.2)],
         headExact: exact(initial.rects[0], moved.active.snake[0], 0) && exact(middle.rects[0], partial.active.snake[0], 0),
         moving: initial.rects.map((rect, index) => rect.x !== middle.rects[index].x || rect.y !== middle.rects[index].y),
         sideways: initial.rects.some((rect, index) => vector.x
@@ -64,7 +64,7 @@ test("head snaps and the connected body settles forward within each new cell", a
     }
     // Two more steps put a bend through the body, without a sideways wave.
     accept(session.dispatch({ type: "direction", direction: "right" }));
-    accept(session.tick(155));
+    accept(session.tick(140));
     const bent = accept(session.tick(200));
     const bentPoints = snakeBodyMotion.points(bent);
     const maxGap = Math.max(...bentPoints.slice(1).map((point, index) => Math.hypot(point.x - bentPoints[index].x, point.y - bentPoints[index].y)));
@@ -78,7 +78,7 @@ test("head snaps and the connected body settles forward within each new cell", a
       snakeColors = { ...snakeColors, body: choice.value };
       const colors = capture().rects.map((rect) => rect.color);
       return colors.every((color, index) => color === (index === 0 ? snakeColors.head
-        : index % 2 === 1 ? choice.value : lightenColor(choice.value, 0.28)));
+        : index % 2 === 1 ? choice.value : lightenColor(choice.value, 0.2)));
     });
     snakeColors = { ...snakeColors, body: originalBodyColor };
     startDeathAnimation();
@@ -103,12 +103,12 @@ test("head snaps and the connected body settles forward within each new cell", a
     expect(check.colors).toEqual(check.expectedColors);
     expect(check.moving, check.direction).toEqual([false, true, true, true, true]);
     expect(check.sideways, check.direction).toBe(false);
-    check.initialOffset.forEach((offset, index) => expect(offset).toBeCloseTo(index === 3 ? 0.06 : 0.1, 6));
+    check.initialOffset.forEach((offset, index) => expect(offset).toBeCloseTo(index === 3 ? 0.06 : 0.13, 6));
     expect(check.pausedPixels, check.direction).toBe(0);
     expect(check.changedPixels, check.direction).toBeGreaterThan(0);
     expect(check.finishedExact, check.direction).toBe(true);
   }
-  expect(result.maxGap).toBeLessThanOrEqual(1.100001);
+  expect(result.maxGap).toBeLessThanOrEqual(1.130001);
   expect(result.reducedExact).toBe(true);
   expect(result.reducedColors).toEqual(result.checks[0].expectedColors);
   expect(result.paletteChecks.every(Boolean)).toBe(true);
