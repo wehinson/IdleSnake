@@ -679,3 +679,68 @@ html[data-theme="silver-slim"] .is-fullscreen-mode .phone-shell {
   width: 100%;
   border-radius: 20px;
 }
+
+/* Swatch previews show the colour the LCD actually draws */
+html[data-theme="silver-slim"] .color-swatch[data-color="#29391f"] {
+  background: #3b2608;
+}
+
+html[data-theme="silver-slim"] .color-swatch[data-color="#32204f"] {
+  background: #4a300c;
+}
+
+html[data-theme="silver-slim"] .color-swatch[data-color="#16465a"] {
+  background: #5c3d10;
+}
+
+html[data-theme="silver-slim"] .color-swatch[data-color="#176052"] {
+  background: #6e4a15;
+}
+
+html[data-theme="silver-slim"] .color-swatch[data-color="#843b2f"] {
+  background: #2f1e05;
+}
+
+html[data-theme="silver-slim"] .color-swatch[data-color="#a55b25"] {
+  background: #805719;
+}
+
+html[data-theme="silver-slim"] .color-swatch[data-color="#702c57"] {
+  background: #432b0a;
+}
+
+html[data-theme="silver-slim"] .color-swatch[data-color="#252a32"] {
+  background: #241603;
+}
+
+html[data-theme="silver-slim"] .color-swatch[data-color="#182413"] {
+  background: #3b2608;
+}
+
+html[data-theme="silver-slim"] .color-swatch[data-color="#583b83"] {
+  background: #4a300c;
+}
+
+html[data-theme="silver-slim"] .color-swatch[data-color="#267b91"] {
+  background: #5c3d10;
+}
+
+html[data-theme="silver-slim"] .color-swatch[data-color="#2d8b68"] {
+  background: #6e4a15;
+}
+
+html[data-theme="silver-slim"] .color-swatch[data-color="#b3483d"] {
+  background: #2f1e05;
+}
+
+html[data-theme="silver-slim"] .color-swatch[data-color="#b0802d"] {
+  background: #805719;
+}
+
+html[data-theme="silver-slim"] .color-swatch[data-color="#9b477e"] {
+  background: #432b0a;
+}
+
+html[data-theme="silver-slim"] .color-swatch[data-color="#596474"] {
+  background: #8c621f;
+}

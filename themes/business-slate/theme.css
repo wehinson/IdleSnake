@@ -245,3 +245,68 @@ html[data-theme="business-slate"] .phone-nav:not(.is-large-dpad) :is(.nav-up, .n
 html[data-theme="business-slate"] .phone-nav:not(.is-large-dpad) .nav-up { border-radius: 8px 8px 0 0; }
 html[data-theme="business-slate"] .phone-nav:not(.is-large-dpad) .nav-down { border-radius: 0 0 8px 8px; }
 html[data-theme="business-slate"] .phone-nav:not(.is-large-dpad) .nav-key:is(:active, .is-pressed) { box-shadow: inset 0 2px 4px var(--case-edge); }
+
+/* Swatch previews show the colour the LCD actually draws */
+html[data-theme="business-slate"] .color-swatch[data-color="#29391f"] {
+  background: #b8e6cf;
+}
+
+html[data-theme="business-slate"] .color-swatch[data-color="#32204f"] {
+  background: #b8e6cf;
+}
+
+html[data-theme="business-slate"] .color-swatch[data-color="#16465a"] {
+  background: #557866;
+}
+
+html[data-theme="business-slate"] .color-swatch[data-color="#176052"] {
+  background: #b8e6cf;
+}
+
+html[data-theme="business-slate"] .color-swatch[data-color="#843b2f"] {
+  background: #557866;
+}
+
+html[data-theme="business-slate"] .color-swatch[data-color="#a55b25"] {
+  background: #b8e6cf;
+}
+
+html[data-theme="business-slate"] .color-swatch[data-color="#702c57"] {
+  background: #b8e6cf;
+}
+
+html[data-theme="business-slate"] .color-swatch[data-color="#252a32"] {
+  background: #557866;
+}
+
+html[data-theme="business-slate"] .color-swatch[data-color="#182413"] {
+  background: #b8e6cf;
+}
+
+html[data-theme="business-slate"] .color-swatch[data-color="#583b83"] {
+  background: #b8e6cf;
+}
+
+html[data-theme="business-slate"] .color-swatch[data-color="#267b91"] {
+  background: #b8e6cf;
+}
+
+html[data-theme="business-slate"] .color-swatch[data-color="#2d8b68"] {
+  background: #b8e6cf;
+}
+
+html[data-theme="business-slate"] .color-swatch[data-color="#b3483d"] {
+  background: #b8e6cf;
+}
+
+html[data-theme="business-slate"] .color-swatch[data-color="#b0802d"] {
+  background: #b8e6cf;
+}
+
+html[data-theme="business-slate"] .color-swatch[data-color="#9b477e"] {
+  background: #b8e6cf;
+}
+
+html[data-theme="business-slate"] .color-swatch[data-color="#596474"] {
+  background: #b8e6cf;
+}
