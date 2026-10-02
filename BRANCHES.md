@@ -4,13 +4,13 @@
 
 - Category: display.
 - Agent: Codex.
-- Status: Waiting for a replacement motion choice.
-- Changes: removed the sideways wave at William's request. Display positions use exact grid cells again.
+- Status: Ready for William to test.
+- Changes: the head snaps to its exact cell. Each moving body block starts 10% of a cell behind its new center, then slides forward to the center within 45 ms. The tail uses 6% so its tip stays inside its new cell. The slide shortens at high speeds, freezes on pause, and stops with Reduced motion. Spine and tail use the same display points.
 - Direction: show forward progress from cell to cell; no sideways movement or waviness.
-- Tests: `npm run check` passed syntax, authority checks, and all 289 engine tests after removal. No new browser check was run.
+- Tests: `npm run check` passed syntax, authority checks, and all 296 engine tests. After the tail travel limit was adjusted, all seven motion tests and the focused isolated browser check passed again. The browser check verified all four travel directions, instant head snaps, forward body and tail movement, no sideways movement, short connections at bends, pause, and Reduced motion. The screenshot was inspected. The motion script returned HTTP 200.
 - Version impact: none.
-- Last update: 2026-09-30.
-- Notes: the original wave remains in commit `4caa200` for history. The separate test app runs at `http://127.0.0.1:4174`. No replacement effect or release requested.
+- Last update: 2026-10-02.
+- Notes: William authorized this forward-slide replacement on the test branch. The original wave remains in commit `4caa200` for history. The separate test app runs at `http://127.0.0.1:4174`. No release requested.
 
 ## working — Nursery and fullscreen follow-up
 

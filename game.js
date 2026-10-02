@@ -449,6 +449,7 @@ const snakeColorChoices = {
 let session = window.IdleSnakeSession.createGameSession({ save: loadedSaveEnvelope, now: Date.now(), mobileControlsDefault: defaultMobileControls() });
 let latestSnapshot = session.snapshot();
 let latestFrameSnapshot = latestSnapshot;
+const snakeBodyMotion = window.IdleSnakeBodyMotion.create(latestFrameSnapshot);
 const snakeTiming = window.IdleSnakeTiming;
 const engineQueries = window.IdleSnakeQueries;
 const gameView = window.IdleSnakeStateReader.createStateReader(() => latestSnapshot, () => latestFrameSnapshot);
@@ -470,6 +471,7 @@ function snakeTimingState(snapshot) {
 }
 function acceptSnapshot(snapshot) {
   if (!snapshot) return;
+  snakeBodyMotion.observe(snapshot);
   const before = latestFrameSnapshot;
   const a = snapshot.active;
   const old = before?.mode === snapshot.mode ? before.active : null;
@@ -567,6 +569,7 @@ function gatherSaveState() {
 
 // Refresh display preferences and panels after loading a session.
 function applySessionSnapshot(snapshot, savedAt = Date.now()) {
+  snakeBodyMotion.reset(snapshot);
   acceptSnapshot(snapshot);
   consolidatedSave = projectSaveForUi({ saveVersion: SAVE_VERSION, savedAt, session: snapshot });
 
@@ -2864,10 +2867,9 @@ function drawSnake() {
     }
   }
 
-  // Interpolated cell-space point for every segment (head included), reused by
-  // both the connecting spine and the distinct blocks below.
-  const points = gameView.snake.map((part, index) => {
-    const point = interpolatedPoint(null, part, index);
+  // The head snaps to its cell. Body blocks settle forward inside their new
+  // cells; shared points keep the spine and tail connected during the slide.
+  const points = snakeBodyMotion.points(latestFrameSnapshot, { reducedMotion }).map((point, index) => {
     return index === 0 ? shieldImpactPoint(point) : point;
   });
 
