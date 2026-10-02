@@ -5,13 +5,13 @@
 - Category: display.
 - Agent: Codex.
 - Status: Ready for William to test.
-- Changes: the head snaps to its exact cell. Each moving body block starts 13% of a cell behind its new center, then slides forward to the center within 60 ms. The tail uses 6% so its tip stays inside its new cell. The slide shortens at high speeds, freezes on pause, and stops with Reduced motion. Spine and tail use the same display points.
+- Changes: removed the forward slide at William's request. The head, body, and tail now snap to their occupied cells at once. The unused slide module and its tests were removed.
 - Direction: show forward progress from cell to cell; no sideways movement or waviness.
-- Color test: body segments alternate the selected body color with a 10% lighter shade, reduced from 20% at William's request. The head and tail both use the selected head color, including during the death effect. The forward slide remains active.
-- Tests: `npm run check` passed syntax, authority checks, and all 296 engine tests. The focused isolated browser check passed for the 10% light shade, tail matching all eight selected head colors, all eight body color choices, Reduced motion, and the death effect. Forward slides, instant head snaps, pause, and connections at bends also passed. The screenshot was inspected.
+- Color test: body segments alternate the selected body color with a 15% lighter shade. The head and tail both use the selected head color, including during the death effect.
+- Tests: `npm run check` passed syntax, authority checks, and all 289 engine tests after removal of the seven slide tests. The focused isolated browser check passed for exact head/body/tail cell positions in all four directions, unchanged pixels between steps, 15% body lightening, all eight body colors, all eight head/tail colors, Reduced motion, and the death effect. The screenshot was inspected.
 - Version impact: none.
 - Last update: 2026-10-02.
-- Notes: William authorized this forward-slide replacement on the test branch. The original wave remains in commit `4caa200` for history. The separate test app runs at `http://127.0.0.1:4174`. No release requested.
+- Notes: the removed wave and slide remain in Git history. The separate test app runs at `http://127.0.0.1:4174`. No release requested.
 
 ## working — Nursery and fullscreen follow-up
 
