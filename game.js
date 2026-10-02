@@ -2871,12 +2871,15 @@ function drawSnake() {
     }
   }
 
-  // Interpolated cell-space point for every segment (head included), reused by
-  // both the connecting spine and the distinct blocks below.
+  // Every segment snaps to its occupied cell. The spine and tail share the
+  // same points as the body blocks.
   const points = gameView.snake.map((part, index) => {
     const point = interpolatedPoint(null, part, index);
     return index === 0 ? shieldImpactPoint(point) : point;
   });
+  // Anchor the repeating dark, dark, light body pattern behind the head.
+  // Growth extends the pattern at the tail without shifting existing bands.
+  const bodyPalette = [snakeColors.body, snakeColors.body, lightenColor(snakeColors.body, 0.05)];
 
   // Connecting spine: a rounded path through segment centers, drawn UNDER the
   // blocks and narrower than them. The blocks cover most of it, leaving only a
@@ -2923,7 +2926,7 @@ function drawSnake() {
       ctx.fillRect(rect.x + shadowOffset, rect.y + shadowOffset, rect.size, rect.size);
     }
     const isTail = index !== 0 && index === gameView.snake.length - 1;
-    ctx.fillStyle = index === 0 ? snakeColors.head : snakeColors.body;
+    ctx.fillStyle = index === 0 || isTail ? snakeColors.head : bodyPalette[(index - 1) % bodyPalette.length];
     if (isTail) {
       // Trails behind the segment ahead of it: a smaller wedge pointing away
       // from the body so the run terminates in a distinct tail piece.
@@ -3043,6 +3046,7 @@ function drawDeathAnimation(now) {
   if (!animation) return;
   const cell = boardMetrics.cellSize;
   const elapsed = now - animation.startedAt;
+  const bodyPalette = [snakeColors.body, snakeColors.body, lightenColor(snakeColors.body, 0.05)];
 
   // The pale necks are their own debris pieces. Keep each one in place until
   // the headward tile releases it, then give it a lower hop, a slower fall,
@@ -3115,7 +3119,7 @@ function drawDeathAnimation(now) {
     } else {
       drawRoundedRect(rect.x + shadowOffset, y + shadowOffset, rect.size, rect.size);
     }
-    ctx.fillStyle = index === 0 ? snakeColors.head : snakeColors.body;
+    ctx.fillStyle = index === 0 || isTail ? snakeColors.head : bodyPalette[(index - 1) % bodyPalette.length];
     if (isTail) {
       const previousPart = animation.segments[index - 1];
       drawTail({ ...rect, y }, part, previousPart);

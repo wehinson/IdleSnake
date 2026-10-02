@@ -12,6 +12,19 @@
 - Last update: 2026-09-30.
 - Notes: this batch uses a separate checkout because another chat was active. No release requested.
 
+## working — Body pattern merged from working-codex
+
+- Category: display.
+- Agent: Codex.
+- Status: Merged into working; ready for William to test.
+- Changes: the head, body, and tail snap to their occupied cells at once. Merged the final body pattern from working-codex while preserving the controls iteration.
+- Direction: show forward progress from cell to cell; no sideways movement or waviness.
+- Color test: starting behind the head, body segments repeat two dark segments and one 5% lighter segment. The pattern is anchored to the head, so growth extends it at the tail. The head and tail both use the selected head color, including during the death effect.
+- Tests: after merging with the controls iteration, `npm run check` passed syntax, authority checks, and all 292 engine tests. The focused isolated browser check passed for two repeated dark/dark/5% lighter bands, exact cell positions in all four directions, unchanged pixels between steps, all eight body colors, all eight head/tail colors, Reduced motion, and the death effect. The earlier controls UI verification gap remains recorded above.
+- Version impact: none.
+- Last update: 2026-10-02.
+- Notes: working-codex is preserved as archive/body-pattern-test-2026-10-02; its branch and worktree are retired after this merge. The test app at http://127.0.0.1:4174 now serves working. No release requested. working-redesign is unchanged.
+
 ## working — Nursery and fullscreen follow-up
 
 - Category: display and saved preferences.
