@@ -7,8 +7,8 @@
 - Status: Ready for William to test.
 - Changes: removed the forward slide at William's request. The head, body, and tail now snap to their occupied cells at once. The unused slide module and its tests were removed.
 - Direction: show forward progress from cell to cell; no sideways movement or waviness.
-- Color test: body segments alternate the selected body color with a 15% lighter shade. The head and tail both use the selected head color, including during the death effect.
-- Tests: `npm run check` passed syntax, authority checks, and all 289 engine tests after removal of the seven slide tests. The focused isolated browser check passed for exact head/body/tail cell positions in all four directions, unchanged pixels between steps, 15% body lightening, all eight body colors, all eight head/tail colors, Reduced motion, and the death effect. The screenshot was inspected.
+- Color test: starting behind the head, body segments repeat two dark segments and one 5% lighter segment. The pattern is anchored to the head, so growth extends it at the tail. The head and tail both use the selected head color, including during the death effect.
+- Tests: `npm run check` passed syntax, authority checks, and all 289 engine tests. The focused isolated browser check passed for two repeated dark/dark/5% lighter bands, exact cell positions in all four directions, unchanged pixels between steps, all eight body colors, all eight head/tail colors, Reduced motion, and the death effect. The screenshot was inspected.
 - Version impact: none.
 - Last update: 2026-10-02.
 - Notes: the removed wave and slide remain in Git history. The separate test app runs at `http://127.0.0.1:4174`. No release requested.

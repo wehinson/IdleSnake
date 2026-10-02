@@ -1,6 +1,6 @@
 const { test, expect } = require("@playwright/test");
 
-test("all segments snap to their cells with alternating body shades and a head-colored tail", async ({ page }) => {
+test("all segments snap with head-anchored dark, dark, 5% lighter bands and a head-colored tail", async ({ page }) => {
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.addInitScript(() => {
@@ -33,7 +33,7 @@ test("all segments snap to their cells with alternating body shades and a head-c
       session = window.IdleSnakeSession.createGameSession({ now: 0, rng: () => 0.5 });
       const ready = session.dispatch({ type: "selectMode", mode: "snake", setup: {
         grid: { columns: 20, rows: 20 }, tickMs: 200, direction,
-        snake: Array.from({ length: 5 }, (_, index) => ({ x: 10 - vector.x * index, y: 10 - vector.y * index }))
+        snake: Array.from({ length: 8 }, (_, index) => ({ x: 10 - vector.x * index, y: 10 - vector.y * index }))
       } }).snapshot;
       acceptSnapshot(ready);
       accept(session.dispatch({ type: "begin" }));
@@ -51,7 +51,8 @@ test("all segments snap to their cells with alternating body shades and a head-c
       checks.push({
         direction,
         colors: initial.rects.map((rect) => rect.color),
-        expectedColors: [snakeColors.head, snakeColors.body, lightenColor(snakeColors.body, 0.15), snakeColors.body, snakeColors.head],
+        expectedColors: [snakeColors.head, snakeColors.body, snakeColors.body, lightenColor(snakeColors.body, 0.05),
+          snakeColors.body, snakeColors.body, lightenColor(snakeColors.body, 0.05), snakeColors.head],
         cellsExact: initial.rects.every((rect, index) => exact(rect, moved.active.snake[index], index))
           && middle.rects.every((rect, index) => exact(rect, partial.active.snake[index], index)),
         moving: initial.rects.map((rect, index) => rect.x !== middle.rects[index].x || rect.y !== middle.rects[index].y),
@@ -80,7 +81,7 @@ test("all segments snap to their cells with alternating body shades and a head-c
       snakeColors = { ...snakeColors, body: choice.value };
       const colors = capture().rects.map((rect) => rect.color);
       return colors.every((color, index) => color === (index === 0 || index === colors.length - 1 ? snakeColors.head
-        : index % 2 === 1 ? choice.value : lightenColor(choice.value, 0.15)));
+        : index % 3 === 0 ? lightenColor(choice.value, 0.05) : choice.value));
     });
     snakeColors = { ...snakeColors, body: originalBodyColor };
     const originalHeadColor = snakeColors.head;
@@ -110,7 +111,7 @@ test("all segments snap to their cells with alternating body shades and a head-c
   for (const check of result.checks) {
     expect(check.cellsExact, check.direction).toBe(true);
     expect(check.colors).toEqual(check.expectedColors);
-    expect(check.moving, check.direction).toEqual([false, false, false, false, false]);
+    expect(check.moving, check.direction).toEqual(Array(8).fill(false));
     expect(check.sideways, check.direction).toBe(false);
     check.initialOffset.forEach((offset) => expect(offset).toBe(0));
     expect(check.pausedPixels, check.direction).toBe(0);
