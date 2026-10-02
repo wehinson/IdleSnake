@@ -60,6 +60,7 @@ html[data-theme="clear-cover"] .menu-panel {
   background:
     linear-gradient(var(--cc-bondi), var(--cc-bondi)) 0 0 / 100% 112px no-repeat,
     var(--cc-card);
+  background-attachment: local;
   box-shadow: 0 1px 2px rgba(19, 38, 45, 0.18), 0 16px 32px rgba(19, 38, 45, 0.14);
   color: var(--cc-ink);
   scrollbar-color: var(--cc-bondi) var(--cc-card);
