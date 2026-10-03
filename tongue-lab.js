@@ -266,6 +266,28 @@
 
   const seedRadius = (catchFrame) => CELL * 0.32 * catchFrame.seed.scale;
 
+  // Closed outline around a centerline whose width shrinks from `width` at
+  // the first point to zero at the last point.
+  function taperedPath(line, width) {
+    const left = [];
+    const right = [];
+    line.forEach((point, index) => {
+      const next = line[Math.min(line.length - 1, index + 1)];
+      const previous = line[Math.max(0, index - 1)];
+      const dx = next.x - previous.x;
+      const dy = next.y - previous.y;
+      const length = Math.hypot(dx, dy) || 1;
+      const half = (width / 2) * (1 - index / (line.length - 1));
+      left.push({ x: point.x - (dy / length) * half, y: point.y + (dx / length) * half });
+      right.push({ x: point.x + (dy / length) * half, y: point.y - (dx / length) * half });
+    });
+    const path = new Path2D();
+    left.forEach((point, index) => (index === 0 ? path.moveTo(point.x, point.y) : path.lineTo(point.x, point.y)));
+    right.reverse().forEach((point) => path.lineTo(point.x, point.y));
+    path.closePath();
+    return path;
+  }
+
   // Sticky Lasso body with a forked tip. Options change the five variations.
   function drawForkLasso(ctx, catchFrame, options) {
     inMouthFrame(ctx, catchFrame, (tip, seed) => {
@@ -296,47 +318,55 @@
       const strokePath = (width, color) => {
         ctx.strokeStyle = color;
         ctx.lineWidth = width;
-        ctx.lineCap = "round";
+        ctx.lineCap = "butt";
         ctx.lineJoin = "round";
         ctx.beginPath();
         points.forEach((point, index) => (index === 0 ? ctx.moveTo(point.x, point.y) : ctx.lineTo(point.x, point.y)));
         ctx.stroke();
       };
 
-      // Prong paths from the fork point.
+      // Prongs are tapered wedges that end in sharp points, so the tip reads
+      // as a clean V. Each prong is a centerline that narrows to zero width.
+      const prongBase = Math.max(3, thickness * 0.46);
+      // Start slightly inside the body so the two wedges join without a gap.
+      const root = { x: end.x - prongBase * 0.6, y: end.y };
       const prongs = [-1, 1].map((side) => {
-        const path = new Path2D();
-        let endPoint;
+        const line = [];
+        const samples = 10;
         if (pulling) {
           // Pinch around the Seed from behind.
           const sweep = options.clamp;
-          path.moveTo(end.x, end.y);
-          path.arc(tip.x, tip.y + tremble, radius + thickness * 0.15, Math.PI, Math.PI - side * sweep, side > 0);
-          endPoint = {
-            x: tip.x + Math.cos(Math.PI - side * sweep) * radius,
-            y: tip.y + tremble + Math.sin(Math.PI - side * sweep) * radius
-          };
+          const arcRadius = radius + prongBase * 0.3;
+          line.push(root);
+          for (let i = 0; i <= samples; i += 1) {
+            const angle = Math.PI - side * sweep * (i / samples);
+            line.push({ x: tip.x + Math.cos(angle) * arcRadius, y: tip.y + tremble + Math.sin(angle) * arcRadius });
+          }
         } else {
-          endPoint = {
-            x: end.x + Math.cos(spread) * CELL * options.prong,
-            y: end.y + side * Math.sin(spread) * CELL * options.prong
-          };
-          path.moveTo(end.x, end.y);
-          path.quadraticCurveTo(end.x + CELL * options.prong * 0.6, end.y, endPoint.x, endPoint.y);
+          const length = CELL * options.prong;
+          for (let i = 0; i <= samples; i += 1) {
+            const along = i / samples;
+            line.push({
+              x: root.x + Math.cos(spread) * (length + prongBase * 0.6) * along,
+              y: root.y + side * Math.sin(spread) * (length + prongBase * 0.6) * along
+            });
+          }
         }
-        return { path, endPoint };
+        return { path: taperedPath(line, prongBase), endPoint: line[line.length - 1], midPoint: line[Math.floor(line.length / 2)] };
       });
-      const prongWidth = Math.max(2, thickness * 0.42);
 
-      // Outline, then fill color, for the body and prongs.
+      // Outline, then fill color, for the body; then the prong wedges.
       strokePath(thickness + 3, "#9c3f52");
-      ctx.lineWidth = prongWidth + 3;
-      ctx.strokeStyle = "#9c3f52";
-      prongs.forEach((prong) => ctx.stroke(prong.path));
       strokePath(thickness, "#e57f8c");
-      ctx.lineWidth = prongWidth;
-      ctx.strokeStyle = "#f095a1";
-      prongs.forEach((prong) => ctx.stroke(prong.path));
+      ctx.lineJoin = "miter";
+      ctx.miterLimit = 10;
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = "#9c3f52";
+      ctx.fillStyle = "#f095a1";
+      prongs.forEach((prong) => {
+        ctx.fill(prong.path);
+        ctx.stroke(prong.path);
+      });
 
       // Shine line along the top of the tongue.
       ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
@@ -347,11 +377,12 @@
       ctx.stroke();
 
       if (options.goo) {
-        // Sticky drops on the prong ends and a web between the prongs.
+        // Sticky drops hang from the middle of each prong, and a web joins the
+        // prongs. The points stay sharp.
         ctx.fillStyle = "rgba(240, 149, 161, 0.85)";
-        prongs.forEach(({ endPoint }) => {
+        prongs.forEach(({ midPoint }) => {
           ctx.beginPath();
-          ctx.arc(endPoint.x, endPoint.y, CELL * 0.07, 0, Math.PI * 2);
+          ctx.arc(midPoint.x, midPoint.y + CELL * 0.03, CELL * 0.045, 0, Math.PI * 2);
           ctx.fill();
         });
         ctx.fillStyle = "rgba(240, 149, 161, 0.4)";
