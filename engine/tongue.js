@@ -1,0 +1,230 @@
+// Tongue catch display model. Pure timing and geometry for the snake's tongue
+// reaching out, grabbing a Seed that lies straight ahead, and pulling it into
+// the mouth before the head arrives on the Seed cell. Display only: the run
+// still eats the Seed when the head enters its cell, and nothing here changes
+// movement, collision, scoring, or save data.
+//
+// All positions are in cell units, measured to cell centers (cell x=3 has its
+// center at x=3.5). The UI multiplies by its cell size and draws the shapes.
+(function attachTongue(root, factory) {
+  const engine = factory();
+  if (typeof module !== "undefined" && module.exports) module.exports = engine;
+  if (typeof window !== "undefined") window.IdleSnakeTongue = engine;
+  else root.IdleSnakeTongue = engine;
+})(typeof window !== "undefined" ? window : globalThis, () => {
+  const vectors = {
+    up: { x: 0, y: -1 },
+    down: { x: 0, y: 1 },
+    left: { x: -1, y: 0 },
+    right: { x: 1, y: 0 }
+  };
+
+  // The tongue starts this many steps before the head reaches the Seed.
+  const REACH_STEPS = 2;
+  // Mouth position in front of the head center, in cells.
+  const MOUTH_OFFSET = 0.42;
+  // Seed size when the head arrives; it shrinks while held in the mouth.
+  const SWALLOW_SCALE = 0.3;
+
+  // Each style is a timeline over catch progress t (0 = tongue starts,
+  // 1 = head enters the Seed cell). The UI draws the shape for each `id`.
+  //   flickUntil: a short warning flick before the reach (0 = none)
+  //   grabAt:     the tip touches the Seed
+  //   pullUntil:  the Seed arrives at the mouth
+  //   reachEase / pullEase: easing names from `easings`
+  const styles = [
+    {
+      id: "fork",
+      name: "Forked Flick",
+      summary: "Thin red forked tongue. One quick warning flick, then the fork closes on the Seed and drags it in.",
+      flickUntil: 0.16, grabAt: 0.36, pullUntil: 0.64,
+      reachEase: "outCubic", pullEase: "inOutSine", wobble: 0
+    },
+    {
+      id: "frog",
+      name: "Sticky Lasso",
+      summary: "Thick pink tongue shoots out fast. The Seed sticks to the round tip and snaps back with a springy overshoot.",
+      flickUntil: 0, grabAt: 0.18, pullUntil: 0.56,
+      reachEase: "outQuint", pullEase: "outBack", wobble: 0
+    },
+    {
+      id: "pixel",
+      name: "Pixel Ribbon",
+      summary: "Retro LCD tongue built from screen-ink blocks. It extends and retracts in quarter-cell steps, like the board.",
+      flickUntil: 0, grabAt: 0.4, pullUntil: 0.72,
+      reachEase: "steps4", pullEase: "steps4", wobble: 0
+    },
+    {
+      id: "curl",
+      name: "Curl Hook",
+      summary: "The tongue arcs out, curls around the Seed, and reels it back along a wavy path.",
+      flickUntil: 0, grabAt: 0.38, pullUntil: 0.7,
+      reachEase: "inOutSine", pullEase: "inOutSine", wobble: 0.22
+    },
+    {
+      id: "slurp",
+      name: "Noodle Slurp",
+      summary: "A short tongue latches on, then suction rings stretch the Seed like a noodle and slurp it in fast.",
+      flickUntil: 0, grabAt: 0.3, pullUntil: 0.6,
+      reachEase: "outCubic", pullEase: "inExpo", wobble: 0
+    }
+  ];
+  const styleById = new Map(styles.map((style) => [style.id, style]));
+
+  const clamp01 = (value) => Math.max(0, Math.min(1, value));
+  const easings = {
+    linear: (t) => t,
+    outCubic: (t) => 1 - Math.pow(1 - t, 3),
+    outQuint: (t) => 1 - Math.pow(1 - t, 5),
+    inOutSine: (t) => -(Math.cos(Math.PI * t) - 1) / 2,
+    inExpo: (t) => (t === 0 ? 0 : Math.pow(2, 10 * t - 10)),
+    // Overshoots past 1 (the Seed passes the mouth slightly), then settles.
+    outBack: (t) => {
+      const c1 = 1.70158;
+      const c3 = c1 + 1;
+      return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+    },
+    steps4: (t) => (t >= 1 ? 1 : Math.floor(t * 4) / 4)
+  };
+
+  function ease(name, t) {
+    return (easings[name] || easings.linear)(clamp01(t));
+  }
+
+  function getStyle(id) {
+    return styleById.get(id) || styles[0];
+  }
+
+  // Number of steps until the head enters `seed`, or null when the Seed is not
+  // straight ahead within reach. `stepProgress` is 0..1 through the current
+  // step, so the result decreases smoothly to 0 at arrival.
+  function stepsUntilSeed(head, direction, seed, stepProgress = 0) {
+    const vector = vectors[direction];
+    if (!vector || !head || !seed) return null;
+    const dx = seed.x - head.x;
+    const dy = seed.y - head.y;
+    // Same row or column, in front of the head.
+    const ahead = dx * vector.x + dy * vector.y;
+    const side = dx * vector.y - dy * vector.x;
+    if (side !== 0 || ahead < 1 || ahead > REACH_STEPS) return null;
+    return ahead - clamp01(stepProgress);
+  }
+
+  // Geometry and phase for one frame of a catch.
+  //   style:  style id
+  //   t:      catch progress 0..1
+  //   head:   head cell; direction: facing; seed: Seed cell
+  function catchFrame(styleId, t, head, direction, seed) {
+    const style = getStyle(styleId);
+    const vector = vectors[direction] || vectors.right;
+    const progress = clamp01(t);
+    const mouth = {
+      x: head.x + 0.5 + vector.x * MOUTH_OFFSET,
+      y: head.y + 0.5 + vector.y * MOUTH_OFFSET
+    };
+    const seedHome = { x: seed.x + 0.5, y: seed.y + 0.5 };
+
+    let phase;
+    let extension = 0; // tip position from mouth (0) to Seed home (1)
+    let pull = 0;      // Seed position from home (0) to mouth (1); may overshoot
+    if (progress < style.flickUntil) {
+      phase = "flick";
+      // Out and back to a short length, so the reach reads as a decision.
+      extension = Math.sin((progress / style.flickUntil) * Math.PI) * 0.28;
+    } else if (progress < style.grabAt) {
+      phase = "reach";
+      const local = (progress - style.flickUntil) / Math.max(0.001, style.grabAt - style.flickUntil);
+      extension = ease(style.reachEase, local);
+    } else if (progress < style.pullUntil) {
+      phase = "pull";
+      const local = (progress - style.grabAt) / Math.max(0.001, style.pullUntil - style.grabAt);
+      pull = ease(style.pullEase, local);
+      extension = 1 - pull;
+    } else {
+      phase = "hold";
+      pull = 1;
+    }
+
+    const lerp = (from, to, amount) => ({
+      x: from.x + (to.x - from.x) * amount,
+      y: from.y + (to.y - from.y) * amount
+    });
+    const seedPoint = lerp(seedHome, mouth, pull);
+    // Side-to-side wave while the Seed travels (Curl Hook), zero at both ends.
+    const wave = style.wobble * Math.sin(pull * Math.PI * 2) * Math.sin(pull * Math.PI);
+    seedPoint.x += vector.y * wave;
+    seedPoint.y += -vector.x * wave;
+    const tip = phase === "pull" ? { ...seedPoint } : lerp(mouth, seedHome, extension);
+
+    const holdProgress = phase === "hold" ? (progress - style.pullUntil) / Math.max(0.001, 1 - style.pullUntil) : 0;
+    const scale = 1 - (1 - SWALLOW_SCALE) * ease("inOutSine", holdProgress);
+    // Noodle stretch along the travel direction, strongest mid-pull.
+    const stretch = style.id === "slurp" && phase === "pull" ? 1 + Math.sin(clamp01(pull) * Math.PI) * 0.9 : 1;
+
+    return {
+      style: style.id,
+      t: progress,
+      phase,
+      extension,
+      pull,
+      mouth,
+      tip,
+      seed: { x: seedPoint.x, y: seedPoint.y, scale, stretch },
+      // Tongue length in cells (mouth to tip), for shape drawing.
+      length: Math.hypot(tip.x - mouth.x, tip.y - mouth.y),
+      direction: vector,
+      showTongue: phase !== "hold"
+    };
+  }
+
+  // Tracks one catch across frames. The only memory is how far away the Seed
+  // was when the catch began, so a Seed that appears next to the head (or a
+  // turn into one) still plays the whole timeline, only faster.
+  function createCatchTracker(styleId = styles[0].id) {
+    let current = null; // { key, startSteps }
+    let style = getStyle(styleId).id;
+
+    function update({ head, direction, seeds, stepProgress = 0, running = true }) {
+      if (!running || !head) {
+        if (!running) return current?.frame || null;
+        current = null;
+        return null;
+      }
+      let best = null;
+      (seeds || []).forEach((seed) => {
+        const steps = stepsUntilSeed(head, direction, seed, stepProgress);
+        if (steps !== null && (!best || steps < best.steps)) best = { seed, steps };
+      });
+      if (!best) {
+        current = null;
+        return null;
+      }
+      const key = `${best.seed.x},${best.seed.y}`;
+      if (!current || current.key !== key || best.steps > current.startSteps) {
+        current = { key, startSteps: Math.max(0.001, best.steps), frame: null };
+      }
+      const t = 1 - best.steps / current.startSteps;
+      current.frame = { ...catchFrame(style, t, head, direction, best.seed), seedCell: best.seed };
+      return current.frame;
+    }
+
+    return {
+      update,
+      setStyle(id) { style = getStyle(id).id; current = null; },
+      get style() { return style; },
+      reset() { current = null; }
+    };
+  }
+
+  return {
+    REACH_STEPS,
+    MOUTH_OFFSET,
+    SWALLOW_SCALE,
+    styles,
+    getStyle,
+    ease,
+    stepsUntilSeed,
+    catchFrame,
+    createCatchTracker
+  };
+});
