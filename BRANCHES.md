@@ -1,5 +1,17 @@
 # Branch status
 
+## working-tongue — Tongue catch design ideas
+
+- Category: display (design preview).
+- Agent: Claude.
+- Status: Ready for review. Started from working-codex-controls at William's request.
+- Changes: new engine module `engine/tongue.js` owns the catch timing and geometry. When a Seed is straight ahead within two cells, the tongue reaches out, grabs the Seed, pulls it to the mouth, and the Seed shrinks in the mouth until the head enters the Seed cell. Five styles: Forked Flick, Sticky Lasso, Pixel Ribbon, Curl Hook, Noodle Slurp. `tongue-lab.html` shows all five side by side with play/pause, speed (1x to 0.1x), a timeline slider, and a head color choice.
+- Not yet in the game: game.js does not draw a tongue. After William picks a style, the game can call `createCatchTracker` each frame with the head, direction, Seeds, and step progress.
+- Tests: `npm run check` passed syntax, authority checks, and all 299 Node tests, including 7 new tongue tests (all directions, every style, one-step and two-step catches, turn cancel, pause). A headless smoke run of the lab script with a stub canvas drew 2000 frames with no errors.
+- UI verification: none in a browser. The drawn shapes have not been inspected.
+- Version impact: none. Display only; movement, eating, score, and saves are unchanged.
+- Last update: 2026-10-03.
+
 ## working-codex-controls — Controls and fullscreen follow-up
 
 - Category: engine controls and display.
