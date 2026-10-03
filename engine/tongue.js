@@ -98,7 +98,7 @@
       name: "Whip Fork",
       summary: "A thinner tongue whips out in a wave that straightens at the Seed, then the fork wraps it and the tongue wobbles back like rubber.",
       flickUntil: 0, emergeUntil: 0.24, emergeCells: 0.45, grabAt: 0.46, pullUntil: 0.84,
-      reachEase: "outCubic", pullEase: "outElastic", wobble: 0
+      reachEase: "outCubic", pullEase: "outRubber", wobble: 0
     },
     {
       id: "doubleSnap", group: "lassoFork",
@@ -138,6 +138,8 @@
       if (t === 0 || t === 1) return t;
       return Math.pow(2, -9 * t) * Math.sin((t * 10 - 0.75) * ((2 * Math.PI) / 3.2)) + 1;
     },
+    // Steady pull with a few rubbery wobbles that fade out at the mouth.
+    outRubber: (t) => 1 - Math.pow(1 - t, 3) + 0.14 * Math.sin(t * Math.PI * 3) * (1 - t),
     // Fast yank to half, a short hold, then a fast yank to the mouth.
     twoSnap: (t) => {
       const snap = (local) => 1 - Math.pow(1 - local, 4);
