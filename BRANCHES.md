@@ -1,5 +1,18 @@
 # Branch status
 
+## working — Stable block size variation and aligned grid
+
+- Category: display.
+- Agent: Codex.
+- Status: Ready to Ship.
+- Changes: removed body markings; connectors are 15% brighter than the body color and 25% thinner than the previous width. Each body block has a stable random area from 85% to 115% of normal. Both dimensions change together, with each block centered in its cell. Head and tail size stay unchanged. Live and death body blocks use the same size profile.
+- Stability: sizes depend on body section index, do not consume gameplay randomness, and stay the same through movement, growth, pause, and saved-board reloads.
+- Board: two-pixel grid lines share integer cell boundaries with the outline. Checker contrast is 15% less than before, reduced from 15% to 12.75%.
+- Tests: `npm run check` passed syntax, authority checks, and all 295 Node tests. Four focused browser checks passed for cell placement, stable sizes and colors, a 224-block snake, connector width and color, grid contrast and alignment, pause pixels, and direct/cache parity through resize and fullscreen changes.
+- UI verification: reused William's permission for the focused long-snake appearance check. Phone and fullscreen images were inspected. The size profile does not change between movement steps. No broad browser suite was run.
+- Version impact: none. No release requested.
+- Last update: 2026-10-03.
+
 ## working — Subdued moving body markings and board grid
 
 - Category: display.
