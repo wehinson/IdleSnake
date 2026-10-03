@@ -1,5 +1,20 @@
 # Branch status
 
+## working — Subdued moving body markings and board grid
+
+- Category: display.
+- Agent: Codex.
+- Status: Ready to Ship.
+- Changes: one base shade for all Classic Snake body blocks; three small marking shapes spaced 4.5 blocks apart slide along the body at 0.6 blocks per second; repeated block highlight strips removed. Pause freezes the markings; Reduced motion makes them static. The head and tail retain the chosen head color.
+- Connectors: 50% wider, with a 10% brightness increase from the chosen body color that preserves its hue. Death connector debris follows the same color and width increase. Entire blocks do not alternate shades.
+- Board: checker cells have approximately 15% brightness difference, with a stronger one-pixel grid aligned to canvas pixels. The cached grid includes the opaque background and fullscreen effect strength so cached and direct pixels agree.
+- Tests: `npm run check` passed syntax, authority checks, and all 295 Node tests. Four focused browser checks passed for body colors and exact cells in all directions, a 224-block snake with sparse sliding markings and frozen pause pixels, grid contrast and connector width/color, and grid cache parity through resize and fullscreen changes.
+- UI verification: William explicitly requested the browser check. Fullscreen, phone, and successive long-snake frame screenshots were inspected. The test confirms that less than 2% of board pixels change between steps while markings slide. No broad browser suite was run.
+- Visual follow-up: the remaining repeated pattern comes mainly from screen scanlines. Softer scanlines would be the next display experiment; their strength is unchanged in this batch.
+- Version impact: none. Movement speed, direction timing, collision rules, and save format are unchanged.
+- Last update: 2026-10-03.
+- Notes: changes are on working; no release requested.
+
 ## working-codex-controls — Controls and fullscreen follow-up
 
 - Category: engine controls and display.
