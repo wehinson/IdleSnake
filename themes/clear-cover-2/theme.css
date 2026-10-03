@@ -1,0 +1,821 @@
+/* Clear Cover II (Claude)
+   Round 2's favourite, improved: the translucent Bondi cover and its rounded pills stay;
+   the retail card is now dark, the LCD is a neutral grey-green with horizontal scanlines
+   instead of a blue tint and a pixel grid, every snake colour shows as chosen, and seeds
+   have a Bondi centre. */
+
+html[data-theme="clear-cover-2"] {
+  --s-font: "Jost", "Futura", "Segoe UI", sans-serif;
+  --s-page: #0c1213;
+  --s-menu: #121a1c;
+  --s-raise: #1c2629;
+  --s-raise-2: #243134;
+  --s-line: #26343a;
+  --s-line-strong: #3a4d54;
+  --s-grid: rgba(255, 255, 255, 0.025);
+  --s-text: #eef5f6;
+  --s-muted: #9fb2b7;
+  --s-faint: #61757a;
+  --s-accent: #18a6bb;
+  --s-accent-ink: #04262c;
+  --s-accent-text: #6fd6e4;
+  --s-button: #18a6bb;
+  --s-button-ink: #04262c;
+  --s-button-hover: #2fbacd;
+  --s-radius-panel: 20px;
+  --s-radius-box: 14px;
+  --s-radius-pill: 999px;
+  --s-radius-button: 999px;
+  --s-c1: #f2c45a;
+  --s-c2: #8fd99a;
+  --s-c3: #6fd6e4;
+  --s-stop: #e5634f;
+  --s-stop-text: #ff8f7c;
+  --s-go: #3fbf6a;
+  --s-egg: #d6eef2;
+  --s-nursery-bg: #e3b25f;
+  --s-nursery-ink: #3a2408;
+  --s-nursery-frame: #2a3538;
+  --s-lcd: #d2dbd2;
+  --s-lcd-ink: #1d2622;
+  --s-lcd-dim: #5e6c65;
+  --s-lcd-glow: inset 0 0 14px rgba(0, 0, 0, 0.16);
+  --s-seed: #14a0b4;
+  --s-lens: rgba(8, 30, 36, 0.9);
+  --s-hint: #cfe9ee;
+  --s-brand: #ffffff;
+  --s-key-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(220, 238, 242, 0.84));
+  --s-key-border: rgba(4, 60, 70, 0.55);
+  --s-key-highlight: #ffffff;
+  --s-key-base: rgba(4, 60, 70, 0.55);
+  --s-key-ink: #0b6f7e;
+  --s-nav-bg: linear-gradient(180deg, rgba(255, 255, 255, 0.94), rgba(220, 238, 242, 0.84));
+  --s-nav-ink: #0b6f7e;
+  --s-key-locked: rgba(255, 255, 255, 0.26);
+  --s-key-locked-border: rgba(4, 60, 70, 0.35);
+  --s-key-locked-ink: rgba(255, 255, 255, 0.8);
+  --s-dpad-well: rgba(8, 60, 70, 0.45);
+}
+
+/* ---------- shared round 3 system ----------
+   A dark, flat, minimal menu: a faint grid behind it, a grotesk for every word and number,
+   open ruled rows instead of cards, solid high-contrast buttons, and pill tabs.
+   The phone is the only 3D object: rounded keys, Start and Reset with coloured underlines,
+   and an LCD with horizontal scanlines and a soft glow. */
+
+html[data-theme="clear-cover-2"] {
+  color-scheme: dark;
+  --screen: var(--s-lcd);
+  --screen-ink: var(--s-lcd-ink);
+  --paper: var(--s-text);
+  --font-body: var(--s-font);
+  --font-ui: var(--s-font);
+}
+
+html[data-theme="clear-cover-2"] body {
+  background: var(--s-page);
+  color: var(--s-text);
+  font-family: var(--s-font);
+  font-variant-numeric: tabular-nums;
+}
+
+html[data-theme="clear-cover-2"] .app-layout {
+  grid-template-columns: minmax(280px, 360px) minmax(300px, 330px);
+  gap: clamp(24px, 7vw, 80px);
+  align-items: center;
+}
+
+@media (max-width: 800px) {
+  html[data-theme="clear-cover-2"] .app-layout {
+    grid-template-columns: minmax(0, 360px);
+  }
+}
+
+/* ---------- the menu ---------- */
+
+html[data-theme="clear-cover-2"] .menu-panel {
+  padding: 20px 20px 16px;
+  border: 1px solid var(--s-line);
+  border-radius: var(--s-radius-panel);
+  background:
+    linear-gradient(var(--s-grid) 1px, transparent 1px) 0 0 / 16px 16px,
+    linear-gradient(90deg, var(--s-grid) 1px, transparent 1px) 0 0 / 16px 16px,
+    var(--s-menu);
+  background-attachment: local;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
+  color: var(--s-text);
+  scrollbar-color: var(--s-line-strong) var(--s-menu);
+}
+
+html[data-theme="clear-cover-2"] .menu-panel h1 {
+  margin: 0 0 16px;
+  color: var(--s-text);
+  font-family: var(--s-font);
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  text-transform: none;
+}
+
+html[data-theme="clear-cover-2"] .menu-section-heading {
+  color: var(--s-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+html[data-theme="clear-cover-2"] .menu-section-mark {
+  color: var(--s-accent);
+}
+
+html[data-theme="clear-cover-2"] .menu-stat {
+  padding: 16px;
+  border: 0;
+  border-radius: var(--s-radius-box);
+  background: var(--s-raise);
+  box-shadow: none;
+  color: var(--s-text);
+}
+
+html[data-theme="clear-cover-2"] .menu-stat span {
+  color: var(--s-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+html[data-theme="clear-cover-2"] .menu-stat strong {
+  font-family: var(--s-font);
+  font-size: clamp(2.25rem, 8vw, 3rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+html[data-theme="clear-cover-2"] .menu-tabs {
+  gap: 4px;
+  margin-top: 16px;
+  padding: 4px;
+  border: 0;
+  border-radius: var(--s-radius-pill);
+  background: var(--s-raise);
+}
+
+html[data-theme="clear-cover-2"] .menu-tab {
+  padding: 8px 4px;
+  border: 0;
+  border-radius: var(--s-radius-pill);
+  background: transparent;
+  color: var(--s-muted);
+  font-family: var(--s-font);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-transform: none;
+}
+
+html[data-theme="clear-cover-2"] .menu-tab.is-active,
+html[data-theme="clear-cover-2"] .menu-tab[aria-selected="true"] {
+  border-color: transparent;
+  background: var(--s-accent);
+  box-shadow: none;
+  color: var(--s-accent-ink);
+}
+
+html[data-theme="clear-cover-2"] .menu-tab:disabled {
+  color: var(--s-faint);
+}
+
+html[data-theme="clear-cover-2"] .menu-tab-notification {
+  background: var(--s-text);
+  color: var(--s-menu);
+}
+
+/* Open ruled rows instead of boxes */
+html[data-theme="clear-cover-2"] :is(.upgrade-card, .nursery-goal-card, .nest-card, .nursery-yard-card, .nursery-currency, .migration-summary-card, .migration-builder, .migration-expedition-card, .trade-route-builder, .trade-direction-card, .colony-placeholder, .colony-income-summary, .habitat-card, .notable-card, .hatchling-row, .candidate-decision, .notable-candidates) {
+  padding: 12px 0 16px;
+  border: 0;
+  border-bottom: 1px solid var(--s-line);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--s-text);
+}
+
+html[data-theme="clear-cover-2"] .menu-panel :is(strong, h2, h3, h4, .habitat-name, .upgrade-card-heading strong, .nursery-card-heading strong, .notable-card > strong) {
+  color: var(--s-text) !important;
+  font-family: var(--s-font);
+  font-weight: 600;
+}
+
+html[data-theme="clear-cover-2"] .menu-panel :is(.upgrade-card-heading strong, .nursery-card-heading strong, .habitat-name) {
+  font-size: 1.0625rem;
+}
+
+html[data-theme="clear-cover-2"] .menu-panel :is(p, li, label, .upgrade-current, .nursery-timer, .nursery-meta, .nursery-meta span, .colony-note, .colony-income-summary, .habitat-notable, .habitat-production, .habitat-bonus, .habitat-primary-row, .habitat-over-capacity-row, .habitat-idle-snakes, .notable-card, .notable-service, .hatchling-row, .hatchling-row-heading span, .migration-field, .migration-cargo-note, .migration-required, .migration-founding, .migration-attrition, .trade-direction-derived, .trade-direction-fields label, .trade-worker-row, .nursery-currency, .nest-visual span) {
+  color: var(--s-muted) !important;
+  font-family: var(--s-font);
+}
+
+html[data-theme="clear-cover-2"] .menu-panel :is(.upgrade-label, .habitat-output-types, .colony-summary-heading) {
+  color: var(--s-muted) !important;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+html[data-theme="clear-cover-2"] .menu-panel :is(.upgrade-next, .egg-progress-rate) {
+  color: var(--s-accent-text) !important;
+  font-weight: 600;
+}
+
+html[data-theme="clear-cover-2"] .menu-panel :is(.migration-error, .habitat-max-count.is-at-maximum, .habitat-natural-count.is-over-natural, .habitat-idle-snakes) {
+  color: var(--s-stop-text) !important;
+}
+
+html[data-theme="clear-cover-2"] .upgrade-level,
+html[data-theme="clear-cover-2"] .egg-progress-rate {
+  padding: 2px 8px;
+  border: 0;
+  border-radius: var(--s-radius-pill);
+  background: var(--s-raise);
+  color: var(--s-muted) !important;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+html[data-theme="clear-cover-2"] .upgrade-card.is-maxed .upgrade-level {
+  background: var(--s-accent);
+  color: var(--s-accent-ink) !important;
+}
+
+/* Colony: the habitat type is a coloured rule on the left of an open row */
+html[data-theme="clear-cover-2"] .habitat-card:not(.is-locked) {
+  padding-left: 12px;
+  box-shadow: inset 3px 0 0 var(--s-line-strong);
+}
+
+html[data-theme="clear-cover-2"] .habitat-card.produces-provisions:not(.is-locked) {
+  box-shadow: inset 3px 0 0 var(--s-c1);
+}
+
+html[data-theme="clear-cover-2"] .habitat-card.produces-branches:not(.is-locked) {
+  box-shadow: inset 3px 0 0 var(--s-c2);
+}
+
+html[data-theme="clear-cover-2"] .habitat-card.speeds-egg-hatch:not(.is-locked) {
+  box-shadow: inset 3px 0 0 var(--s-c3);
+}
+
+html[data-theme="clear-cover-2"] .habitat-card.produces-provisions:not(.is-locked) :is(.habitat-production, .habitat-output-types) {
+  color: var(--s-c1) !important;
+}
+
+html[data-theme="clear-cover-2"] .habitat-card.produces-branches:not(.is-locked) :is(.habitat-production, .habitat-output-types) {
+  color: var(--s-c2) !important;
+}
+
+html[data-theme="clear-cover-2"] .habitat-card.speeds-egg-hatch:not(.is-locked) :is(.habitat-production, .habitat-output-types) {
+  color: var(--s-c3) !important;
+}
+
+html[data-theme="clear-cover-2"] .habitat-card.is-locked {
+  opacity: 0.5;
+}
+
+/* Flat solid buttons with sharp contrast */
+html[data-theme="clear-cover-2"] .menu-panel :is(button:not(.menu-tab):not(.candidate-list-item), .upgrade-button) {
+  min-height: 36px;
+  border: 0;
+  border-radius: var(--s-radius-button);
+  background: var(--s-button);
+  box-shadow: none;
+  color: var(--s-button-ink);
+  font-family: var(--s-font);
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+html[data-theme="clear-cover-2"] .menu-panel :is(button:not(.menu-tab):not(.candidate-list-item), .upgrade-button):not(:disabled):hover {
+  background: var(--s-button-hover);
+}
+
+html[data-theme="clear-cover-2"] .menu-panel :is(button:not(.menu-tab):not(.candidate-list-item), .upgrade-button):not(:disabled):active {
+  transform: translateY(1px);
+}
+
+html[data-theme="clear-cover-2"] .menu-panel :is(button:not(.menu-tab), .upgrade-button):disabled {
+  background: var(--s-raise);
+  color: var(--s-faint);
+  filter: none;
+}
+
+html[data-theme="clear-cover-2"] .menu-panel :is(button, select, input):focus-visible {
+  outline: 2px solid var(--s-accent);
+  outline-offset: 2px;
+}
+
+html[data-theme="clear-cover-2"] .trade-open-button.is-ready {
+  background: var(--s-accent) !important;
+  color: var(--s-accent-ink) !important;
+}
+
+html[data-theme="clear-cover-2"] .menu-panel :is(.migration-expedition-actions button.is-danger, .reset-progress-button) {
+  background: transparent !important;
+  box-shadow: inset 0 0 0 1.5px var(--s-stop) !important;
+  color: var(--s-stop-text) !important;
+}
+
+html[data-theme="clear-cover-2"] .reset-progress {
+  border-top: 1px solid var(--s-line);
+}
+
+html[data-theme="clear-cover-2"] .reset-progress-fill {
+  background: var(--s-stop);
+  opacity: 0.3;
+}
+
+html[data-theme="clear-cover-2"] .menu-panel :is(select, input, .upgrade-select) {
+  min-height: 32px;
+  border: 1px solid var(--s-line-strong);
+  border-radius: var(--s-radius-box);
+  background: var(--s-raise);
+  color: var(--s-text);
+  font-family: var(--s-font);
+  font-size: 0.875rem;
+}
+
+html[data-theme="clear-cover-2"] .growth-bar {
+  height: 6px;
+  border: 0;
+  border-radius: var(--s-radius-pill);
+  background: var(--s-raise);
+}
+
+html[data-theme="clear-cover-2"] .growth-bar span {
+  border-radius: var(--s-radius-pill);
+  background: var(--s-accent);
+}
+
+html[data-theme="clear-cover-2"] .nursery-feeding-button[aria-pressed="true"] {
+  background: var(--s-accent) !important;
+  color: var(--s-accent-ink) !important;
+}
+
+html[data-theme="clear-cover-2"] .nest-visual {
+  border: 1px dashed var(--s-line-strong);
+  border-radius: var(--s-radius-box);
+  background: transparent;
+  color: var(--s-muted);
+}
+
+html[data-theme="clear-cover-2"] .nest-visual.has-egg {
+  border-style: solid;
+  background: transparent;
+}
+
+html[data-theme="clear-cover-2"] .egg-shape {
+  border: 1.5px solid var(--s-text);
+  background: radial-gradient(circle at 35% 30%, #ffffff, var(--s-egg));
+  box-shadow: none;
+}
+
+/* The nursery is its own small LCD, in a second colour */
+html[data-theme="clear-cover-2"] .nursery-grid {
+  border: 6px solid var(--s-nursery-frame);
+  border-radius: var(--s-radius-box);
+  background: var(--s-nursery-bg);
+  box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.35);
+}
+
+html[data-theme="clear-cover-2"] .nursery-cell,
+html[data-theme="clear-cover-2"] .nursery-cell:nth-child(odd) {
+  background: transparent;
+}
+
+html[data-theme="clear-cover-2"] .nursery-cell.is-body::after,
+html[data-theme="clear-cover-2"] .nursery-cell.is-tail::after,
+html[data-theme="clear-cover-2"] .nursery-cell.is-head::after {
+  background: var(--s-nursery-ink);
+}
+
+html[data-theme="clear-cover-2"] .nursery-cell.is-head::before {
+  background: var(--s-nursery-bg);
+}
+
+html[data-theme="clear-cover-2"] .habitat-capacity-tooltip {
+  border: 1px solid var(--s-line-strong);
+  border-radius: var(--s-radius-box);
+  background: var(--s-raise-2);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
+  color: var(--s-text);
+}
+
+html[data-theme="clear-cover-2"] .habitat-capacity-tooltip :is(strong, li) {
+  color: var(--s-text) !important;
+}
+
+html[data-theme="clear-cover-2"] .candidate-list-item {
+  border: 0;
+  border-radius: var(--s-radius-box);
+  background: transparent;
+  color: var(--s-text);
+  font-family: var(--s-font);
+}
+
+html[data-theme="clear-cover-2"] .candidate-list-item[aria-pressed="true"] {
+  background: var(--s-raise);
+  box-shadow: inset 3px 0 0 var(--s-accent);
+  color: var(--s-text);
+}
+
+html[data-theme="clear-cover-2"] .trade-network-edge {
+  stroke: var(--s-line-strong);
+}
+
+html[data-theme="clear-cover-2"] .trade-network-edge.is-selected {
+  stroke: var(--s-accent);
+}
+
+html[data-theme="clear-cover-2"] .trade-network-node circle {
+  fill: var(--s-raise);
+  stroke: var(--s-text);
+}
+
+html[data-theme="clear-cover-2"] .trade-network-node text {
+  fill: var(--s-text);
+  font-family: var(--s-font);
+}
+
+/* ---------- the phone: the LCD ---------- */
+
+html[data-theme="clear-cover-2"] .phone-shell::before,
+html[data-theme="clear-cover-2"] .phone-shell::after {
+  content: none;
+}
+
+html[data-theme="clear-cover-2"] .phone-brand {
+  min-width: 0;
+  padding: 4px 0 0;
+  background: transparent;
+  color: var(--s-brand);
+  font-family: var(--s-font);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+}
+
+html[data-theme="clear-cover-2"] .screen-frame {
+  padding: 12px;
+  border: 1px solid #000000;
+  border-radius: 14px 14px 20px 20px;
+  background: var(--s-lens);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme="clear-cover-2"] .status-strip {
+  gap: 0;
+  margin-bottom: 0;
+  padding: 4px 4px 0;
+  border-radius: 4px 4px 0 0;
+  background: var(--s-lcd);
+}
+
+html[data-theme="clear-cover-2"] .status-strip div {
+  padding: 4px 2px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--s-lcd-ink);
+}
+
+html[data-theme="clear-cover-2"] .status-strip div + div {
+  background: linear-gradient(var(--s-lcd-dim), var(--s-lcd-dim)) left center / 1px 60% no-repeat;
+}
+
+html[data-theme="clear-cover-2"] .stat-label {
+  color: var(--s-lcd-dim);
+  font-family: var(--s-font);
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+html[data-theme="clear-cover-2"] .status-strip strong {
+  font-family: var(--s-font);
+  font-size: clamp(0.8rem, 3.8vw, 1rem);
+  letter-spacing: -0.01em;
+  font-weight: 700;
+  text-shadow: none;
+}
+
+html[data-theme="clear-cover-2"] .grid-select {
+  border: 1px solid var(--s-lcd-dim);
+  border-radius: 4px;
+  background: var(--s-lcd);
+  color: var(--s-lcd-ink);
+  font-family: var(--s-font);
+}
+
+html[data-theme="clear-cover-2"] .screen-bezel {
+  padding: 4px;
+  border: 0;
+  border-radius: 0 0 4px 4px;
+  background: var(--s-lcd);
+  box-shadow: var(--s-lcd-glow);
+}
+
+/* The canvas background shows through the hollow centre of a seed */
+html[data-theme="clear-cover-2"] #game {
+  border: 0;
+  border-radius: 0;
+  background: var(--s-seed);
+  image-rendering: auto;
+}
+
+html[data-theme="clear-cover-2"] .screen-plate {
+  padding: 8px 12px;
+  border: 2px solid var(--s-lcd-ink);
+  border-radius: 6px;
+  background: var(--s-lcd);
+  box-shadow: none;
+  color: var(--s-lcd-ink);
+}
+
+html[data-theme="clear-cover-2"] #stateText,
+html[data-theme="clear-cover-2"] .ready-start-prompt {
+  color: var(--s-lcd-ink);
+  font-family: var(--s-font);
+  font-weight: 700;
+  text-transform: none;
+}
+
+html[data-theme="clear-cover-2"] .screen-hint {
+  color: var(--s-hint);
+  font-family: var(--s-font);
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: none;
+}
+
+html[data-theme="clear-cover-2"] .personalization-screen,
+html[data-theme="clear-cover-2"] .broodline-screen {
+  border: 0;
+  border-radius: 0;
+  background: var(--s-lcd);
+  box-shadow: none;
+  color: var(--s-lcd-ink);
+  font-family: var(--s-font);
+}
+
+html[data-theme="clear-cover-2"] .personalization-heading {
+  border-bottom: 1px solid var(--s-lcd-dim);
+}
+
+html[data-theme="clear-cover-2"] .color-swatch {
+  border: 1px solid var(--s-lcd-dim);
+  border-radius: 999px;
+  box-shadow: none;
+}
+
+html[data-theme="clear-cover-2"] .color-swatch::after {
+  border-radius: 999px;
+}
+
+html[data-theme="clear-cover-2"] .color-swatch[aria-pressed="true"] {
+  outline: 2px solid var(--s-lcd-ink);
+  outline-offset: 2px;
+}
+
+html[data-theme="clear-cover-2"] :is(.personalization-back, .mobile-control-toggle, .broodline-card) {
+  border: 1px solid var(--s-lcd-dim);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--s-lcd-ink);
+  font-family: var(--s-font);
+  font-weight: 600;
+  text-transform: none;
+}
+
+html[data-theme="clear-cover-2"] .broodline-card {
+  border-radius: 8px;
+}
+
+html[data-theme="clear-cover-2"] :is(.mobile-control-toggle[aria-pressed="true"], .broodline-card.is-selected) {
+  background: var(--s-lcd-ink);
+  color: var(--s-lcd);
+}
+
+html[data-theme="clear-cover-2"] .save-data-area {
+  border: 1px solid var(--s-lcd-dim);
+  border-radius: 4px;
+  background: var(--s-lcd);
+  color: var(--s-lcd-ink);
+  font-family: var(--s-font);
+}
+
+/* ---------- the phone: keys ---------- */
+
+html[data-theme="clear-cover-2"] :is(.nav-key, .action-key, .phone-key) {
+  border: 1px solid var(--s-key-border);
+  background: var(--s-key-bg);
+  box-shadow: inset 0 1px 0 var(--s-key-highlight), 0 2px 0 var(--s-key-base);
+  color: var(--s-key-ink);
+  font-family: var(--s-font);
+  font-weight: 700;
+}
+
+html[data-theme="clear-cover-2"] :is(.nav-key, .action-key, .phone-key):focus-visible {
+  outline: 2px solid var(--s-accent);
+  outline-offset: 2px;
+  box-shadow: inset 0 1px 0 var(--s-key-highlight), 0 2px 0 var(--s-key-base);
+}
+
+html[data-theme="clear-cover-2"] .phone-key {
+  min-height: 26px;
+  border-radius: 999px;
+  font-size: 0.875rem;
+}
+
+/* Rounded navigation keys: a pill rocker for up and down, rounded ovals left and right */
+html[data-theme="clear-cover-2"] .nav-key {
+  background: var(--s-nav-bg);
+  color: var(--s-nav-ink);
+}
+
+html[data-theme="clear-cover-2"] .nav-up {
+  border-radius: 28px 28px 14px 14px;
+}
+
+html[data-theme="clear-cover-2"] .nav-down {
+  border-radius: 14px 14px 28px 28px;
+}
+
+html[data-theme="clear-cover-2"] .nav-left {
+  border-radius: 22px 14px 14px 22px;
+}
+
+html[data-theme="clear-cover-2"] .nav-right {
+  border-radius: 14px 22px 22px 14px;
+}
+
+html[data-theme="clear-cover-2"] .action-key {
+  min-height: 34px;
+  border-radius: 10px;
+  font-size: 0.8125rem;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+
+/* Start and Reset carry a short coloured underline */
+html[data-theme="clear-cover-2"] #startButton {
+  box-shadow: inset 0 1px 0 var(--s-key-highlight), inset 0 -4px 0 -1px var(--s-go), 0 2px 0 var(--s-key-base);
+}
+
+html[data-theme="clear-cover-2"] #resetButton {
+  box-shadow: inset 0 1px 0 var(--s-key-highlight), inset 0 -4px 0 -1px var(--s-stop), 0 2px 0 var(--s-key-base);
+}
+
+html[data-theme="clear-cover-2"] :is(.nav-key:active, .nav-key.is-pressed, .action-key:active, .action-key.is-active) {
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.45);
+  filter: brightness(0.92);
+}
+
+html[data-theme="clear-cover-2"] .minigame-key.is-locked {
+  border-color: var(--s-key-locked-border);
+  background: var(--s-key-locked);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
+  color: var(--s-key-locked-ink);
+  filter: none;
+}
+
+html[data-theme="clear-cover-2"] .grid-key[aria-pressed="true"] {
+  background: var(--s-accent);
+  color: var(--s-accent-ink);
+}
+
+html[data-theme="clear-cover-2"] .phone-nav.is-large-dpad {
+  border: 1px solid var(--s-key-border);
+  background: var(--s-dpad-well);
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+html[data-theme="clear-cover-2"] .phone-nav.is-large-dpad .nav-key {
+  border-color: var(--s-key-border);
+  border-radius: 18px;
+  background: var(--s-nav-bg);
+  box-shadow: 0 2px 0 var(--s-key-base);
+}
+
+html[data-theme="clear-cover-2"] .phone-nav.is-large-dpad .nav-chevron {
+  color: var(--s-nav-ink);
+}
+
+html[data-theme="clear-cover-2"] .is-fullscreen-mode .phone-shell {
+  width: 100%;
+  border-radius: 24px;
+}
+
+/* ---------- the translucent cover over the circuit board ---------- */
+
+html[data-theme="clear-cover-2"] .phone-shell {
+  padding: 16px 18px 24px;
+  border: 1px solid #075664;
+  border-radius: 72px 72px 64px 64px / 56px 56px 72px 72px;
+  background:
+    radial-gradient(ellipse 50% 18% at 30% 5%, rgba(255, 255, 255, 0.3), transparent 70%),
+    linear-gradient(90deg, rgba(4, 60, 70, 0.35), transparent 14% 86%, rgba(4, 60, 70, 0.35)),
+    linear-gradient(rgba(0, 160, 192, 0.9), rgba(0, 124, 152, 0.92)),
+    linear-gradient(#202326, #202326) 72% 74% / 44px 28px no-repeat,
+    linear-gradient(#202326, #202326) 22% 86% / 30px 18px no-repeat,
+    repeating-linear-gradient(90deg, transparent 0 26px, rgba(214, 178, 84, 0.5) 26px 28px),
+    repeating-linear-gradient(0deg, transparent 0 38px, rgba(214, 178, 84, 0.4) 38px 40px),
+    #1d6b4a;
+  box-shadow:
+    inset 0 2px 0 rgba(255, 255, 255, 0.35),
+    inset 0 -4px 10px rgba(4, 60, 70, 0.4),
+    0 24px 40px -12px rgba(0, 0, 0, 0.6);
+}
+
+html[data-theme="clear-cover-2"] .speaker-slot {
+  width: 44px;
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(4, 40, 46, 0.75);
+  filter: none;
+}
+
+html[data-theme="clear-cover-2"] .phone-brand {
+  text-transform: lowercase;
+}
+
+html[data-theme="clear-cover-2"] .menu-panel h1 {
+  text-transform: lowercase;
+}
+
+/* Swatch previews show the colour the LCD draws */
+html[data-theme="clear-cover-2"] .color-swatch[data-color="#29391f"] {
+  background: #29391f;
+}
+
+html[data-theme="clear-cover-2"] .color-swatch[data-color="#32204f"] {
+  background: #32204f;
+}
+
+html[data-theme="clear-cover-2"] .color-swatch[data-color="#16465a"] {
+  background: #16465a;
+}
+
+html[data-theme="clear-cover-2"] .color-swatch[data-color="#176052"] {
+  background: #176052;
+}
+
+html[data-theme="clear-cover-2"] .color-swatch[data-color="#843b2f"] {
+  background: #843b2f;
+}
+
+html[data-theme="clear-cover-2"] .color-swatch[data-color="#a55b25"] {
+  background: #a55b25;
+}
+
+html[data-theme="clear-cover-2"] .color-swatch[data-color="#702c57"] {
+  background: #702c57;
+}
+
+html[data-theme="clear-cover-2"] .color-swatch[data-color="#252a32"] {
+  background: #252a32;
+}
+
+html[data-theme="clear-cover-2"] .color-swatch[data-color="#182413"] {
+  background: #1d2622;
+}
+
+html[data-theme="clear-cover-2"] .color-swatch[data-color="#583b83"] {
+  background: #583b83;
+}
+
+html[data-theme="clear-cover-2"] .color-swatch[data-color="#267b91"] {
+  background: #267b91;
+}
+
+html[data-theme="clear-cover-2"] .color-swatch[data-color="#2d8b68"] {
+  background: #2d8b68;
+}
+
+html[data-theme="clear-cover-2"] .color-swatch[data-color="#b3483d"] {
+  background: #b3483d;
+}
+
+html[data-theme="clear-cover-2"] .color-swatch[data-color="#b0802d"] {
+  background: #b0802d;
+}
+
+html[data-theme="clear-cover-2"] .color-swatch[data-color="#9b477e"] {
+  background: #9b477e;
+}
+
+html[data-theme="clear-cover-2"] .color-swatch[data-color="#596474"] {
+  background: #596474;
+}

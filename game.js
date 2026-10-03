@@ -3228,6 +3228,7 @@ function lightenColor(color, amount) {
 }
 
 function contrastingEyeColor(color) {
+  if (window.ThemeKit) color = window.ThemeKit.color(color);
   const hex = String(color).replace("#", "");
   const red = parseInt(hex.slice(0, 2), 16);
   const green = parseInt(hex.slice(2, 4), 16);

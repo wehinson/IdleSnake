@@ -37,7 +37,7 @@ A theme changes only presentation. It never changes session state, engine data, 
 - Do not edit `game.js`, `engine/**`, or `styles.css` for a theme. The only theme hooks in `game.js` are:
   - the overlay and scanline option in `drawScanlines`
   - the theme id in `staticLayerKey`
-  - the palette in `lightenColor`
+  - the palette in `lightenColor` and `contrastingEyeColor`
   - the redraw on theme change
 - The Original theme must look and read exactly as before. The Playwright tests run against Original.
 - `npm run check` must pass, including `themes/themes.test.js`.
