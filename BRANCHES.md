@@ -1,5 +1,20 @@
 # Branch status
 
+## working — Ready reload, settings controls, and Length Bonus
+
+- Category: engine, controls, and display.
+- Agent: Codex.
+- Status: Ready to Ship.
+- Changes: reload a finished Classic Snake run at Ready; Space closes settings; remove number-button focus outlines; add passive Seed Length Bonus and its upgrade; show passive Seed income per second in the Seed counter area, including any applied bonus.
+- Bonus: count all segments at 1% each. Each upgrade adds 5 percentage points per segment. Apply only while Classic Snake runs and passive Seed production is available. Show the applied multiplier below the Seed counter.
+- Files: engine/config.js, engine/economy.js, engine/migration.js, engine/save-projection.js, engine/session.js, engine/state-reader.js, engine/length-bonus.test.js, game.js, index.html, styles.css, tests/browser/working-followup.spec.js, tests/browser/smoke.spec.js, tests/browser/puzzle-modes.spec.js, and README.md.
+- Tests: `npm run check` passed syntax, authority checks, and all 302 Node tests. Seven new engine tests cover income, upgrades, resources, growth, death, reload, and settlements. Four focused Chromium checks passed. The full 76-check browser run passed 74 checks and found two stale expectations that Reset restarts a paused run. Updated both tests to check the documented resume-first rule; their focused five-check rerun passed. All 76 browser checks have passed across the full run and focused rerun.
+- Browser command: `node node_modules/@playwright/test/cli.js test --config .git/task-playwright.config.cjs --workers=2`; the private temporary config uses port 4187 and the repository's complete browser test directory. The shared port 4173 server stopped during an earlier focused run; all reported successful checks used the private server.
+- UI verification: William approved isolated browser checks. Desktop and phone screenshots were inspected. The compact trackers fit the Seed counter, and the income tracker changes with the multiplier, upgrade, pause, and death. No known verification gap for this batch.
+- Version impact: optional lengthBonusLevel in version 5 saves; no release requested.
+- Last update: 2026-10-03.
+- Notes: committed and backed up on working. Recommended for shipping when William requests it.
+
 ## working — Stable block size variation and aligned grid
 
 - Category: display.
