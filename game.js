@@ -367,6 +367,8 @@ const personalizationScreen = document.querySelector("#personalizationScreen");
 const personalizationBackButton = document.querySelector("#personalizationBackButton");
 const openSaveDataButton = document.querySelector("#openSaveDataButton");
 const reducedMotionButton = document.querySelector("#reducedMotionButton");
+const chompSoundButton = document.querySelector("#chompSoundButton");
+const chompPreviewButton = document.querySelector("#chompPreviewButton");
 const swipeControlsButton = document.querySelector("#swipeControlsButton");
 const biggerDpadButton = document.querySelector("#biggerDpadButton");
 const controlsEl = document.querySelector(".controls");
@@ -1120,6 +1122,87 @@ function syncAccessibilityPreference() {
     reducedMotionButton.setAttribute("aria-pressed", String(enabled));
     reducedMotionButton.textContent = `Reduced motion: ${enabled ? "On" : "Off"}`;
   }
+}
+
+// The chomp is a recorded sound file; the engine decides when to play it.
+// On or off is a device preference, stored apart from the game save.
+const chompSoundKey = "idlesnake-chomp-sound";
+const chompSounds = window.IdleSnakeChompSounds;
+let chompSoundSetting = chompSounds.normalChompSetting(safeStorage("get", chompSoundKey).value);
+let chompAudioContext = null;
+let chompFile = null;
+let chompBuffer = null;
+
+// Fetch the small file early so that the first bite is not late.
+function loadChompFile() {
+  chompFile ??= fetch(chompSounds.chompSoundUrl).then((response) => {
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return response.arrayBuffer();
+  });
+  chompFile.catch(() => { chompFile = null; });
+  return chompFile;
+}
+
+function decodedChomp() {
+  chompBuffer ??= loadChompFile().then((data) => chompAudioContext.decodeAudioData(data.slice(0)));
+  chompBuffer.catch(() => { chompBuffer = null; });
+  return chompBuffer;
+}
+
+// Without Web Audio, or when the page is opened from a file, use an audio element.
+function playChompElement(url, playbackRate) {
+  const audio = new Audio(url);
+  audio.preservesPitch = false;
+  audio.playbackRate = playbackRate;
+  audio.volume = 0.6;
+  audio.play().catch(() => {});
+}
+
+function playChomp(url, playbackRate = 1) {
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if (!url) return;
+  if (!AudioContextClass || location.protocol === "file:") { playChompElement(url, playbackRate); return; }
+  try {
+    chompAudioContext ??= new AudioContextClass();
+    if (chompAudioContext.state === "suspended") chompAudioContext.resume();
+    decodedChomp().then((buffer) => {
+      const source = chompAudioContext.createBufferSource();
+      const gain = chompAudioContext.createGain();
+      source.buffer = buffer;
+      source.playbackRate.value = playbackRate;
+      gain.gain.value = 0.6;
+      source.connect(gain).connect(chompAudioContext.destination);
+      source.start();
+    }).catch(() => playChompElement(url, playbackRate));
+  } catch (error) {
+    console.warn("IdleSnake chomp sound failed.", error);
+  }
+}
+
+let lastChompAt = -Infinity;
+function playEatChomp() {
+  // Catch-up ticks can report many eats at once; play only one of them.
+  const now = performance.now();
+  if (document.hidden || now - lastChompAt < 40) return;
+  lastChompAt = now;
+  playChomp(chompSounds.chompForEat(chompSoundSetting), chompSounds.chompPlaybackRate());
+}
+
+function syncChompSoundSetting() {
+  const on = chompSoundSetting !== "off";
+  if (chompSoundButton) {
+    chompSoundButton.setAttribute("aria-pressed", String(on));
+    chompSoundButton.textContent = `Chomp sound: ${on ? "On" : "Off"}`;
+  }
+  if (chompPreviewButton) chompPreviewButton.disabled = !on;
+  if (on && location.protocol !== "file:") loadChompFile().catch(() => {});
+}
+
+function toggleChompSound() {
+  chompSoundSetting = chompSoundSetting === "off" ? "on" : "off";
+  safeStorage("set", chompSoundKey, chompSoundSetting);
+  syncChompSoundSetting();
+  playEatChomp();
 }
 
 function toggleReducedMotion() {
@@ -2928,7 +3011,7 @@ function interpretSessionEvents(events) {
     switch (event.type) {
       case "hatch":
       case "eggBoardHatched": idleLastPanelAt = 0; break;
-      case "eat": if (gameMode === "snake") { runSeedsEarned += Math.max(0, Number(event.value) || 0); startDigestionAnimation(); startCrumbAnimation(event.at); } break;
+      case "eat": if (gameMode === "snake") { playEatChomp(); runSeedsEarned += Math.max(0, Number(event.value) || 0); startDigestionAnimation(); startCrumbAnimation(event.at); } break;
       case "shield": if (gameMode === "snake") saveUpgrades(); break;
       case "bestScore": if (gameMode === "snake") setSaveItem("best", String(best)); break;
       case "gameOver": if (gameMode === "snake") { state = "gameover"; startDeathAnimation(); syncHud(); showDeathOverlay("Game Over"); } break;
@@ -5616,6 +5699,21 @@ startButton.addEventListener("click", startGame);
 pauseButton.addEventListener("click", activatePrimaryAction);
 resetButton.addEventListener("click", resetGame);
 reducedMotionButton?.addEventListener("click", toggleReducedMotion);
+chompSoundButton?.addEventListener("click", toggleChompSound);
+chompSoundButton?.addEventListener("keydown", (event) => {
+  if (!["Enter", " "].includes(event.key)) return;
+  event.preventDefault();
+  event.stopPropagation();
+  if (!event.repeat) toggleChompSound();
+});
+chompPreviewButton?.addEventListener("click", playEatChomp);
+chompPreviewButton?.addEventListener("keydown", (event) => {
+  if (!["Enter", " "].includes(event.key)) return;
+  event.preventDefault();
+  event.stopPropagation();
+  if (!event.repeat) playEatChomp();
+});
+syncChompSoundSetting();
 swipeControlsButton?.addEventListener("click", () => toggleMobileControl("swipeControls"));
 biggerDpadButton?.addEventListener("click", () => toggleMobileControl("biggerDpad"));
 minimizedKeypadButton?.addEventListener("click", () => {

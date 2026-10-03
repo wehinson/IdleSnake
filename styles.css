@@ -1843,3 +1843,14 @@ html[data-reduced-motion="true"] .phone-nav.is-large-dpad .nav-key:is(:active, .
   .color-swatch[aria-pressed="true"]:active { transform: translate(-1px, -1px) !important; }
   .phone-nav.is-large-dpad .nav-key:is(:active, .is-pressed) { transform: none !important; }
 }
+
+.chomp-sound-options {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 5px;
+  align-items: stretch;
+}
+.chomp-sound-options #chompPreviewButton {
+  width: auto;
+  text-align: center;
+}
