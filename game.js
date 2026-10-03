@@ -515,6 +515,12 @@ let tailWiggleStartedAt = null;
 const snakeAnimationClock = window.IdleSnakeAnimationClock.createAnimationClock();
 const snakeAnimationNow = () => snakeAnimationClock.now(performance.now());
 let deathAnimation = null;
+// Sticky Goo Fork tongue: when a Seed is straight ahead within two steps, the
+// tongue grabs it and pulls it to the mouth before the head arrives. Display
+// only; the engine still eats the Seed when the head enters its cell.
+const TONGUE_STYLE = "gooFork";
+const tongueTracker = window.IdleSnakeTongue.createCatchTracker(TONGUE_STYLE);
+let tongueFrame = null;
 
 const activeDirectionKeys = new Set();
 const activeDirectionClicks = new Set();
@@ -2911,6 +2917,8 @@ function drawSnake() {
     ctx.stroke();
   }
 
+  drawTongueCatch();
+
   gameView.snake.forEach((part, index) => {
     const point = points[index];
     const baseInset = Math.max(3, boardMetrics.cellSize * (index === 0 ? 0.105 : 0.135));
@@ -3419,45 +3427,85 @@ function drawFood() {
   const foodType = currentFoodType();
   const pulse = gameView.state === "running" && !effectiveReducedMotion() ? Math.sin(performance.now() / 130) * boardMetrics.cellSize * 0.05 : 0;
 
+  updateTongueFrame();
+  const caught = tongueFrame?.seedCell;
   gameView.foods.forEach((snack) => {
+    if (caught && snack.x === caught.x && snack.y === caught.y) return;
     const inset = Math.max(4, Math.floor(boardMetrics.cellSize * 0.18) - pulse);
-    const rect = cellRect(snack, inset);
-    const centerX = rect.x + rect.size / 2;
-    const centerY = rect.y + rect.size / 2;
-
-    if (snack.kind === "egg") {
-      ctx.fillStyle = "#f2e9ba";
-      ctx.beginPath();
-      ctx.ellipse(centerX, centerY, rect.size * 0.32, rect.size * 0.43, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = "#182413";
-      ctx.lineWidth = Math.max(1, rect.size * 0.08);
-      ctx.stroke();
-      return;
-    }
-    ctx.fillStyle = "#182413";
-    if (foodType.kind === "fruit") {
-      ctx.beginPath();
-      ctx.arc(centerX, centerY + 1, rect.size * 0.44, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillRect(centerX - 1, rect.y - 2, 2, Math.max(3, rect.size * 0.22));
-      ctx.fillStyle = "#9cac77";
-      ctx.fillRect(centerX + 2, rect.y - 2, Math.max(2, rect.size * 0.22), 2);
-    } else if (foodType.kind === "pod") {
-      ctx.beginPath();
-      ctx.ellipse(centerX, centerY, rect.size * 0.34, rect.size * 0.48, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = "#9cac77";
-      ctx.fillRect(centerX - 1, rect.y + rect.size * 0.22, 2, Math.max(2, rect.size * 0.14));
-    } else {
-      ctx.fillRect(rect.x, rect.y, rect.size, rect.size);
-      const cut = rect.size * 0.32;
-      ctx.clearRect(rect.x + cut, rect.y + cut, rect.size - cut * 2, rect.size - cut * 2);
-    }
-
-    ctx.fillStyle = "rgba(24, 36, 19, 0.42)";
-    ctx.fillRect(rect.x + 3, rect.y + rect.size + 2, Math.max(1, rect.size - 4), 2);
+    drawSnack(snack, cellRect(snack, inset), foodType);
   });
+}
+
+function drawSnack(snack, rect, foodType) {
+  const centerX = rect.x + rect.size / 2;
+  const centerY = rect.y + rect.size / 2;
+
+  if (snack.kind === "egg") {
+    ctx.fillStyle = "#f2e9ba";
+    ctx.beginPath();
+    ctx.ellipse(centerX, centerY, rect.size * 0.32, rect.size * 0.43, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#182413";
+    ctx.lineWidth = Math.max(1, rect.size * 0.08);
+    ctx.stroke();
+    return;
+  }
+  ctx.fillStyle = "#182413";
+  if (foodType.kind === "fruit") {
+    ctx.beginPath();
+    ctx.arc(centerX, centerY + 1, rect.size * 0.44, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillRect(centerX - 1, rect.y - 2, 2, Math.max(3, rect.size * 0.22));
+    ctx.fillStyle = "#9cac77";
+    ctx.fillRect(centerX + 2, rect.y - 2, Math.max(2, rect.size * 0.22), 2);
+  } else if (foodType.kind === "pod") {
+    ctx.beginPath();
+    ctx.ellipse(centerX, centerY, rect.size * 0.34, rect.size * 0.48, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#9cac77";
+    ctx.fillRect(centerX - 1, rect.y + rect.size * 0.22, 2, Math.max(2, rect.size * 0.14));
+  } else {
+    ctx.fillRect(rect.x, rect.y, rect.size, rect.size);
+    const cut = rect.size * 0.32;
+    ctx.clearRect(rect.x + cut, rect.y + cut, rect.size - cut * 2, rect.size - cut * 2);
+  }
+
+  ctx.fillStyle = "rgba(24, 36, 19, 0.42)";
+  ctx.fillRect(rect.x + 3, rect.y + rect.size + 2, Math.max(1, rect.size - 4), 2);
+}
+
+function updateTongueFrame() {
+  const active = gameView.gameMode === "snake"
+    && (gameView.state === "running" || gameView.state === "paused")
+    && gameView.snake?.length
+    && !effectiveReducedMotion();
+  if (!active) {
+    tongueTracker.reset();
+    tongueFrame = null;
+    return;
+  }
+  tongueFrame = tongueTracker.update({
+    head: gameView.snake[0],
+    direction: pendingHeadDirection(),
+    seeds: gameView.foods.filter((snack) => snack.kind !== "egg"),
+    stepProgress: Math.max(0, Math.min(1, gameView.stepAccumulatorMs / Math.max(1, gameView.tickMs)))
+  });
+}
+
+// The tongue and the Seed it holds, drawn under the head.
+function drawTongueCatch() {
+  if (!tongueFrame) return;
+  const cell = boardMetrics.cellSize;
+  window.IdleSnakeTongueDraw.drawForkTongue(ctx, { cell, x: boardMetrics.x, y: boardMetrics.y }, tongueFrame);
+  const snack = gameView.foods.find((food) => food.x === tongueFrame.seedCell.x && food.y === tongueFrame.seedCell.y);
+  if (!snack) return;
+  const size = (cell - Math.max(4, Math.floor(cell * 0.18)) * 2) * tongueFrame.seed.scale;
+  const rect = {
+    x: boardMetrics.x + tongueFrame.seed.x * cell - size / 2,
+    y: boardMetrics.y + tongueFrame.seed.y * cell - size / 2,
+    size
+  };
+  drawSnack(snack, rect, currentFoodType());
 }
 
 function drawScanlines() {
