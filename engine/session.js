@@ -100,12 +100,10 @@
     return clone(active);
   }
   function normalUpgrades(value) {
-    const defaults = { boardLevel: 0, foodTypeLevel: 0, foodCountLevel: 0, shieldLevel: 0, minigamesLevel: 0, lengthBonusLevel: 0 };
+    const defaults = { boardLevel: 0, foodTypeLevel: 0, foodCountLevel: 0, shieldLevel: 0, minigamesLevel: 0, lengthBonusLevel: 0, eggChanceLevel: 0 };
     return Object.fromEntries(Object.keys(defaults).map((key) => {
       const level = Math.max(0, Math.floor(Number(value && value[key]) || 0));
-      const maxLevel = key === "minigamesLevel"
-        ? config.upgradeConfig.minigames.maxLevel
-        : Number.POSITIVE_INFINITY;
+      const maxLevel = config.upgradeConfig[key.replace(/Level$/, "")]?.maxLevel ?? Number.POSITIVE_INFINITY;
       return [key, Math.min(level, maxLevel)];
     }));
   }
@@ -581,11 +579,12 @@
         Number.isFinite(nursery.seedTickAccumulatorMs) && nursery.seedTickAccumulatorMs >= 0 && nursery.seedTickAccumulatorMs <= config.nurseryConfig.seedIntervalMs &&
         ["colonyCount", "eggProgress", "eggsStarted", "resupplyEggHolding"].every((key) =>
           Number.isFinite(nursery[key]) && nursery[key] >= 0 && nursery[key] <= Number.MAX_SAFE_INTEGER);
+      const upgradeKeys = Object.keys(config.upgradeConfig).map((kind) => `${kind}Level`);
       const canonicalUpgrades = cached && upgrades && typeof upgrades === "object" &&
-        Object.keys(upgrades).length === 5 &&
-        ["boardLevel", "foodTypeLevel", "foodCountLevel", "shieldLevel", "minigamesLevel"].every((key) => {
+        Object.keys(upgrades).length === upgradeKeys.length &&
+        upgradeKeys.every((key) => {
           const level = upgrades[key];
-          const maxLevel = key === "minigamesLevel" ? config.upgradeConfig.minigames.maxLevel : Number.POSITIVE_INFINITY;
+          const maxLevel = config.upgradeConfig[key.replace(/Level$/, "")]?.maxLevel ?? Number.POSITIVE_INFINITY;
           return typeof level === "number" && Number.isFinite(level) && level >= 0 && Number.isInteger(level) && level <= maxLevel;
         });
       const canonicalScalars = cached && ["seeds", "branches", "provisions"].every((key) =>
@@ -953,7 +952,7 @@
           if (foundingBlocksUpgrade(action.upgrade)) return reject("featureUnavailableWhileFounding");
           const level = state.upgrades[key];
           const maxLevel = Number.isInteger(item.maxLevel) ? item.maxLevel : item.levels?.length - 1;
-          if (item.levels && level >= maxLevel) return reject("maxed");
+          if (Number.isFinite(maxLevel) && level >= maxLevel) return reject("maxed");
           const cost = upgradeCost(action.upgrade, level);
           if (state.seeds < cost) return reject("insufficientSeeds");
           state.seeds -= cost; state.upgrades[key] += 1;

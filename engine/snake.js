@@ -97,11 +97,16 @@
     return state.foods.filter((snack) => snack.kind !== "egg").length;
   }
 
+  function eggSpawnChance(upgrades) {
+    const level = Math.max(0, Math.min(upgradeConfig.eggChance.maxLevel, Math.floor(Number(upgrades?.eggChanceLevel) || 0)));
+    return Math.min(1, snakeConfig.eggSpawnChance + level * upgradeConfig.eggChance.increasePerLevel);
+  }
+
   function spawnSeed(state, rng) {
     const seed = placeFood(state, rng);
     if (!seed) return false;
     state.foods.push({ ...seed, kind: "seed" });
-    if (state.eggBoard && rng() < snakeConfig.eggSpawnChance) {
+    if (state.eggBoard && rng() < eggSpawnChance(state.upgrades)) {
       const egg = placeFood(state, rng);
       if (egg) state.foods.push({ ...egg, kind: "egg" });
     }
@@ -423,6 +428,7 @@
     placeFood,
     foodPlacementWeight,
     seedFoodCount,
+    eggSpawnChance,
     spawnSeed,
     spawnFoods,
     findShieldRedirect,

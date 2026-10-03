@@ -6,11 +6,12 @@
     req ? req("./economy.js") : root.IdleSnakeEconomy,
     req ? req("./notables.js") : root.IdleSnakeNotables,
     req ? req("./migration.js") : root.IdleSnakeMigration,
-    req ? req("./trade-routes.js") : root.IdleSnakeTradeRoutes
+    req ? req("./trade-routes.js") : root.IdleSnakeTradeRoutes,
+    req ? req("./snake.js") : root.IdleSnakeSnake
   );
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   root.IdleSnakeQueries = api;
-})(typeof window !== "undefined" ? window : globalThis, (config, economy, notables, migration, tradeRoutes) => {
+})(typeof window !== "undefined" ? window : globalThis, (config, economy, notables, migration, tradeRoutes, snake) => {
   function isFounding(snapshot) {
     return snapshot.migration?.settlements.find((item) => item.id === snapshot.migration.activeSettlementId)?.status === "founding";
   }
@@ -70,10 +71,14 @@
     return Object.fromEntries(Object.entries(config.upgradeConfig).map(([kind, item]) => {
       const level = snapshot.upgrades[`${kind}Level`];
       const maxLevel = Number.isInteger(item.maxLevel) ? item.maxLevel : item.levels?.length - 1;
-      const maxed = Boolean(item.levels && level >= maxLevel);
+      const maxed = Number.isFinite(maxLevel) && level >= maxLevel;
       const cost = maxed ? null : Math.ceil(item.baseCost * item.costRatio ** level);
       const unavailableWhileFounding = kind === "minigames" && isFounding(snapshot);
-      return [kind, { level, maxed, cost, unavailableWhileFounding, canBuy: !maxed && !unavailableWhileFounding && snapshot.seeds >= cost }];
+      const eggChances = kind === "eggChance" ? {
+        chance: snake.eggSpawnChance(snapshot.upgrades),
+        nextChance: snake.eggSpawnChance({ ...snapshot.upgrades, eggChanceLevel: level + 1 })
+      } : {};
+      return [kind, { level, maxed, cost, unavailableWhileFounding, canBuy: !maxed && !unavailableWhileFounding && snapshot.seeds >= cost, ...eggChances }];
     }));
   }
   function capabilities(snapshot) {

@@ -11,7 +11,7 @@ function buildDefaultSaveState() {
     saveVersion: LEGACY_SAVE_VERSION,
     savedAt: now,
     currencies: { seeds: 0, provisions: 0, branches: 0 },
-    upgrades: { boardLevel: 0, foodTypeLevel: 0, foodCountLevel: 0, shieldLevel: 0, minigamesLevel: 0, lengthBonusLevel: 0 },
+    upgrades: { boardLevel: 0, foodTypeLevel: 0, foodCountLevel: 0, shieldLevel: 0, minigamesLevel: 0, lengthBonusLevel: 0, eggChanceLevel: 0 },
     board: { selectedBoardLevel: 0, selectedDuelGridSize: 30, mastery: {} },
     records: { best: 0, crossingBest: 0, mazeBest: 0, breakoutBest: 0, runnerBest: 0, sokobanBest: 0, battleshipBest: 0, centipedeBest: 0 },
     settings: { snakeColors: { body: null, head: null }, mobileControls: mobileControlsDefault },

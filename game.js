@@ -300,6 +300,7 @@ const upgradeButtons = {
   foodCount: document.querySelector("#foodCountButton"),
   shield: document.querySelector("#shieldButton"),
   lengthBonus: document.querySelector("#lengthBonusButton"),
+  eggChance: document.querySelector("#eggChanceButton"),
   minigames: document.querySelector("#minigamesButton")
 };
 const upgradeCards = {
@@ -308,6 +309,7 @@ const upgradeCards = {
   foodCount: document.querySelector('[data-upgrade-card="foodCount"]'),
   shield: document.querySelector('[data-upgrade-card="shield"]'),
   lengthBonus: document.querySelector('[data-upgrade-card="lengthBonus"]'),
+  eggChance: document.querySelector('[data-upgrade-card="eggChance"]'),
   minigames: document.querySelector('[data-upgrade-card="minigames"]')
 };
 
@@ -334,6 +336,9 @@ const minigamesNextEl = document.querySelector("#minigamesNext");
 const lengthBonusNameEl = document.querySelector("#lengthBonusName");
 const lengthBonusLevelEl = document.querySelector("#lengthBonusLevel");
 const lengthBonusNextEl = document.querySelector("#lengthBonusNext");
+const eggChanceNameEl = document.querySelector("#eggChanceName");
+const eggChanceLevelEl = document.querySelector("#eggChanceLevel");
+const eggChanceNextEl = document.querySelector("#eggChanceNext");
 const menuTabs = document.querySelectorAll("[data-menu-tab]");
 const menuPanels = document.querySelectorAll("[data-menu-panel]");
 const upgradesPanelEl = document.querySelector('[data-menu-panel="upgrades"]');
@@ -3966,6 +3971,12 @@ function syncUpgradeMenu() {
   setText(lengthBonusLevelEl, `LV ${bonus.level}`);
   setText(lengthBonusNextEl, `Next: ${Math.round(bonus.nextPerSegment * 100)}% per segment`);
   updateUpgradeButton("lengthBonus");
+  const eggChance = engineQueries.upgradePanel(latestSnapshot).eggChance;
+  setText(eggChanceNameEl, `${formatDecimal(eggChance.chance * 100, 1)}% per Seed spawn`);
+  setText(eggChanceLevelEl, `LV ${eggChance.level}`);
+  setText(eggChanceNextEl, eggChance.maxed ? "Next: Maximum egg chance" : `Next: ${formatDecimal(eggChance.nextChance * 100, 1)}% per Seed spawn`);
+  updateUpgradeButton("eggChance");
+  upgradeCards.eggChance.classList.toggle("is-maxed", eggChance.maxed);
   upgradeCards.board.classList.toggle("is-maxed", boardMaxed);
   upgradeCards.foodType.classList.toggle("is-maxed", foodTypeMaxed);
   upgradeCards.foodCount.classList.remove("is-maxed");
@@ -4636,6 +4647,7 @@ upgradeButtons.foodType.addEventListener("click", () => purchaseUpgrade("foodTyp
 upgradeButtons.foodCount.addEventListener("click", () => purchaseUpgrade("foodCount"));
 upgradeButtons.shield.addEventListener("click", () => purchaseUpgrade("shield"));
 upgradeButtons.lengthBonus.addEventListener("click", () => purchaseUpgrade("lengthBonus"));
+upgradeButtons.eggChance.addEventListener("click", () => purchaseUpgrade("eggChance"));
 upgradeButtons.minigames.addEventListener("click", () => purchaseUpgrade("minigames"));
 function activatePersonalizationKey() {
   hideFullscreenMinigames();

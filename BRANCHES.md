@@ -1,5 +1,15 @@
 # Branch status
 
+## working — Egg chance upgrade
+
+- Category: engine and upgrade display.
+- Agent: Codex.
+- Status: Ready With Caveat.
+- Changes: egg boards use a 0.5% egg chance per Seed spawn. Each Egg chance upgrade adds 0.5 percentage points, up to 100%. The first upgrade costs 500 Seeds; later costs multiply by 2.5. The upgrade applies to new egg spawns in the current run and saves per settlement.
+- Tests: `npm run check` passed syntax, authority checks, and all 306 Node tests. Four new tests cover exact spawn thresholds, current-run purchases, saving, per-settlement levels, and the 100% limit. `git diff --check` passed. Browser appearance has not been checked for this change.
+- Version impact: optional eggChanceLevel in version 5 saves; no release requested.
+- Last update: 2026-10-03.
+
 ## working — Ready reload, settings controls, and Length Bonus
 
 - Category: engine, controls, and display.
