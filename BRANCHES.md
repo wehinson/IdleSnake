@@ -101,6 +101,25 @@
 - Last update: 2026-10-02.
 - Notes: working-codex is preserved as archive/body-pattern-test-2026-10-02; its branch and worktree are retired after this merge. The test app at http://127.0.0.1:4174 now serves working. No release requested. working-redesign is unchanged.
 
+
+## working-redesign — Five theme redesigns
+
+- Category: display.
+- Agent: Claude, with Codex as a collaborator.
+- Base: `c9dca04` on `working`, in the worktree `C:\Code\IdleSnake-redesign`. The active checkouts (`working-body-motion`, `working-codex`) are unchanged.
+- Status: Ready for William to test. Experimental; not for release.
+- Changes:
+  - `themes/theme-kit.js` is a presentation-only runtime. It remaps text, glyphs, canvas colours, and canvas fonts at render time, sets `html[data-theme]`, and adds a theme picker at the bottom left. Reads of `textContent`/`getAttribute` return the original text, so saves and change checks never see themed words.
+  - Round 3 (William's feedback: dark, minimal menus with strong contrast, snake colours that work, scanlines instead of a pixel grid). Clear Cover II improves his favourite (Clear Cover); the other four are new: Amber Graphite and Night Green (Claude), and Oxblood and Carbon (Codex). Claude's three come from one template in `themes/_build`. `contrastingEyeColor` now reads the themed palette. The round 2 designs were removed.
+  - `game.js` has four small hooks: a theme overlay and scanline option in `drawScanlines`, the theme id in `staticLayerKey`, the themed palette in `lightenColor`, and a redraw on theme change.
+  - `styles.css` lifts fonts and two rgb triples into variables. The defaults are the same values as before.
+  - `npm run theme-lab` serves both games' redesigns on port 8090.
+- Tests: `npm run check` passed syntax, authority checks, and all 293 engine tests, including `themes/themes.test.js`.
+- UI verification: William approved in-app browser checks. Every theme loads with no console errors. Round 2 was checked at 900x560 and 375 px, including the Nursery tab and the Personalize screen. No theme overflows at 375 px width. Original looks as before.
+- Not run: the Playwright suite (it launches a separate browser). The default theme stays Original, so its expectations are unchanged.
+- Version impact: none. No save-format change; the theme choice is stored in `idlesnake.theme.v1`.
+- Last update: 2026-10-03.
+
 ## working — Nursery and fullscreen follow-up
 
 - Category: display and saved preferences.

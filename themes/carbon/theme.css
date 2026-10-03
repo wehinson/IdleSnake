@@ -1,0 +1,780 @@
+/* Round 3. Texture belongs to the housing; menu controls remain flat. */
+html[data-theme="carbon"] {
+  color-scheme: dark;
+  --font-body: "Inter", Arial, Helvetica, sans-serif;
+  --font-ui: "Inter", Arial, Helvetica, sans-serif;
+  --paper: #f4f5f4;
+  --paper-rgb: 244, 245, 244;
+  --screen: #18201e;
+  --screen-ink: #e4edda;
+  --screen-shadow: #18201e;
+  --screen-ink-rgb: 228, 237, 218;
+  --theme-muted: #b5bdbb;
+  --theme-rule: #363c3b;
+  --theme-menu: #101313;
+  --theme-field: #1a1f1e;
+  --theme-accent: #ff8a3d;
+  --theme-button: #f4f5f4;
+  --theme-button-ink: #101313;
+  --theme-key: #141819;
+  --theme-key-top: #303638;
+  --theme-key-border: #555c5d;
+}
+html[data-theme="carbon"] body {
+  padding: 32px 16px;
+  background: #090c0c;
+  color: var(--paper);
+  font-family: var(--font-body);
+  line-height: 1.4;
+}
+html[data-theme="carbon"] .app-layout {
+  width: min(100%, 864px);
+  grid-template-columns: minmax(0, 384px) minmax(0, 336px);
+  gap: 64px;
+  align-items: start;
+}
+html[data-theme="carbon"] :is(.app-layout > *, .menu-panel *, .controls *, .screen-frame *) {
+  min-width: 0;
+}
+html[data-theme="carbon"] :is(button, input, select, textarea) {
+  font-family: var(--font-ui);
+}
+html[data-theme="carbon"] :is(button, select, input, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--paper);
+  outline-offset: 3px;
+}
+html[data-theme="carbon"] .menu-panel {
+  width: 100%;
+  max-height: calc(100dvh - 64px);
+  padding: 24px;
+  border: 1px solid var(--theme-rule);
+  border-radius: 4px;
+  background-color: var(--theme-menu);
+  background-image: linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px);
+  background-size: 24px 24px;
+  color: var(--paper);
+  box-shadow: none;
+  scrollbar-width: thin;
+  scrollbar-color: var(--theme-rule) var(--theme-menu);
+  font: 400 0.8125rem/1.5 var(--font-body);
+  overflow-wrap: anywhere;
+}
+html[data-theme="carbon"] .menu-panel h1 {
+  margin: 0 0 24px;
+  color: var(--paper);
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.04em;
+  text-transform: none;
+}
+html[data-theme="carbon"] .menu-stat {
+  padding: 0 0 24px;
+  border: 0;
+  border-bottom: 1px solid var(--theme-rule);
+  border-radius: 0;
+  background: transparent;
+  color: var(--paper);
+  box-shadow: none;
+}
+html[data-theme="carbon"] .menu-stat span {
+  color: var(--theme-muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: none;
+}
+html[data-theme="carbon"] #seedsTotal {
+  font: 500 clamp(2rem, 6vw, 2.75rem)/1.1 var(--font-ui);
+  letter-spacing: -0.05em;
+  font-variant-numeric: tabular-nums;
+}
+html[data-theme="carbon"] .menu-tabs {
+  gap: 4px;
+  margin: 16px 0 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+html[data-theme="carbon"] .menu-tab {
+  min-height: 36px;
+  padding: 8px 4px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--theme-muted);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  line-height: 1.3;
+  text-transform: none;
+  box-shadow: none;
+}
+html[data-theme="carbon"] .menu-tab:is(.is-active, [aria-selected="true"]) {
+  border-color: var(--theme-accent);
+  background: var(--theme-accent);
+  color: var(--theme-button-ink);
+  box-shadow: none;
+}
+html[data-theme="carbon"] .menu-tab:not(:disabled):hover {
+  color: var(--paper);
+  border-color: var(--paper);
+}
+html[data-theme="carbon"] .menu-tab:is(.is-active, [aria-selected="true"]):hover {
+  color: var(--theme-button-ink);
+}
+html[data-theme="carbon"] .menu-tab:disabled {
+  color: var(--theme-muted);
+  opacity: 0.65;
+  border-style: dashed;
+  border-color: var(--theme-rule);
+}
+html[data-theme="carbon"] .menu-tab-notification {
+  background: var(--paper);
+  color: var(--theme-menu);
+}
+html[data-theme="carbon"] :is(.upgrade-list, .nursery-panel, .colony-panel, .migration-panel,
+  .colony-overview, .notables-panel, .trade-panel, .habitat-list, .notables-roster, .migration-list) {
+  gap: 16px;
+}
+html[data-theme="carbon"] :is(.upgrade-list, .nursery-panel, .colony-panel, .migration-panel) {
+  margin-top: 24px;
+}
+html[data-theme="carbon"] .menu-panel :is(.upgrade-card, .nursery-goal-card, .nest-card,
+  .nursery-yard-card, .colony-placeholder, .migration-summary-card, .migration-builder,
+  .migration-expedition-card, .notable-card, .notable-candidates, .candidate-decision,
+  .trade-route-builder, .trade-direction-card, .trade-routes-section, .hatchling-row) {
+  gap: 8px;
+  padding: 0 0 16px;
+  border: 0;
+  border-bottom: 1px solid var(--theme-rule);
+  border-radius: 0;
+  background: transparent;
+  color: var(--paper);
+  box-shadow: none;
+}
+html[data-theme="carbon"] .menu-panel :is(p, label, h3, h4, small,
+  .upgrade-label, .upgrade-level, .menu-section-heading, .menu-section-mark,
+  .nursery-meta, .nursery-currency, .colony-summary-heading, .colony-summary-assigned,
+  .habitat-primary-row, .habitat-over-capacity-row, .habitat-notable,
+  .habitat-bonus, .trade-direction-derived, .trade-worker-row) {
+  color: var(--theme-muted);
+  font-size: 0.75rem;
+  line-height: 1.5;
+}
+html[data-theme="carbon"] .menu-panel :is(strong, .habitat-name) {
+  color: var(--paper);
+  font-family: var(--font-ui);
+  font-weight: 600;
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+}
+html[data-theme="carbon"] .menu-panel :is(.upgrade-card-heading, .nursery-card-heading) strong {
+  margin-top: 4px;
+  font-size: 1rem;
+}
+html[data-theme="carbon"] .menu-panel .upgrade-next {
+  color: var(--theme-muted) !important;
+}
+html[data-theme="carbon"] :is(.upgrade-label, .upgrade-level, .migration-field,
+  .notables-panel h3, .menu-section-heading) {
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: none;
+}
+html[data-theme="carbon"] .upgrade-card.is-maxed .upgrade-level {
+  padding: 4px 8px;
+  border: 1px solid var(--theme-muted);
+  border-radius: 4px;
+  color: var(--paper);
+}
+html[data-theme="carbon"] .menu-panel :is(button:not(.menu-tab), .trade-open-button.is-ready,
+  .nursery-feeding-button[aria-pressed="true"], .candidate-list-item[aria-pressed="true"]) {
+  min-height: 32px;
+  padding: 8px 12px;
+  border: 1px solid var(--theme-button);
+  border-radius: 4px;
+  background: var(--theme-button);
+  color: var(--theme-button-ink);
+  box-shadow: none;
+  font: 600 0.75rem/1.3 var(--font-ui);
+  text-transform: none;
+  cursor: pointer;
+  white-space: normal;
+}
+html[data-theme="carbon"] .menu-panel button:not(.menu-tab):hover:not(:disabled) {
+  border-color: var(--paper);
+}
+html[data-theme="carbon"] .menu-panel button:not(.menu-tab):active:not(:disabled) {
+  transform: none;
+  box-shadow: none;
+  filter: none;
+  outline: 1px solid var(--paper);
+  outline-offset: 2px;
+}
+html[data-theme="carbon"] .menu-panel button:disabled {
+  border: 1px dashed var(--theme-rule);
+  background: var(--theme-field);
+  color: var(--theme-muted);
+  opacity: 1;
+  filter: none;
+  cursor: not-allowed;
+}
+html[data-theme="carbon"] .menu-panel :is(.reset-progress-button, .nursery-feeding-button,
+  .notables-back-button, .candidate-pagination button) {
+  background: transparent;
+  color: var(--paper);
+  border-color: var(--theme-rule);
+}
+html[data-theme="carbon"] .reset-progress-fill {
+  background: var(--theme-muted);
+  opacity: 0.2;
+  box-shadow: none;
+}
+html[data-theme="carbon"] .menu-panel :is(select, input, textarea) {
+  width: 100%;
+  max-width: 100%;
+  min-height: 36px;
+  padding: 8px;
+  border: 1px solid var(--theme-rule);
+  border-radius: 4px;
+  background: var(--theme-field);
+  color: var(--paper);
+  font: 400 0.75rem/1.4 var(--font-ui);
+  box-shadow: none;
+}
+html[data-theme="carbon"] .menu-panel :is(.migration-error, .migration-required,
+  .migration-founding, .migration-attrition, .habitat-natural-count.is-over-natural,
+  .habitat-max-count.is-at-maximum, .habitat-idle-snakes) {
+  color: var(--paper);
+  border-color: var(--theme-muted);
+  background: transparent;
+}
+html[data-theme="carbon"] .menu-panel .migration-attrition {
+  color: var(--paper) !important;
+}
+html[data-theme="carbon"] .egg-progress-rate {
+  padding: 4px 8px;
+  border-color: var(--theme-rule);
+  border-radius: 999px;
+  background: var(--theme-field);
+  color: var(--paper);
+}
+html[data-theme="carbon"] .growth-bar {
+  height: 4px;
+  border: 0;
+  border-radius: 0;
+  background: var(--theme-rule);
+  box-shadow: none;
+}
+html[data-theme="carbon"] .growth-bar span {
+  background: var(--paper);
+  box-shadow: none;
+}
+html[data-theme="carbon"] .nursery-grid {
+  padding: 4px;
+  border: 1px solid #435464;
+  border-radius: 4px;
+  background: #1d2b39;
+  box-shadow: none;
+}
+html[data-theme="carbon"] .nursery-cell {
+  background: #283b4c;
+}
+html[data-theme="carbon"] .nursery-cell:nth-child(odd) {
+  background: #243545;
+}
+html[data-theme="carbon"] .nursery-cell:is(.is-body, .is-head, .is-tail)::after {
+  background: #c6dae7;
+}
+html[data-theme="carbon"] .nursery-cell.is-head::before {
+  box-shadow: 4px 0 0 #1d2b39;
+  background: #1d2b39;
+}
+html[data-theme="carbon"] .nest-visual {
+  border: 1px dashed var(--theme-rule);
+  background: #1d2b39;
+  color: var(--paper);
+}
+html[data-theme="carbon"] .nest-visual.has-egg {
+  border-style: solid;
+  background: #1d2b39;
+}
+html[data-theme="carbon"] .egg-shape {
+  border: 1px solid var(--theme-menu);
+  background: var(--paper);
+  box-shadow: none;
+}
+html[data-theme="carbon"] .colony-income-summary {
+  padding: 0 0 16px;
+  border: 0;
+  border-bottom: 1px solid var(--theme-rule);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--theme-muted);
+}
+html[data-theme="carbon"] .menu-panel .habitat-card:is(.is-locked, .produces-provisions,
+  .produces-branches, .speeds-egg-hatch),
+html[data-theme="carbon"] .menu-panel .habitat-card {
+  padding: 0 0 16px;
+  gap: 8px;
+  border: 0;
+  border-bottom: 1px solid var(--theme-rule);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+html[data-theme="carbon"] .habitat-card.is-locked .habitat-name {
+  color: var(--theme-muted);
+}
+html[data-theme="carbon"] .habitat-card :is(.habitat-production, .habitat-output-types),
+html[data-theme="carbon"] .habitat-card:is(.produces-provisions, .produces-branches,
+  .speeds-egg-hatch):not(.is-locked) :is(.habitat-production, .habitat-output-types) {
+  color: var(--paper);
+  font-size: 0.6875rem;
+}
+html[data-theme="carbon"] .habitat-output-types {
+  padding-left: 8px;
+  border-left: 2px solid var(--theme-muted);
+  font-weight: 500;
+  letter-spacing: 0.04em;
+}
+html[data-theme="carbon"] .habitat-capacity-tooltip {
+  max-width: min(220px, 64vw);
+  border: 1px solid var(--theme-rule);
+  border-radius: 4px;
+  background: var(--theme-field);
+  color: var(--paper);
+  box-shadow: none;
+}
+html[data-theme="carbon"] .habitat-capacity-tooltip strong {
+  color: var(--paper);
+}
+html[data-theme="carbon"] .notable-card.is-pending {
+  border-left: 2px solid var(--paper);
+  padding-left: 12px;
+}
+html[data-theme="carbon"] .menu-panel .candidate-list-item[aria-pressed="true"] {
+  outline: 2px solid var(--paper);
+  outline-offset: 2px;
+}
+html[data-theme="carbon"] .notable-hold-confirm::after {
+  background: var(--theme-button-ink);
+}
+html[data-theme="carbon"] .trade-route-network {
+  border: 1px solid var(--theme-rule);
+  border-radius: 4px;
+  background: var(--theme-field);
+}
+html[data-theme="carbon"] .trade-network-edge {
+  stroke: var(--theme-muted);
+}
+html[data-theme="carbon"] .trade-network-edge:is(.is-selected, :focus) {
+  stroke: var(--paper);
+}
+html[data-theme="carbon"] .trade-network-node circle {
+  fill: var(--theme-menu);
+  stroke: var(--paper);
+}
+html[data-theme="carbon"] .trade-network-node.is-founding circle {
+  fill: var(--theme-field);
+  stroke: var(--theme-muted);
+}
+html[data-theme="carbon"] .trade-network-node text {
+  fill: var(--paper);
+  font-family: var(--font-ui);
+}
+
+/* A rounded candybar housing, inset glass and molded rubber keys. */
+html[data-theme="carbon"] .phone-shell {
+  width: min(100%, 336px);
+  height: auto;
+  min-height: 700px;
+  padding: 16px;
+  gap: 8px;
+  border: 2px solid #050708;
+  border-radius: 64px 64px 32px 32px / 48px 48px 32px 32px;
+  background: repeating-linear-gradient(45deg, rgba(255,255,255,0.018) 0 2px, transparent 2px 6px), repeating-linear-gradient(-45deg, rgba(0,0,0,0.22) 0 2px, transparent 2px 6px), linear-gradient(100deg, #282d2e, #161b1c 20%, #191e1f 80%, #0d1011);
+  box-shadow: inset 2px 0 3px rgba(255,255,255,0.12),
+    inset -4px 0 8px rgba(0,0,0,0.65), inset 0 -8px 12px rgba(0,0,0,0.35),
+    0 16px 32px rgba(0,0,0,0.4);
+}
+html[data-theme="carbon"] .phone-shell::before {
+  top: -16px;
+  border: 2px solid #050708;
+  background: linear-gradient(90deg, #303638, #141819);
+}
+html[data-theme="carbon"] .phone-shell::after {
+  top: 24px;
+  right: 24px;
+  width: 12px;
+  height: 12px;
+  border: 2px solid #050708;
+  background: #727c7d;
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.6);
+}
+html[data-theme="carbon"] .phone-top {
+  gap: 8px;
+  padding: 0 0 4px;
+}
+html[data-theme="carbon"] .speaker-slot {
+  height: 12px;
+  background: repeating-linear-gradient(90deg, #08090a 0 4px, transparent 4px 8px);
+  filter: none;
+}
+html[data-theme="carbon"] .phone-brand {
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: transparent;
+  color: #c4ccca;
+  font: 600 0.6875rem/1.2 var(--font-ui);
+  letter-spacing: 0.12em;
+}
+html[data-theme="carbon"] .screen-frame {
+  padding: 8px;
+  border: 2px solid #090c0b;
+  border-radius: 12px 12px 24px 24px;
+  background: #0e1413;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.07), 0 2px 4px rgba(0,0,0,0.4);
+}
+html[data-theme="carbon"] .status-strip {
+  padding: 4px;
+  gap: 4px;
+  margin-bottom: 8px;
+  border-bottom: 1px solid #3a4944;
+  background: var(--screen);
+  border-radius: 4px 4px 0 0;
+}
+html[data-theme="carbon"] .status-strip div {
+  padding: 4px 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #e6eceb;
+  box-shadow: none;
+}
+html[data-theme="carbon"] .stat-label {
+  color: #b7c7c0;
+  font: 500 0.5625rem/1.4 var(--font-ui);
+  letter-spacing: 0.02em;
+}
+html[data-theme="carbon"] .status-strip strong {
+  color: #e6eceb;
+  font: 600 1rem/1.2 var(--font-ui);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  text-shadow: none;
+}
+html[data-theme="carbon"] .screen-bezel {
+  padding: 4px;
+  border: 1px solid #0a0d0b;
+  border-radius: 4px;
+  background: var(--screen);
+  box-shadow: inset 0 0 8px rgba(0,0,0,0.35), 0 0 12px rgba(219,215,185,0.035);
+}
+html[data-theme="carbon"] #game {
+  border: 0;
+  border-radius: 0;
+  background: #a5b8ae;
+}
+html[data-theme="carbon"] .screen-plate {
+  padding: 8px 12px;
+  border: 1px solid #b7c7c0;
+  border-radius: 4px;
+  background: var(--screen);
+  color: #e6eceb;
+  box-shadow: none;
+}
+html[data-theme="carbon"] :is(#stateText, .ready-start-prompt) {
+  color: #e6eceb;
+  font-family: var(--font-ui);
+  line-height: 1.3;
+}
+html[data-theme="carbon"] .screen-hint {
+  color: #b7c7c0;
+  font: 500 0.6875rem/1.3 var(--font-ui);
+  text-transform: none;
+}
+html[data-theme="carbon"] :is(.personalization-screen, .broodline-screen) {
+  inset: 4px;
+  padding: 12px;
+  border: 1px solid #3a4944;
+  border-radius: 4px;
+  background: var(--screen);
+  color: #e6eceb;
+  box-shadow: none;
+  font: 400 0.75rem/1.5 var(--font-ui);
+  overflow-wrap: anywhere;
+  scrollbar-width: thin;
+}
+html[data-theme="carbon"] .personalization-heading {
+  padding-bottom: 8px;
+  border-bottom: 1px solid #3a4944;
+  color: #b7c7c0;
+  font: 500 0.5625rem/1.4 var(--font-ui);
+  letter-spacing: 0.02em;
+  flex-wrap: wrap;
+}
+html[data-theme="carbon"] .personalization-heading strong {
+  color: #e6eceb;
+  font-size: 0.875rem;
+}
+html[data-theme="carbon"] :is(.personalization-copy, .motion-setting-note, .color-choice-label,
+  .mobile-controls-settings h2) {
+  color: #b7c7c0;
+  font: 500 0.6875rem/1.5 var(--font-ui);
+  text-transform: none;
+}
+html[data-theme="carbon"] .mobile-controls-settings {
+  border-color: #3a4944;
+}
+html[data-theme="carbon"] :is(.personalization-back, .mobile-control-toggle, .broodline-card) {
+  padding: 8px;
+  min-height: 32px;
+  border: 1px solid #3a4944;
+  border-radius: 4px;
+  background: #0e1413;
+  color: #e6eceb;
+  box-shadow: none;
+  font: 600 0.6875rem/1.4 var(--font-ui);
+  text-transform: none;
+}
+html[data-theme="carbon"] :is(.mobile-control-toggle[aria-pressed="true"], .broodline-card.is-selected) {
+  background: #e6eceb;
+  color: var(--screen);
+  border-color: #e6eceb;
+}
+html[data-theme="carbon"] .snake-speed-options .mobile-control-toggle[aria-pressed="true"] {
+  background: #0e1413;
+  outline: 2px solid #e6eceb;
+  outline-offset: 1px;
+}
+html[data-theme="carbon"] .save-data-area {
+  max-width: 100%;
+  padding: 8px;
+  border: 1px solid #3a4944;
+  border-radius: 4px;
+  background: #0e1413;
+  color: #e6eceb;
+  font: 400 0.6875rem/1.5 var(--font-ui);
+  resize: vertical;
+}
+html[data-theme="carbon"] .save-data-area::placeholder {
+  color: #b7c7c0;
+  opacity: 1;
+}
+html[data-theme="carbon"] .color-swatch {
+  min-height: 32px;
+  border: 1px solid #3a4944;
+  border-radius: 4px;
+  box-shadow: none;
+}
+html[data-theme="carbon"] .color-swatch::after {
+  border: 1px solid rgba(0,0,0,0.2);
+}
+html[data-theme="carbon"] .color-swatch[aria-pressed="true"] {
+  outline: 2px solid #e6eceb;
+  outline-offset: 2px;
+  transform: none;
+}
+html[data-theme="carbon"] .controls {
+  gap: 8px;
+  padding-top: 8px;
+}
+html[data-theme="carbon"] .phone-nav {
+  width: 192px;
+  max-width: 100%;
+  gap: 8px;
+}
+html[data-theme="carbon"] :is(.nav-key, .action-key, .phone-key),
+html[data-theme="carbon"] .phone-nav.is-large-dpad .nav-key,
+html[data-theme="carbon"] .controls.is-large-dpad-controls :is(.minimized-keypad-button, .large-dpad-personalize-button) {
+  border: 1px solid var(--theme-key-border);
+  background: linear-gradient(180deg, var(--theme-key-top), var(--theme-key));
+  color: var(--paper);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.15), inset 0 -2px 4px rgba(0,0,0,0.4), 0 3px 0 #08090a;
+  font-family: var(--font-ui);
+}
+html[data-theme="carbon"] .nav-key {
+  border-radius: 24px;
+  transform: none;
+}
+html[data-theme="carbon"] :is(.phone-key, .action-key) {
+  border-radius: 999px;
+  min-height: 28px;
+  font-weight: 600;
+}
+html[data-theme="carbon"] .keypad {
+  gap: 8px;
+  padding: 0 4px;
+  transform: none;
+}
+html[data-theme="carbon"] .minigame-keypad {
+  gap: 8px;
+}
+html[data-theme="carbon"] .minigame-key.is-locked {
+  color: #a4aeaf;
+  background: #141819;
+  border-style: dashed;
+  filter: none;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+}
+html[data-theme="carbon"] .action-key {
+  top: 0;
+  min-height: 36px;
+  padding: 8px 4px;
+  font-size: 0.6875rem;
+  text-transform: none;
+}
+html[data-theme="carbon"] :is(#startButton, #resetButton)::after {
+  content: "";
+  position: absolute;
+  bottom: 4px;
+  left: calc(50% - 12px);
+  width: 24px;
+  height: 3px;
+  border-radius: 0;
+  background: var(--theme-accent);
+}
+html[data-theme="carbon"] #resetButton::after {
+  background: #c4ccca;
+}
+html[data-theme="carbon"] :is(.nav-key:active, .nav-key.is-pressed,
+  .action-key:active, .action-key.is-active, .phone-key:active) {
+  transform: translateY(2px);
+  filter: brightness(1.15);
+  box-shadow: inset 0 1px 2px rgba(0,0,0,0.5), 0 1px 0 #08090a;
+}
+html[data-theme="carbon"] :is(.nav-key, .action-key, .phone-key):focus-visible {
+  outline: 2px solid var(--paper);
+  outline-offset: 3px;
+}
+html[data-theme="carbon"] .phone-nav.is-large-dpad {
+  width: 200px;
+  max-width: 100%;
+  height: 200px;
+  border: 1px solid var(--theme-key-border);
+  border-radius: 50%;
+  background: linear-gradient(180deg, var(--theme-key-top), var(--theme-key));
+  box-shadow: inset 0 1px 2px rgba(255,255,255,0.15), 0 3px 0 #08090a;
+}
+html[data-theme="carbon"] .phone-nav.is-large-dpad .nav-key {
+  border-radius: 24px;
+}
+html[data-theme="carbon"] .controls.is-large-dpad-controls .keypad {
+  transform: none;
+  padding: 0 4px;
+}
+html[data-theme="carbon"] .controls.is-large-dpad-controls .minigame-keypad.is-open {
+  background: #0e1413;
+  border: 1px solid var(--theme-key-border);
+  border-radius: 12px;
+  box-shadow: 0 4px 8px rgba(0,0,0,0.4);
+}
+html[data-theme="carbon"] .controls.is-large-dpad-controls :is(.minimized-keypad-button, .large-dpad-personalize-button) {
+  font-size: 0.625rem;
+  text-transform: none;
+}
+
+/* The same surfaces expand in fullscreen; the menu stays dark. */
+html[data-theme="carbon"] body.is-fullscreen-mode .app-layout.has-fullscreen-option {
+  width: 100%;
+  grid-template-columns: minmax(0, 384px) minmax(0, 1fr);
+  gap: 24px;
+}
+html[data-theme="carbon"] body.is-fullscreen-mode .phone-shell {
+  width: 100%;
+  height: calc(100dvh - 64px);
+  min-height: 620px;
+  padding: 12px;
+  border-radius: 12px;
+}
+html[data-theme="carbon"] body.is-fullscreen-mode .screen-bezel {
+  box-shadow: inset 0 0 8px rgba(0,0,0,0.4);
+}
+html[data-theme="carbon"] body.is-fullscreen-mode .phone-nav.is-large-dpad {
+  flex-basis: 200px;
+  width: 200px;
+  height: 200px;
+}
+html[data-theme="carbon"] body.is-fullscreen-mode .controls.is-large-dpad-controls .phone-nav {
+  flex-shrink: 0;
+}
+@media (max-width: 800px) {
+  html[data-theme="carbon"] body { padding: 24px 16px; }
+  html[data-theme="carbon"] .app-layout,
+  html[data-theme="carbon"] .app-layout.has-fullscreen-option,
+  html[data-theme="carbon"] body.is-fullscreen-mode .app-layout.has-fullscreen-option {
+    width: min(100%, 480px);
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+  }
+  html[data-theme="carbon"] .phone-shell { grid-row: 1; justify-self: center; }
+  html[data-theme="carbon"] .menu-panel {
+    grid-row: 2;
+    max-height: none;
+    padding: 24px;
+  }
+  html[data-theme="carbon"] body.is-fullscreen-mode .phone-shell {
+    height: 85dvh;
+    min-height: 620px;
+  }
+  html[data-theme="carbon"] body.is-fullscreen-mode .menu-panel { width: 100%; }
+}
+@media (max-width: 480px) {
+  html[data-theme="carbon"] .menu-panel { padding: 16px; }
+  html[data-theme="carbon"] .menu-tabs { gap: 4px; }
+  html[data-theme="carbon"] .phone-shell { padding: 12px; }
+  html[data-theme="carbon"] body.is-fullscreen-mode :is(.controls, .controls.is-large-dpad-controls) {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    justify-items: center;
+    gap: 12px;
+  }
+  html[data-theme="carbon"] body.is-fullscreen-mode :is(.keypad, .controls.is-large-dpad-controls .keypad) {
+    width: 100%;
+    padding: 0;
+  }
+  html[data-theme="carbon"] .menu-panel :is(.trade-direction-fields, .trade-upgrade-grid, .trade-route-pair) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+/* Swatch previews use the exact LCD palette. */
+html[data-theme="carbon"] .color-swatch[data-color="#29391f"] { background: #9cae87; }
+html[data-theme="carbon"] .color-swatch[data-color="#182413"] { background: #e4edda; }
+html[data-theme="carbon"] .color-swatch[data-color="#32204f"] { background: #aa8bd4; }
+html[data-theme="carbon"] .color-swatch[data-color="#583b83"] { background: #d1b9f0; }
+html[data-theme="carbon"] .color-swatch[data-color="#16465a"] { background: #76b5d2; }
+html[data-theme="carbon"] .color-swatch[data-color="#267b91"] { background: #b0dced; }
+html[data-theme="carbon"] .color-swatch[data-color="#176052"] { background: #6bc3ae; }
+html[data-theme="carbon"] .color-swatch[data-color="#2d8b68"] { background: #a7e1c9; }
+html[data-theme="carbon"] .color-swatch[data-color="#843b2f"] { background: #dd917d; }
+html[data-theme="carbon"] .color-swatch[data-color="#b3483d"] { background: #f4b9ab; }
+html[data-theme="carbon"] .color-swatch[data-color="#a55b25"] { background: #dfa767; }
+html[data-theme="carbon"] .color-swatch[data-color="#b0802d"] { background: #f1d58b; }
+html[data-theme="carbon"] .color-swatch[data-color="#702c57"] { background: #cc8bb9; }
+html[data-theme="carbon"] .color-swatch[data-color="#9b477e"] { background: #edbcdf; }
+html[data-theme="carbon"] .color-swatch[data-color="#252a32"] { background: #a0acbb; }
+html[data-theme="carbon"] .color-swatch[data-color="#596474"] { background: #d5dfe9; }
+
+/* Signal orange marks the selected tab, primary action and Start underline only.
+   The seed centre uses a quiet LCD neutral; habitat types use their text labels. */
+html[data-theme="carbon"] #migrationDepart {
+  background: var(--theme-accent);
+  border-color: var(--theme-accent);
+  color: var(--theme-button-ink);
+}
+html[data-theme="carbon"] #migrationDepart:disabled {
+  background: var(--theme-field);
+  border: 1px dashed var(--theme-rule);
+  color: var(--theme-muted);
+}
+
+/* Finishing pass (Claude): disabled buttons must not look active. */
+html[data-theme="carbon"] .menu-panel :is(button:not(.menu-tab), .upgrade-button):disabled {
+  background: #1c1c1c !important;
+  box-shadow: none !important;
+  color: #7a7a7a !important;
+  cursor: not-allowed;
+}
