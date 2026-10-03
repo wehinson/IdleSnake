@@ -1,5 +1,15 @@
 # Branch status
 
+## Release 1.0.3 — CI save-boundary correction
+
+- Agent: Codex.
+- Purpose: finish the authorized ship with reliable CI verification.
+- Changes: the browser/engine parity test disables automatic clock callbacks and flushes a save on both hosts after each action. This includes the same settlement statistics in both snapshots. Gameplay is unchanged from 1.0.2.
+- Checks: the complete parity test passes three consecutive runs. The first 1.0.2 CI run passed 81 of 82 browser checks and exposed this save-timing race; local checks had passed. The final CI result is verified before handoff.
+- Version: package.json and package-lock.json advance to 1.0.3 under the patch release rule. Save version stays 5.
+- Cleanup: the four extra worktrees are removed. A junction at C:/Code/IdleSnake-redesign points to the primary checkout so the running shared Theme Lab can still serve Snake. It contains no separate code or branch. Retire all five working branches after final verification.
+- Last update: 2026-10-03.
+
 ## Release 1.0.2 — All working branches
 
 - Agent: Codex.

@@ -4,6 +4,10 @@ const { createGameSession } = require("../../engine/session.js");
 test("browser controls and headless controls produce the same engine state in every mode", async ({ page }) => {
   let seed = 42;
   const game = createGameSession({ now: 0, rng: () => ((seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 4294967296) });
+  await page.addInitScript(() => {
+    window.requestAnimationFrame = () => 0;
+    window.setInterval = () => 0;
+  });
   await page.goto("/");
   await page.evaluate(() => {
     cancelAnimationFrame(animationId);
@@ -16,9 +20,14 @@ test("browser controls and headless controls produce the same engine state in ev
     if (mode === "battleship") actions.push({ type: "battleshipShuffle" });
     actions.push({ type: "primaryAction" }, { type: "togglePause" }, { type: "togglePause" }, { type: "resetRun" });
     for (const action of actions) {
-      const expected = game.dispatch(action).snapshot;
+      game.dispatch(action);
+      // Persistence credits settlement statistics. Compare after both hosts
+      // flush a save, rather than letting a browser timer choose the boundary.
+      game.serialize();
+      const expected = game.snapshot();
       const actual = await page.evaluate((action) => {
         presentGameResult(dispatchSession(action));
+        flushPendingSaves();
         const snapshot = session.snapshot();
         return { snapshot, mode: gameView.gameMode, phase: gameView.state, seeds: gameView.seedsTotal };
       }, action);
