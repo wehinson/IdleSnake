@@ -29,6 +29,9 @@
   // Each style is a timeline over catch progress t (0 = tongue starts,
   // 1 = head enters the Seed cell). The UI draws the shape for each `id`.
   //   flickUntil: a short warning flick before the reach (0 = none)
+  //   emergeUntil / emergeCells: the tongue slides out of the mouth to this
+  //               length (cells) and holds there, showing its shape, before
+  //               the reach (0 = none)
   //   grabAt:     the tip touches the Seed
   //   pullUntil:  the Seed arrives at the mouth
   //   reachEase / pullEase: easing names from `easings`
@@ -73,36 +76,36 @@
       id: "lassoFork", group: "lassoFork",
       name: "Fork Lasso",
       summary: "Sticky Lasso with a forked tip. Shoots out fast, the two prongs pinch the Seed, and it snaps back with a small spring.",
-      flickUntil: 0, grabAt: 0.18, pullUntil: 0.56,
-      reachEase: "outQuint", pullEase: "outBack", wobble: 0
+      flickUntil: 0, emergeUntil: 0.24, emergeCells: 0.5, grabAt: 0.4, pullUntil: 0.76,
+      reachEase: "outCubic", pullEase: "outBack", wobble: 0
     },
     {
       id: "wideSnap", group: "lassoFork",
       name: "Wide Fork Snap",
       summary: "Faster shot with wide prongs that clamp shut on the Seed. A strong spring throws the Seed past the mouth before it settles.",
-      flickUntil: 0, grabAt: 0.12, pullUntil: 0.5,
+      flickUntil: 0, emergeUntil: 0.22, emergeCells: 0.55, grabAt: 0.36, pullUntil: 0.72,
       reachEase: "outQuint", pullEase: "outBackStrong", wobble: 0
     },
     {
       id: "gooFork", group: "lassoFork",
       name: "Sticky Goo Fork",
       summary: "Each prong ends in a sticky drop. A strand of goo stretches between the tongue and the Seed while it is pulled in.",
-      flickUntil: 0, grabAt: 0.2, pullUntil: 0.62,
-      reachEase: "outQuint", pullEase: "outBack", wobble: 0
+      flickUntil: 0, emergeUntil: 0.26, emergeCells: 0.5, grabAt: 0.44, pullUntil: 0.8,
+      reachEase: "outCubic", pullEase: "outBack", wobble: 0
     },
     {
       id: "whipFork", group: "lassoFork",
       name: "Whip Fork",
       summary: "A thinner tongue whips out in a wave that straightens at the Seed, then the fork wraps it and the tongue wobbles back like rubber.",
-      flickUntil: 0, grabAt: 0.22, pullUntil: 0.64,
+      flickUntil: 0, emergeUntil: 0.24, emergeCells: 0.45, grabAt: 0.46, pullUntil: 0.84,
       reachEase: "outCubic", pullEase: "outElastic", wobble: 0
     },
     {
       id: "doubleSnap", group: "lassoFork",
       name: "Double Snap",
       summary: "The fork grabs, yanks the Seed halfway, stops for a moment, then snaps it the rest of the way in.",
-      flickUntil: 0, grabAt: 0.16, pullUntil: 0.66,
-      reachEase: "outQuint", pullEase: "twoSnap", wobble: 0
+      flickUntil: 0, emergeUntil: 0.22, emergeCells: 0.5, grabAt: 0.38, pullUntil: 0.84,
+      reachEase: "outCubic", pullEase: "twoSnap", wobble: 0
     }
   ];
   const groups = [
@@ -181,6 +184,11 @@
     };
     const seedHome = { x: seed.x + 0.5, y: seed.y + 0.5 };
 
+    const gap = Math.max(0.001, Math.hypot(seedHome.x - mouth.x, seedHome.y - mouth.y));
+    const emergeUntil = style.emergeUntil || 0;
+    const emerged = emergeUntil ? Math.min(0.9, (style.emergeCells || 0) / gap) : 0;
+    const reachFrom = Math.max(style.flickUntil, emergeUntil);
+
     let phase;
     let extension = 0; // tip position from mouth (0) to Seed home (1)
     let pull = 0;      // Seed position from home (0) to mouth (1); may overshoot
@@ -188,10 +196,14 @@
       phase = "flick";
       // Out and back to a short length, so the reach reads as a decision.
       extension = Math.sin((progress / style.flickUntil) * Math.PI) * 0.28;
+    } else if (progress < emergeUntil) {
+      phase = "emerge";
+      // Slide out in the first half, then hold the shape in view.
+      extension = emerged * ease("outCubic", progress / emergeUntil / 0.55);
     } else if (progress < style.grabAt) {
       phase = "reach";
-      const local = (progress - style.flickUntil) / Math.max(0.001, style.grabAt - style.flickUntil);
-      extension = ease(style.reachEase, local);
+      const local = (progress - reachFrom) / Math.max(0.001, style.grabAt - reachFrom);
+      extension = emerged + (1 - emerged) * ease(style.reachEase, local);
     } else if (progress < style.pullUntil) {
       phase = "pull";
       const local = (progress - style.grabAt) / Math.max(0.001, style.pullUntil - style.grabAt);
@@ -232,6 +244,22 @@
       direction: vector,
       showTongue: phase !== "hold"
     };
+  }
+
+  // Catch moments for still frames that compare the shapes.
+  function previewMoments(styleId) {
+    const style = getStyle(styleId);
+    const reachFrom = Math.max(style.flickUntil, style.emergeUntil || 0);
+    const reachAt = (share) => reachFrom + (style.grabAt - reachFrom) * share;
+    // Without an emerge or flick phase, the first frames come from the reach.
+    const emergeAt = style.emergeUntil ? style.emergeUntil * 0.75 : style.flickUntil ? style.flickUntil / 2 : reachAt(0.3);
+    const halfAt = style.emergeUntil || style.flickUntil ? reachAt(0.35) : reachAt(0.6);
+    return [
+      { label: "Emerging", t: emergeAt },
+      { label: "Half out", t: halfAt },
+      { label: "Full reach", t: style.grabAt - 0.002 },
+      { label: "Grab", t: style.grabAt + (style.pullUntil - style.grabAt) * 0.1 }
+    ];
   }
 
   // Tracks one catch across frames. The only memory is how far away the Seed
@@ -284,6 +312,7 @@
     ease,
     stepsUntilSeed,
     catchFrame,
+    previewMoments,
     createCatchTracker
   };
 });

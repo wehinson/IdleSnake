@@ -87,3 +87,30 @@ test("a paused tracker keeps the same frame", () => {
   const frame = tracker.update({ head, direction: "right", seeds, stepProgress: 0.6 });
   assert.equal(tracker.update({ head, direction: "right", seeds, stepProgress: 0.9, running: false }), frame);
 });
+
+test("forked lasso styles slide out and hold their shape before the reach", () => {
+  const seed = { x: 4, y: 1 };
+  tongue.stylesInGroup("lassoFork").forEach((style) => {
+    assert.ok(style.emergeUntil > 0 && style.emergeUntil < style.grabAt, style.id);
+    const shown = tongue.catchFrame(style.id, style.emergeUntil * 0.8, head, "right", seed);
+    assert.equal(shown.phase, "emerge");
+    assert.ok(Math.abs(shown.length - style.emergeCells) < 1e-6, `${style.id} holds its emerged length`);
+    // No jump where the reach takes over.
+    const before = tongue.catchFrame(style.id, style.emergeUntil - 1e-6, head, "right", seed);
+    const after = tongue.catchFrame(style.id, style.emergeUntil + 1e-6, head, "right", seed);
+    assert.equal(after.phase, "reach");
+    assert.ok(Math.abs(after.length - before.length) < 0.01, style.id);
+  });
+});
+
+test("preview moments show the tongue growing, then the grab", () => {
+  const seed = { x: 4, y: 1 };
+  tongue.styles.forEach((style) => {
+    const moments = tongue.previewMoments(style.id);
+    assert.deepEqual(moments.map((moment) => moment.label), ["Emerging", "Half out", "Full reach", "Grab"]);
+    const frames = moments.map((moment) => tongue.catchFrame(style.id, moment.t, head, "right", seed));
+    assert.ok(frames[0].length > 0.05, `${style.id} tongue visible while emerging`);
+    assert.ok(frames[1].length > frames[0].length && frames[2].length > frames[1].length, style.id);
+    assert.equal(frames[3].phase, "pull");
+  });
+});
