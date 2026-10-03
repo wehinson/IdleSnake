@@ -256,6 +256,9 @@ const gridLabelEl = document.querySelector("#gridLabel");
 const duelGridSelect = document.querySelector("#duelGridSelect");
 const bestEl = document.querySelector("#best");
 const seedsTotalEl = document.querySelector("#seedsTotal");
+const seedIncomePerSecondEl = document.querySelector("#seedIncomePerSecond");
+const lengthBonusSummaryEl = document.querySelector("#lengthBonusSummary");
+const lengthBonusMultiplierEl = document.querySelector("#lengthBonusMultiplier");
 const overlay = document.querySelector("#overlay");
 const stateText = document.querySelector("#stateText");
 const readyStartPrompt = document.querySelector("#readyStartPrompt");
@@ -296,6 +299,7 @@ const upgradeButtons = {
   foodType: document.querySelector("#foodTypeButton"),
   foodCount: document.querySelector("#foodCountButton"),
   shield: document.querySelector("#shieldButton"),
+  lengthBonus: document.querySelector("#lengthBonusButton"),
   minigames: document.querySelector("#minigamesButton")
 };
 const upgradeCards = {
@@ -303,6 +307,7 @@ const upgradeCards = {
   foodType: document.querySelector('[data-upgrade-card="foodType"]'),
   foodCount: document.querySelector('[data-upgrade-card="foodCount"]'),
   shield: document.querySelector('[data-upgrade-card="shield"]'),
+  lengthBonus: document.querySelector('[data-upgrade-card="lengthBonus"]'),
   minigames: document.querySelector('[data-upgrade-card="minigames"]')
 };
 
@@ -326,6 +331,9 @@ const minigamesNameEl = document.querySelector("#minigamesName");
 const minigamesLevelEl = document.querySelector("#minigamesLevel");
 const minigamesCurrentEl = document.querySelector("#minigamesCurrent");
 const minigamesNextEl = document.querySelector("#minigamesNext");
+const lengthBonusNameEl = document.querySelector("#lengthBonusName");
+const lengthBonusLevelEl = document.querySelector("#lengthBonusLevel");
+const lengthBonusNextEl = document.querySelector("#lengthBonusNext");
 const menuTabs = document.querySelectorAll("[data-menu-tab]");
 const menuPanels = document.querySelectorAll("[data-menu-panel]");
 const upgradesPanelEl = document.querySelector('[data-menu-panel="upgrades"]');
@@ -3501,6 +3509,10 @@ function screenEffectStrength() {
 
 function syncHud() {
   syncPrimaryActionButton();
+  const bonus = gameView.lengthBonus;
+  setText(seedIncomePerSecondEl, `+${formatDecimal(bonus.seedIncomePerSecond)}/s`);
+  setHidden(lengthBonusSummaryEl, !bonus.applied);
+  setText(lengthBonusMultiplierEl, `${bonus.multiplier.toFixed(2)}×`);
   const isSnakebird = gameView.gameMode === "snakebird";
   const isSokoban = gameView.gameMode === "sokoban";
   if (gameView.gameMode === "battleship" && gameView.battleship) {
@@ -3949,6 +3961,11 @@ function syncUpgradeMenu() {
     ? "Unavailable while founding"
     : minigamesMaxed ? "Next: Maximum games" : `Next: phone game ${nextMinigame}`;
   updateUpgradeButton("minigames");
+  const bonus = gameView.lengthBonus;
+  setText(lengthBonusNameEl, `${Math.round(bonus.perSegment * 100)}% per segment`);
+  setText(lengthBonusLevelEl, `LV ${bonus.level}`);
+  setText(lengthBonusNextEl, `Next: ${Math.round(bonus.nextPerSegment * 100)}% per segment`);
+  updateUpgradeButton("lengthBonus");
   upgradeCards.board.classList.toggle("is-maxed", boardMaxed);
   upgradeCards.foodType.classList.toggle("is-maxed", foodTypeMaxed);
   upgradeCards.foodCount.classList.remove("is-maxed");
@@ -4219,6 +4236,15 @@ function isLocalDevelopmentMode(locationLike = window.location) {
   return loopback && new URLSearchParams(locationLike?.search || "").get("dev") === "1";
 }
 
+// Capture Space before settings buttons can use it for their own actions.
+document.addEventListener("keydown", (event) => {
+  if (event.code !== "Space" || personalizationScreen.hidden) return;
+  event.preventDefault();
+  event.stopImmediatePropagation();
+  document.activeElement?.blur();
+  hidePersonalization();
+}, true);
+
 document.addEventListener("keydown", (event) => {
   if (event.code === "Escape" && !fullscreenMinigameMenu.hidden) {
     event.preventDefault(); hideFullscreenMinigames(); return;
@@ -4294,6 +4320,7 @@ document.addEventListener("keydown", (event) => {
 
   if (event.code === "Space") {
     event.preventDefault();
+    if (event.repeat) return;
     if (gameView.gameMode === "runner") {
       if (!event.repeat) runnerJump();
       return;
@@ -4608,6 +4635,7 @@ upgradeButtons.board.addEventListener("click", () => purchaseUpgrade("board"));
 upgradeButtons.foodType.addEventListener("click", () => purchaseUpgrade("foodType"));
 upgradeButtons.foodCount.addEventListener("click", () => purchaseUpgrade("foodCount"));
 upgradeButtons.shield.addEventListener("click", () => purchaseUpgrade("shield"));
+upgradeButtons.lengthBonus.addEventListener("click", () => purchaseUpgrade("lengthBonus"));
 upgradeButtons.minigames.addEventListener("click", () => purchaseUpgrade("minigames"));
 function activatePersonalizationKey() {
   hideFullscreenMinigames();

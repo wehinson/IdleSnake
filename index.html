@@ -13,6 +13,12 @@
         <div class="menu-stat">
           <span>Seeds</span>
           <strong id="seedsTotal">000000</strong>
+          <div class="seed-income-summary">
+            Income <b id="seedIncomePerSecond">+0/s</b>
+          </div>
+          <div class="length-bonus-summary" id="lengthBonusSummary" hidden>
+            Length Bonus <b id="lengthBonusMultiplier">1.00×</b>
+          </div>
         </div>
         <nav class="menu-tabs" aria-label="Menu areas">
           <button class="menu-tab is-active" type="button" data-menu-tab="upgrades" aria-selected="true">Upgrades</button>
@@ -86,6 +92,19 @@
             <p class="upgrade-current" id="minigamesCurrent">Unlock phone game 1</p>
             <p class="upgrade-next" id="minigamesNext">Next: phone game 1</p>
             <button class="upgrade-button" id="minigamesButton" type="button">Buy</button>
+          </article>
+
+          <article class="upgrade-card" data-upgrade-card="lengthBonus">
+            <div class="upgrade-card-heading">
+              <div>
+                <span class="upgrade-label">Length Bonus</span>
+                <strong id="lengthBonusName">1% per segment</strong>
+              </div>
+              <span class="upgrade-level" id="lengthBonusLevel">LV 0</span>
+            </div>
+            <p class="upgrade-current">More passive Seeds while Snake is running</p>
+            <p class="upgrade-next" id="lengthBonusNext">Next: 6% per segment</p>
+            <button class="upgrade-button" id="lengthBonusButton" type="button">Buy</button>
           </article>
 
           <div class="reset-progress">

@@ -1513,10 +1513,19 @@ canvas {
 }
 
 .nav-key:focus-visible,
-.action-key:focus-visible,
-.phone-key:focus-visible {
+.action-key:focus-visible {
   outline: 2px solid var(--paper);
   outline-offset: 2px;
+}
+
+.phone-key:focus-visible {
+  outline: none;
+}
+
+.seed-income-summary,
+.length-bonus-summary {
+  margin-top: 8px;
+  font-size: 0.85rem;
 }
 
 .nav-key {
