@@ -29,9 +29,13 @@ npm run test:browser
 npm run check
 ```
 
-`npm test` runs the Node unit tests colocated with the engine modules. `npm run test:browser` runs a fast Chromium smoke test against the complete page and its basic Start, Pause, and Reset controls. `npm run check` is the required normal local verification: syntax checking plus unit tests.
+`npm test` runs the Node unit tests colocated with the engine modules. `npm run test:browser` checks the game controls, saves, display, and all themes in Chromium. `npm run check` is the normal local verification: syntax, engine authority, and unit tests.
 
-Before handing off a change, run `npm run check` and `npm run test:browser`.
+Before handing off a change, run `npm run check`. Run browser checks when needed and with William's explicit permission, as required by RULES.md G4.
+
+## Live release
+
+Version 1.0.2 includes all five working branches. GitHub Pages serves `main` at [Snake Forever](https://wehinson.github.io/IdleSnake/). The Original theme remains the default; five more themes are available in the theme picker.
 
 ## Project map
 

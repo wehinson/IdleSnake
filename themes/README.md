@@ -1,6 +1,6 @@
 # Theme redesigns
 
-This branch (`working-redesign`) holds five redesigns (round 3) of Snake Forever. Use the
+The release includes five themes (round 3) of Snake Forever. Use the
 theme picker at the bottom-left of the page to switch between them. You can also
 open `?theme=<id>`. **Original** is the default, and it is unchanged.
 
@@ -48,4 +48,4 @@ A theme changes only presentation. It never changes session state, engine data, 
 npm run theme-lab
 ```
 
-This opens <http://localhost:8090>. The index lists both games and every theme. `/sweep/` serves the IdleSweep redesign worktree, and `/snake/` serves the IdleSnake redesign worktree. They must be sibling folders (`C:\Code\IdleSweep-redesign` and `C:\Code\IdleSnake-redesign`), or you can set `SWEEP_ROOT` and `SNAKE_ROOT`. Each game's own `npm run serve` also works; use the picker there.
+This opens <http://localhost:8090>. The index lists both games and every theme. `/sweep/` serves `C:\Code\IdleSweep-redesign`, and `/snake/` serves the shipped checkout at `C:\Code\IdleSnake`. You can set `SWEEP_ROOT` and `SNAKE_ROOT` to use other folders. Each game's own `npm run serve` also works; use the picker there.

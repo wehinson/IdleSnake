@@ -1,5 +1,20 @@
 # Branch status
 
+## Release 1.0.2 — All working branches
+
+- Agent: Codex.
+- Status: integrated and tested; William authorized shipping all branches on 2026-10-03.
+- Included: working (engine, economy, nursery, saves, controls, fullscreen, egg chance, and Length Bonus); working-codex-controls (uniform body blocks); working-claude (button sounds); working-redesign (five themes); working-tongue (engine-based tongue display). The shipped 1.0.1 tongue and chomp sound are retained.
+- Conflict fixes: retain the engine reader, current controls, uniform body blocks, and both sound modules. Themes keep the number-button focus rule, widen their fullscreen menu by 25%, derive connector brightness from their body palette, and reduce screen effects in fullscreen.
+- Checks: syntax and engine authority pass; all 324 Node tests pass. All 76 existing browser checks pass. Six new theme integration checks and nine affected display regression checks pass after the fixes. Desktop and phone screenshots were inspected. William approved release browser checks and the existing CI browser tests.
+- Version: package.json and package-lock.json are 1.0.2. Save version remains 5.
+- Release target: GitHub Pages from main, https://wehinson.github.io/IdleSnake/.
+- Cleanup: retire the five integrated working branches and four worktrees after deployment verification. Keep the local preview at port 4175 on the shipped checkout. Theme Lab now reads that checkout.
+
+## Historical work entries
+
+The entries below record prior checks and decisions. All intended work is included in release 1.0.2; later entries for uniform body blocks replace the earlier markings and size variation. Earlier release limits and branch paths no longer apply.
+
 ## working — Egg chance upgrade
 
 - Category: engine and upgrade display.
