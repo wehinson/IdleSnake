@@ -25,6 +25,18 @@
 - Last update: 2026-10-03.
 - Notes: committed and backed up on working. Recommended for shipping when William requests it.
 
+## working-codex-controls — Uniform body blocks
+
+- Category: display.
+- Agent: Codex.
+- Status: Ready for review; main checkout has another active chat.
+- Changes: removed random body size variation. All body blocks use their normal square size in play and during the death effect. Connector and grid settings are retained.
+- Tests: `npm run check` passed syntax, authority checks, and all 293 Node tests. Two focused browser checks passed for uniform body sizes, cell centers, colors, stable pixels between steps, and a 224-block snake. Two obsolete size-variation Node tests were removed.
+- UI verification: reused the existing permission for the long-snake appearance check; the fullscreen image was inspected.
+- Version impact: none.
+- Last update: 2026-10-03.
+- Notes: separate checkout at C:/Code/IdleSnake-controls; preview at http://127.0.0.1:4175. The main checkout's active changes are preserved. No release requested.
+
 ## working — Stable block size variation and aligned grid
 
 - Category: display.

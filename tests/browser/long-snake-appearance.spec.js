@@ -1,6 +1,6 @@
 const { test, expect } = require("@playwright/test");
 
-test("long snake uses stable varied block sizes, thinner connectors, and an aligned gridded board", async ({ page }) => {
+test("long snake uses uniform body blocks, thinner connectors, and an aligned gridded board", async ({ page }) => {
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.setViewportSize({ width: 1440, height: 950 });
@@ -75,9 +75,7 @@ test("long snake uses stable varied block sizes, thinner connectors, and an alig
   });
   expect(result.length).toBe(224);
   expect(result.areas.length).toBe(222);
-  result.areas.forEach((area) => { expect(area).toBeGreaterThanOrEqual(0.85); expect(area).toBeLessThanOrEqual(1.15); });
-  expect(Math.min(...result.areas)).toBeLessThan(0.86);
-  expect(Math.max(...result.areas)).toBeGreaterThan(1.14);
+  result.areas.forEach((area) => expect(area).toBeCloseTo(1, 10));
   expect(result.changedPixels).toBe(0);
   expect(result.gridWidth).toBe(2);
   expect(result.gridLines.every((point) => Number.isInteger(point.x) && Number.isInteger(point.y))).toBe(true);
