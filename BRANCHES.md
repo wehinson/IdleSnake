@@ -1,5 +1,17 @@
 # Branch status
 
+## working-claude — Button click sounds
+
+- Category: display (audio).
+- Agent: Claude, in folder `IdleSnake-claude`, because Codex had an active claim on `working`. Started from `working` commit 1125057 (not from main, which is 34 commits behind `working`), so the sounds apply to the current phone and menu layout.
+- Status: Ready to Ship after a sound check by William.
+- Changes: every button press on the phone side (`.phone-shell`) plays `assets/audio/phone-double-tap.wav` (generated). Every button press on the main menu side (`.menu-panel`) plays `assets/audio/menu-click-el-boss.mp3` (Freesound 677861 "UI Button Click" by el_boss, CC0). The sound plays on pointer press, in capture phase, so buttons that act on pointerdown or stop propagation also play it. Keyboard activation (click with detail 0) also plays it. Disabled buttons are silent. The local server now sends audio MIME types.
+- Files: scripts/ui-sounds.js, scripts/ui-sounds.test.js, assets/audio/, index.html, scripts/serve.js, README.md, BRANCHES.md.
+- Tests: `npm run check` passed syntax, authority checks, and all 306 Node tests (4 new). A direct HTTP check returned both sound files with the correct audio types.
+- UI verification: not done. No browser permission was requested. Actual playback, loudness, and timing in a browser are not verified.
+- Version impact: none.
+- Last update: 2026-10-03.
+
 ## working — Ready reload, settings controls, and Length Bonus
 
 - Category: engine, controls, and display.

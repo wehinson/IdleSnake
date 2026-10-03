@@ -17,6 +17,8 @@ npm run serve
 
 Open `http://127.0.0.1:4173` in a browser.
 
+Button sounds: phone buttons play `assets/audio/phone-double-tap.wav` (generated for this project). Main menu buttons play `assets/audio/menu-click-el-boss.mp3` ("UI Button Click" by el_boss on Freesound, sound 677861, CC0). `scripts/ui-sounds.js` selects the sound.
+
 ## Checks and tests
 
 ```sh
