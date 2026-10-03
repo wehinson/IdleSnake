@@ -1,6 +1,6 @@
 const { test, expect } = require("@playwright/test");
 
-test("all segments snap with one body shade, stable block sizes, and a head-colored tail", async ({ page }) => {
+test("all segments snap with one body shade, uniform body sizes, and a head-colored tail", async ({ page }) => {
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.addInitScript(() => {
@@ -25,8 +25,7 @@ test("all segments snap with one body shade, stable block sizes, and a head-colo
     const differentPixels = (a, b) => a.filter((value, index) => value !== b[index]).length;
     const exact = (rect, part, index) => {
       const inset = Math.max(3, boardMetrics.cellSize * (index === 0 ? 0.105 : 0.135));
-      const scale = index > 0 && index < gameView.snake.length - 1 ? window.IdleSnakeAppearance.bodyBlockScale(index) : 1;
-      const size = (boardMetrics.cellSize - inset * 2) * scale;
+      const size = boardMetrics.cellSize - inset * 2;
       return Math.abs(rect.x + rect.size / 2 - (boardMetrics.x + (part.x + 0.5) * boardMetrics.cellSize)) < 1e-8
         && Math.abs(rect.y + rect.size / 2 - (boardMetrics.y + (part.y + 0.5) * boardMetrics.cellSize)) < 1e-8
         && Math.abs(rect.size - size) < 1e-8;

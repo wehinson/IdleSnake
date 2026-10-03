@@ -2767,11 +2767,6 @@ function interpolatedCellRect(point, inset = 0) {
   };
 }
 
-function snakeBlockRect(point, index, inset, length = gameView.snake.length) {
-  const rect = interpolatedCellRect(point, inset);
-  return index > 0 && index < length - 1 ? window.IdleSnakeAppearance.scaleBodyBlock(rect, index) : rect;
-}
-
 function drawRoundedRect(x, y, width, height) {
   const radius = Math.min(2.5, width * 0.10, height * 0.10);
   ctx.beginPath();
@@ -2940,7 +2935,7 @@ function drawSnake() {
     const baseInset = Math.max(3, boardMetrics.cellSize * (index === 0 ? 0.105 : 0.135));
     const digestionPulse = index === 0 || reducedMotion ? 0 : digestionPulseForSegment(index, now);
     const inset = Math.max(1, baseInset - boardMetrics.cellSize * 0.1 * digestionPulse);
-    const rect = snakeBlockRect(point, index, inset);
+    const rect = interpolatedCellRect(point, inset);
     if (index === 0) {
       const shadowOffset = Math.max(2, boardMetrics.cellSize * 0.08);
       ctx.fillStyle = "rgba(24, 36, 19, 0.34)";
@@ -3117,7 +3112,7 @@ function drawDeathAnimation(now) {
     const local = Math.max(0, rawLocal);
 
     const baseInset = Math.max(3, cell * (index === 0 ? 0.105 : 0.135));
-    const rect = snakeBlockRect(part, index, baseInset, animation.segments.length);
+    const rect = cellRect(part, baseInset);
     const jumpEnd = 0.34;
     const jumpHeight = cell * 0.72;
     let offsetY;
