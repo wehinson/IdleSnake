@@ -18,6 +18,8 @@ test("loads and supports the basic game controls without browser errors", async 
   await page.getByRole("button", { name: "Start", exact: true }).click();
   await page.getByRole("button", { name: "Pause", exact: true }).click();
   await page.getByRole("button", { name: "Reset", exact: true }).click();
+  expect(await page.evaluate(() => session.snapshot().phase)).toBe("running");
+  await page.getByRole("button", { name: "Reset", exact: true }).click();
   await expect(page.locator("#stateText")).toHaveText("Ready");
   expect(pageErrors).toEqual([]);
   expect(consoleErrors).toEqual([]);

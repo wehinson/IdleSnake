@@ -50,7 +50,11 @@ test("Snakebird and Sokoban use session-routed input, lifecycle, records, and pe
   const pausedMoves = await page.locator("#score").textContent();
   await page.keyboard.press("ArrowLeft");
   await expect(page.locator("#score")).toHaveText(pausedMoves || "0");
+  expect(await page.evaluate(() => session.snapshot().phase)).toBe("running");
   await page.getByRole("button", { name: "Pause", exact: true }).click();
+  await page.getByRole("button", { name: "Reset", exact: true }).click();
+  expect(await page.evaluate(() => session.snapshot().phase)).toBe("running");
+  await expect(page.locator("#score")).toHaveText(pausedMoves || "0");
   await page.getByRole("button", { name: "Reset", exact: true }).click();
   await expect(page.locator("#stateText")).toContainText("Ready");
 
@@ -65,7 +69,11 @@ test("Snakebird and Sokoban use session-routed input, lifecycle, records, and pe
   const pausedScore = await page.locator("#score").textContent();
   await page.keyboard.press("ArrowRight");
   await expect(page.locator("#score")).toHaveText(pausedScore || "0");
+  expect(await page.evaluate(() => session.snapshot().phase)).toBe("running");
   await page.getByRole("button", { name: "Pause", exact: true }).click();
+  await page.getByRole("button", { name: "Reset", exact: true }).click();
+  expect(await page.evaluate(() => session.snapshot().phase)).toBe("running");
+  await expect(page.locator("#score")).toHaveText(pausedScore || "0");
   await page.getByRole("button", { name: "Reset", exact: true }).click();
   await expect(page.locator("#stateText")).toContainText("Ready");
 
