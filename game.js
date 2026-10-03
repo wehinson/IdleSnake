@@ -2788,7 +2788,8 @@ function staticLayerKey() {
     boardMetrics.y,
     snakeColors.body,
     snakeColors.head,
-    ctx.lineJoin
+    ctx.lineJoin,
+    screenEffectStrength()
   ].join("|");
 }
 
@@ -2811,17 +2812,17 @@ function getStaticLayer(kind, drawLayer) {
   return layer;
 }
 
-function drawScreen() {
-  ctx.fillStyle = "#9cac77";
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
-  ctx.fillStyle = `rgba(24, 36, 19, ${0.06 * screenEffectStrength()})`;
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+function drawScreen(layerCtx = ctx) {
+  layerCtx.fillStyle = "#9cac77";
+  layerCtx.fillRect(0, 0, canvas.width, canvas.height);
+  layerCtx.fillStyle = `rgba(24, 36, 19, ${0.06 * screenEffectStrength()})`;
+  layerCtx.fillRect(0, 0, canvas.width, canvas.height);
 }
 
 function setGridDrawingState(layerCtx) {
-  layerCtx.fillStyle = "rgba(24, 36, 19, 0.15)";
-  layerCtx.strokeStyle = "rgba(24, 36, 19, 0.26)";
-  layerCtx.lineWidth = 2;
+  layerCtx.fillStyle = "rgba(0, 0, 0, 0.15)";
+  layerCtx.strokeStyle = "rgba(24, 36, 19, 0.32)";
+  layerCtx.lineWidth = 1;
   layerCtx.lineJoin = ctx.lineJoin;
   layerCtx.lineCap = ctx.lineCap;
 }
@@ -2838,6 +2839,20 @@ function drawGridDirect(layerCtx = ctx) {
     }
   }
 
+  // Align the thin grid to physical pixels to avoid soft, uneven lines.
+  layerCtx.beginPath();
+  for (let x = 1; x < gameView.grid.columns; x++) {
+    const lineX = boardMetrics.x + x * boardMetrics.cellSize + 0.5;
+    layerCtx.moveTo(lineX, boardMetrics.y);
+    layerCtx.lineTo(lineX, boardMetrics.y + boardMetrics.height);
+  }
+  for (let y = 1; y < gameView.grid.rows; y++) {
+    const lineY = boardMetrics.y + y * boardMetrics.cellSize + 0.5;
+    layerCtx.moveTo(boardMetrics.x, lineY);
+    layerCtx.lineTo(boardMetrics.x + boardMetrics.width, lineY);
+  }
+  layerCtx.stroke();
+  layerCtx.lineWidth = 2;
   layerCtx.strokeRect(
     boardMetrics.x - 1,
     boardMetrics.y - 1,
@@ -2852,7 +2867,11 @@ function drawGrid() {
     drawGridDirect(ctx);
     return;
   }
-  const layer = getStaticLayer("grid", (layerCtx) => drawGridDirect(layerCtx));
+  const layer = getStaticLayer("grid", (layerCtx) => {
+    // Bake the opaque background too, so overlapping checker and grid alpha
+    // produces exactly the same pixels as drawing directly on the screen.
+    drawScreen(layerCtx); drawGridDirect(layerCtx);
+  });
   ctx.drawImage(layer, 0, 0);
 }
 
@@ -2877,21 +2896,18 @@ function drawSnake() {
     const point = interpolatedPoint(null, part, index);
     return index === 0 ? shieldImpactPoint(point) : point;
   });
-  // Anchor the repeating dark, dark, light body pattern behind the head.
-  // Growth extends the pattern at the tail without shifting existing bands.
-  const bodyPalette = [snakeColors.body, snakeColors.body, lightenColor(snakeColors.body, 0.05)];
 
   // Connecting spine: a rounded path through segment centers, drawn UNDER the
   // blocks and narrower than them. The blocks cover most of it, leaving only a
-  // slim neck visible in each gap — so the body reads as distinct blocks that
+  // neck visible in each gap — so the body reads as distinct blocks that
   // are unmistakably one snake. Round joins keep turns connected too.
   if (points.length > 1) {
-    ctx.strokeStyle = lightenColor(snakeColors.body, 0.25);
+    ctx.strokeStyle = window.IdleSnakeAppearance.connectorColor(snakeColors.body);
     ctx.lineJoin = "round";
     // Flat end caps stay hidden below the head and the wide base of the tail.
     // A round cap at the tail center extends beyond the tapered sides.
     ctx.lineCap = "butt";
-    ctx.lineWidth = Math.max(2, cell * 0.46);
+    ctx.lineWidth = Math.max(3, cell * window.IdleSnakeAppearance.connectorWidth);
     ctx.beginPath();
     points.forEach((point, index) => {
       let cx = boardMetrics.x + (point.x + 0.5) * cell;
@@ -2926,17 +2942,20 @@ function drawSnake() {
       ctx.fillRect(rect.x + shadowOffset, rect.y + shadowOffset, rect.size, rect.size);
     }
     const isTail = index !== 0 && index === gameView.snake.length - 1;
-    ctx.fillStyle = index === 0 || isTail ? snakeColors.head : bodyPalette[(index - 1) % bodyPalette.length];
+    ctx.fillStyle = index === 0 || isTail ? snakeColors.head : snakeColors.body;
     if (isTail) {
       // Trails behind the segment ahead of it: a smaller wedge pointing away
       // from the body so the run terminates in a distinct tail piece.
       drawTail(rect, points[index], points[index - 1], tailWiggleAmount(now));
     } else {
       drawRoundedRect(rect.x, rect.y, rect.size, rect.size);
-      ctx.fillStyle = "rgba(156, 172, 119, 0.22)";
-      ctx.fillRect(rect.x + 3, rect.y + 3, Math.max(1, rect.size - 6), Math.max(2, rect.size * 0.12));
+      if (index === 0) {
+        ctx.fillStyle = lightenColor(snakeColors.head, 0.10);
+        ctx.fillRect(rect.x + 3, rect.y + 3, Math.max(1, rect.size - 6), Math.max(2, rect.size * 0.12));
+      }
     }
   });
+  drawBodyMarkings(points, reducedMotion);
   const headInset = Math.max(3, Math.floor(boardMetrics.cellSize * 0.11));
   const headPoint = points[0];
   const headRect = interpolatedCellRect(headPoint, headInset);
@@ -2944,6 +2963,39 @@ function drawSnake() {
   // Aim the eyes at the direction the next step will actually move, so a fresh
   // turn shows on the head the instant it's pressed instead of a tick later.
   drawEyes(headRect.x, headRect.y, headRect.size, pendingHeadDirection());
+}
+
+function drawBodyMarkings(points, reducedMotion) {
+  const cell = boardMetrics.cellSize;
+  const markings = window.IdleSnakeAppearance.bodyMarkings(points, { elapsedMs: gameView.elapsedMs, reducedMotion });
+  const color = lightenColor(snakeColors.body, 0.10);
+  for (const marking of markings) {
+    ctx.save();
+    ctx.translate(boardMetrics.x + (marking.x + 0.5) * cell, boardMetrics.y + (marking.y + 0.5) * cell);
+    ctx.rotate(marking.angle);
+    ctx.globalAlpha *= marking.opacity;
+    ctx.strokeStyle = color; ctx.fillStyle = color;
+    ctx.lineWidth = Math.max(0.8, cell * 0.04); ctx.lineCap = "round";
+    ctx.beginPath();
+    if (marking.variant === 0) {
+      // Two small diagonal scales.
+      ctx.moveTo(-cell * 0.09, -cell * 0.12); ctx.lineTo(cell * 0.05, -cell * 0.04);
+      ctx.moveTo(-cell * 0.05, cell * 0.04); ctx.lineTo(cell * 0.09, cell * 0.12);
+      ctx.stroke();
+    } else if (marking.variant === 1) {
+      // A pair of subdued spots.
+      ctx.arc(-cell * 0.04, -cell * 0.09, cell * 0.04, 0, Math.PI * 2);
+      ctx.moveTo(cell * 0.08, cell * 0.09);
+      ctx.arc(cell * 0.04, cell * 0.09, cell * 0.04, 0, Math.PI * 2);
+      ctx.fill();
+    } else {
+      // One short stripe, with a small gap beside it.
+      ctx.moveTo(-cell * 0.10, -cell * 0.05); ctx.lineTo(cell * 0.10, -cell * 0.05);
+      ctx.moveTo(-cell * 0.03, cell * 0.08); ctx.lineTo(cell * 0.05, cell * 0.08);
+      ctx.stroke();
+    }
+    ctx.restore();
+  }
 }
 
 function shieldImpactProgress() {
@@ -3046,9 +3098,8 @@ function drawDeathAnimation(now) {
   if (!animation) return;
   const cell = boardMetrics.cellSize;
   const elapsed = now - animation.startedAt;
-  const bodyPalette = [snakeColors.body, snakeColors.body, lightenColor(snakeColors.body, 0.05)];
 
-  // The pale necks are their own debris pieces. Keep each one in place until
+  // The connectors are their own debris pieces. Keep each one in place until
   // the headward tile releases it, then give it a lower hop, a slower fall,
   // sideways drift, and a tumble so the breakup does not feel too uniform.
   // Draw these first so unreleased connectors still sit underneath the tiles.
@@ -3071,7 +3122,7 @@ function drawDeathAnimation(now) {
     const rotation = driftDirection * local * Math.PI * 0.72;
     const fade = local < 0.72 ? 1 : 1 - (local - 0.72) / 0.28;
     const length = cell * 0.46;
-    const thickness = Math.max(2, cell * 0.22);
+    const thickness = Math.max(3, cell * 0.22 * 1.5);
 
     ctx.save();
     ctx.globalAlpha = Math.max(0, fade);
@@ -3082,7 +3133,7 @@ function drawDeathAnimation(now) {
     ctx.beginPath();
     ctx.roundRect(-length / 2 + connectorShadowOffset, -thickness / 2 + connectorShadowOffset, length, thickness, thickness / 2);
     ctx.fill();
-    ctx.fillStyle = lightenColor(snakeColors.body, 0.25);
+    ctx.fillStyle = window.IdleSnakeAppearance.connectorColor(snakeColors.body);
     ctx.beginPath();
     ctx.roundRect(-length / 2, -thickness / 2, length, thickness, thickness / 2);
     ctx.fill();
@@ -3119,14 +3170,16 @@ function drawDeathAnimation(now) {
     } else {
       drawRoundedRect(rect.x + shadowOffset, y + shadowOffset, rect.size, rect.size);
     }
-    ctx.fillStyle = index === 0 || isTail ? snakeColors.head : bodyPalette[(index - 1) % bodyPalette.length];
+    ctx.fillStyle = index === 0 || isTail ? snakeColors.head : snakeColors.body;
     if (isTail) {
       const previousPart = animation.segments[index - 1];
       drawTail({ ...rect, y }, part, previousPart);
     } else {
       drawRoundedRect(rect.x, y, rect.size, rect.size);
-      ctx.fillStyle = "rgba(156, 172, 119, 0.22)";
-      ctx.fillRect(rect.x + 3, y + 3, Math.max(1, rect.size - 6), Math.max(2, rect.size * 0.12));
+      if (index === 0) {
+        ctx.fillStyle = lightenColor(snakeColors.head, 0.10);
+        ctx.fillRect(rect.x + 3, y + 3, Math.max(1, rect.size - 6), Math.max(2, rect.size * 0.12));
+      }
     }
     if (index === 0) drawEyes(rect.x, y, rect.size, animation.direction);
     ctx.restore();

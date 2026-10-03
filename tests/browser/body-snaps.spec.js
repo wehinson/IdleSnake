@@ -1,6 +1,6 @@
 const { test, expect } = require("@playwright/test");
 
-test("all segments snap with head-anchored dark, dark, 5% lighter bands and a head-colored tail", async ({ page }) => {
+test("all segments snap with one body shade and a head-colored tail", async ({ page }) => {
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.addInitScript(() => {
@@ -51,8 +51,7 @@ test("all segments snap with head-anchored dark, dark, 5% lighter bands and a he
       checks.push({
         direction,
         colors: initial.rects.map((rect) => rect.color),
-        expectedColors: [snakeColors.head, snakeColors.body, snakeColors.body, lightenColor(snakeColors.body, 0.05),
-          snakeColors.body, snakeColors.body, lightenColor(snakeColors.body, 0.05), snakeColors.head],
+        expectedColors: [snakeColors.head, ...Array(6).fill(snakeColors.body), snakeColors.head],
         cellsExact: initial.rects.every((rect, index) => exact(rect, moved.active.snake[index], index))
           && middle.rects.every((rect, index) => exact(rect, partial.active.snake[index], index)),
         moving: initial.rects.map((rect, index) => rect.x !== middle.rects[index].x || rect.y !== middle.rects[index].y),
@@ -81,7 +80,7 @@ test("all segments snap with head-anchored dark, dark, 5% lighter bands and a he
       snakeColors = { ...snakeColors, body: choice.value };
       const colors = capture().rects.map((rect) => rect.color);
       return colors.every((color, index) => color === (index === 0 || index === colors.length - 1 ? snakeColors.head
-        : index % 3 === 0 ? lightenColor(choice.value, 0.05) : choice.value));
+        : choice.value));
     });
     snakeColors = { ...snakeColors, body: originalBodyColor };
     const originalHeadColor = snakeColors.head;
@@ -116,7 +115,8 @@ test("all segments snap with head-anchored dark, dark, 5% lighter bands and a he
     check.initialOffset.forEach((offset) => expect(offset).toBe(0));
     expect(check.pausedPixels, check.direction).toBe(0);
     expect(check.stepChangedPixels, check.direction).toBeGreaterThan(0);
-    expect(check.changedPixels, check.direction).toBe(0);
+    // Only the small markings move between cell steps.
+    expect(check.changedPixels, check.direction).toBeLessThan(500);
     expect(check.finishedExact, check.direction).toBe(true);
   }
   expect(result.maxGap).toBe(1);

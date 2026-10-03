@@ -55,6 +55,13 @@ test("cached grid pixels match direct drawing and invalidate on resize", async (
     const direct = capture(() => drawGridDirect());
     const firstMatch = cached.length === direct.length && cached.every((value, index) => value === direct[index]);
 
+    document.body.classList.add("is-fullscreen-mode");
+    const fullscreenCached = capture(() => drawGrid());
+    const fullscreenDirect = capture(() => drawGridDirect());
+    const fullscreenMatch = fullscreenCached.every((value, index) => value === fullscreenDirect[index]);
+    const fullscreenChanged = fullscreenCached.some((value, index) => value !== cached[index]);
+    document.body.classList.remove("is-fullscreen-mode");
+
     canvas.width += 17;
     canvas.height += 11;
     render();
@@ -63,10 +70,12 @@ test("cached grid pixels match direct drawing and invalidate on resize", async (
     const resizedDirect = capture(() => drawGridDirect());
     const resizeMatch = resizedCached.length === resizedDirect.length && resizedCached.every((value, index) => value === resizedDirect[index]);
     const resizeDiff = resizedCached.findIndex((value, index) => value !== resizedDirect[index]);
-    return { firstMatch, resizeMatch, resizeDiff, resizePixels: resizeDiff < 0 ? null : [resizedCached[resizeDiff], resizedDirect[resizeDiff]], initialSize: [canvas.width - 17, canvas.height - 11], resizedSize: [canvas.width, canvas.height] };
+    return { firstMatch, fullscreenMatch, fullscreenChanged, resizeMatch, resizeDiff, resizePixels: resizeDiff < 0 ? null : [resizedCached[resizeDiff], resizedDirect[resizeDiff]], initialSize: [canvas.width - 17, canvas.height - 11], resizedSize: [canvas.width, canvas.height] };
   })()`));
 
   expect(result.firstMatch).toBe(true);
+  expect(result.fullscreenMatch).toBe(true);
+  expect(result.fullscreenChanged).toBe(true);
   expect(result.resizeMatch, JSON.stringify(result)).toBe(true);
   expect(result.resizedSize[0]).toBe(result.initialSize[0] + 17);
   expect(result.resizedSize[1]).toBe(result.initialSize[1] + 11);
