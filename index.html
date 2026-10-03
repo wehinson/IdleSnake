@@ -312,6 +312,13 @@
                 <span class="color-choice-label">HEAD</span>
                 <div class="color-swatches" id="headColorChoices" role="group" aria-label="Snake head color"></div>
               </div>
+              <section class="mobile-controls-settings" aria-labelledby="chompSoundHeading">
+                <h2 id="chompSoundHeading">Chomp sound</h2>
+                <div class="chomp-sound-options">
+                  <button class="mobile-control-toggle" id="chompSoundButton" type="button" aria-pressed="true">Chomp sound: On</button>
+                  <button class="mobile-control-toggle" id="chompPreviewButton" type="button">Play</button>
+                </div>
+              </section>
               <section class="mobile-controls-settings" aria-labelledby="mobileControlsHeading">
                 <h2 id="mobileControlsHeading">Mobile Controls</h2>
                 <button class="mobile-control-toggle" id="swipeControlsButton" type="button" aria-pressed="false">Swipe Controls: Off</button>
@@ -398,6 +405,7 @@
     <script src="engine/centipede.js"></script>
     <script src="snakebird-engine.js"></script>
     <script src="engine/save-guard.js"></script>
+    <script src="engine/chomp-sounds.js"></script>
     <script src="engine/session.js"></script>
     <script src="game.js"></script>
   </body>
