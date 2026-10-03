@@ -778,3 +778,12 @@ html[data-theme="carbon"] .menu-panel :is(button:not(.menu-tab), .upgrade-button
   color: #7a7a7a !important;
   cursor: not-allowed;
 }
+
+/* Keep the current keypad focus and fullscreen menu rules in every theme. */
+html[data-theme="carbon"] .phone-key:focus,
+html[data-theme="carbon"] .phone-key:focus-visible { outline: none; }
+@media (min-width: 801px) {
+  html[data-theme="carbon"] body.is-fullscreen-mode .app-layout.has-fullscreen-option {
+    grid-template-columns: minmax(0, 480px) minmax(0, 1fr);
+  }
+}

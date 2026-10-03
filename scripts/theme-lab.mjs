@@ -11,7 +11,7 @@ import { fileURLToPath } from "node:url";
 const codeRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..");
 const games = {
   sweep: { title: "Sweeper Inc.", root: resolve(process.env.SWEEP_ROOT || join(codeRoot, "IdleSweep-redesign")) },
-  snake: { title: "Snake Forever", root: resolve(process.env.SNAKE_ROOT || join(codeRoot, "IdleSnake-redesign")) },
+  snake: { title: "Snake Forever", root: resolve(process.env.SNAKE_ROOT || join(codeRoot, "IdleSnake")) },
 };
 const port = Number(process.env.PORT) || 8090;
 const types = {

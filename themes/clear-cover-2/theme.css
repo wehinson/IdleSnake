@@ -819,3 +819,12 @@ html[data-theme="clear-cover-2"] .color-swatch[data-color="#9b477e"] {
 html[data-theme="clear-cover-2"] .color-swatch[data-color="#596474"] {
   background: #596474;
 }
+
+/* Keep the current keypad focus and fullscreen menu rules in every theme. */
+html[data-theme="clear-cover-2"] .phone-key:focus,
+html[data-theme="clear-cover-2"] .phone-key:focus-visible { outline: none; }
+@media (min-width: 801px) {
+  html[data-theme="clear-cover-2"] body.is-fullscreen-mode .app-layout.has-fullscreen-option {
+    grid-template-columns: minmax(0, 450px) minmax(0, 1fr);
+  }
+}

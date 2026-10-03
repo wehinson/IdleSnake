@@ -806,3 +806,12 @@ html[data-theme="night-green"] .color-swatch[data-color="#9b477e"] {
 html[data-theme="night-green"] .color-swatch[data-color="#596474"] {
   background: #d8dee8;
 }
+
+/* Keep the current keypad focus and fullscreen menu rules in every theme. */
+html[data-theme="night-green"] .phone-key:focus,
+html[data-theme="night-green"] .phone-key:focus-visible { outline: none; }
+@media (min-width: 801px) {
+  html[data-theme="night-green"] body.is-fullscreen-mode .app-layout.has-fullscreen-option {
+    grid-template-columns: minmax(0, 450px) minmax(0, 1fr);
+  }
+}

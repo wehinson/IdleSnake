@@ -765,3 +765,12 @@ html[data-theme="oxblood"] .menu-panel :is(button:not(.menu-tab), .upgrade-butto
   color: #8a7a73 !important;
   cursor: not-allowed;
 }
+
+/* Keep the current keypad focus and fullscreen menu rules in every theme. */
+html[data-theme="oxblood"] .phone-key:focus,
+html[data-theme="oxblood"] .phone-key:focus-visible { outline: none; }
+@media (min-width: 801px) {
+  html[data-theme="oxblood"] body.is-fullscreen-mode .app-layout.has-fullscreen-option {
+    grid-template-columns: minmax(0, 440px) minmax(0, 1fr);
+  }
+}

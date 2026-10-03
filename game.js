@@ -3005,7 +3005,7 @@ function drawSnake() {
   // neck visible in each gap — so the body reads as distinct blocks that
   // are unmistakably one snake. Round joins keep turns connected too.
   if (points.length > 1) {
-    ctx.strokeStyle = window.IdleSnakeAppearance.connectorColor(snakeColors.body);
+    ctx.strokeStyle = window.IdleSnakeAppearance.connectorColor(window.ThemeKit ? window.ThemeKit.color(snakeColors.body) : snakeColors.body);
     ctx.lineJoin = "round";
     // Flat end caps stay hidden below the head and the wide base of the tail.
     // A round cap at the tail center extends beyond the tapered sides.
@@ -3204,7 +3204,7 @@ function drawDeathAnimation(now) {
     ctx.beginPath();
     ctx.roundRect(-length / 2 + connectorShadowOffset, -thickness / 2 + connectorShadowOffset, length, thickness, thickness / 2);
     ctx.fill();
-    ctx.fillStyle = window.IdleSnakeAppearance.connectorColor(snakeColors.body);
+    ctx.fillStyle = window.IdleSnakeAppearance.connectorColor(window.ThemeKit ? window.ThemeKit.color(snakeColors.body) : snakeColors.body);
     ctx.beginPath();
     ctx.roundRect(-length / 2, -thickness / 2, length, thickness, thickness / 2);
     ctx.fill();
@@ -3633,7 +3633,12 @@ function drawTongueCatch() {
 function drawScanlines() {
   // Theme redesigns can paint a screen overlay and turn off the scanlines.
   const themeOverlay = window.ThemeKit?.canvasOption("overlay", null);
-  if (typeof themeOverlay === "function") themeOverlay(ctx, canvas, boardMetrics, screenEffectStrength());
+  if (typeof themeOverlay === "function") {
+    ctx.save();
+    ctx.globalAlpha *= screenEffectStrength();
+    themeOverlay(ctx, canvas, boardMetrics, screenEffectStrength());
+    ctx.restore();
+  }
   if (window.ThemeKit?.canvasOption("scanlines", true) === false) return;
   ctx.fillStyle = `rgba(255, 255, 255, ${0.055 * screenEffectStrength()})`;
   for (let y = 0; y < canvas.height; y += Math.max(8, Math.floor(boardMetrics.cellSize / 2))) {
