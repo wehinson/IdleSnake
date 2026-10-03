@@ -1,18 +1,18 @@
 # Theme redesigns
 
-This branch (`working-redesign`) holds five redesigns (round 2) of Snake Forever. Use the
+This branch (`working-redesign`) holds five redesigns (round 3) of Snake Forever. Use the
 theme picker at the bottom-left of the page to switch between them. You can also
 open `?theme=<id>`. **Original** is the default, and it is unchanged.
 
 | id | Name | Designer |
 | --- | --- | --- |
-| `navy-brick` | Navy Brick | Claude |
-| `silver-slim` | Silver Slim | Claude |
-| `clear-cover` | Clear Cover | Claude |
-| `business-slate` | Business Slate | Codex |
-| `retail-box` | Retail Box | Codex |
+| `clear-cover-2` | Clear Cover II | Claude |
+| `amber-graphite` | Amber Graphite | Claude |
+| `night-green` | Night Green | Claude |
+| `oxblood` | Oxblood | Codex |
+| `carbon` | Carbon | Codex |
 
-Round 2 keeps the game's concept and every word. Each theme is a new art direction and layout. See `DESIGN-BRIEF.md` for the rules and references.
+Round 3 (William's feedback: dark, minimal menus with strong contrast, snake colours that work, scanlines instead of a pixel grid). Clear Cover II improves his favourite (Clear Cover); the other four are new: Amber Graphite and Night Green (Claude), and Oxblood and Carbon (Codex). Claude's three come from one template in `themes/_build`. `contrastingEyeColor` now reads the themed palette. The round 2 designs were removed. Every design keeps the game's words. See `DESIGN-BRIEF.md` for the rules against slop.
 
 ## How a theme works
 
