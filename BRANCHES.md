@@ -8,6 +8,17 @@
 - Changes: egg boards use a 0.5% egg chance per Seed spawn. Each Egg chance upgrade adds 0.5 percentage points, up to 100%. The first upgrade costs 500 Seeds; later costs multiply by 2.5. The upgrade applies to new egg spawns in the current run and saves per settlement.
 - Tests: `npm run check` passed syntax, authority checks, and all 306 Node tests. Four new tests cover exact spawn thresholds, current-run purchases, saving, per-settlement levels, and the 100% limit. `git diff --check` passed. Browser appearance has not been checked for this change.
 - Version impact: optional eggChanceLevel in version 5 saves; no release requested.
+
+## working-claude — Button click sounds
+
+- Category: display (audio).
+- Agent: Claude, in folder `IdleSnake-claude`, because Codex had an active claim on `working`. Started from `working` commit 1125057 (not from main, which is 34 commits behind `working`), so the sounds apply to the current phone and menu layout.
+- Status: Ready to Ship.
+- Changes: every button press on the phone side (`.phone-shell`) plays `assets/audio/phone-double-tap.wav` (generated). Every button press on the main menu side (`.menu-panel`) plays `assets/audio/menu-click-el-boss.mp3` (Freesound 677861 "UI Button Click" by el_boss, CC0). The sound plays on pointer press, in capture phase, so buttons that act on pointerdown or stop propagation also play it. Keyboard activation (click with detail 0) also plays it. Disabled buttons are silent. The local server now sends audio MIME types.
+- Files: scripts/ui-sounds.js, scripts/ui-sounds.test.js, assets/audio/, index.html, scripts/serve.js, README.md, BRANCHES.md.
+- Tests: `npm run check` passed syntax, authority checks, and all 306 Node tests (4 new). A direct HTTP check returned both sound files with the correct audio types.
+- UI verification: William approved an isolated browser check. Headless Chromium at desktop (1400x900) and phone (390x844, touch) sizes recorded each Web Audio playback. D-pad, Pause, Reset, Start, keypad 0, and Back to game played the double tap. The Nursery, Colony, and Upgrades tabs played the el_boss click. Locked keypad keys and the disabled Buy button were silent. Sound start was less than 1 ms after the press. No page errors. Enter on a focused button does not activate it, because the game blocks Enter as a game key; therefore it plays no sound (behavior from before this change). On the first press, the audio system can start a few milliseconds late while the browser unlocks audio. Loudness was not checked by ear.
+- Version impact: none.
 - Last update: 2026-10-03.
 
 ## working — Ready reload, settings controls, and Length Bonus
