@@ -2090,3 +2090,14 @@ html[data-reduced-motion="true"] .nav-key.is-pressed {
   background: #25301f;
   cursor: pointer;
 }
+
+.chomp-sound-options {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 5px;
+  align-items: stretch;
+}
+.chomp-sound-options #chompPreviewButton {
+  width: auto;
+  text-align: center;
+}

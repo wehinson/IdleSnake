@@ -360,6 +360,13 @@
                   </button>
                 </div>
               </section>
+              <section class="mobile-controls-settings" aria-labelledby="chompSoundHeading">
+                <h2 id="chompSoundHeading">Chomp sound</h2>
+                <div class="chomp-sound-options">
+                  <button class="mobile-control-toggle" id="chompSoundButton" type="button" aria-pressed="true">Chomp sound: On</button>
+                  <button class="mobile-control-toggle" id="chompPreviewButton" type="button">Play</button>
+                </div>
+              </section>
               <section class="mobile-controls-settings" aria-labelledby="mobileControlsHeading">
                 <h2 id="mobileControlsHeading">Mobile Controls</h2>
                 <button class="mobile-control-toggle" id="swipeControlsButton" type="button" aria-pressed="false">Swipe Controls: Off</button>
@@ -461,6 +468,9 @@
     <script src="engine/state-reader.js"></script>
     <script src="scripts/snake-timing.js"></script>
     <script src="scripts/animation-clock.js"></script>
+    <script src="engine/chomp-sounds.js"></script>
+    <script src="engine/tongue.js"></script>
+    <script src="scripts/tongue-draw.js"></script>
     <script src="game.js"></script>
   </body>
 </html>

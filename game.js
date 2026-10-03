@@ -277,6 +277,8 @@ const personalizationScreen = document.querySelector("#personalizationScreen");
 const personalizationBackButton = document.querySelector("#personalizationBackButton");
 const openSaveDataButton = document.querySelector("#openSaveDataButton");
 const reducedMotionButton = document.querySelector("#reducedMotionButton");
+const chompSoundButton = document.querySelector("#chompSoundButton");
+const chompPreviewButton = document.querySelector("#chompPreviewButton");
 const swipeControlsButton = document.querySelector("#swipeControlsButton");
 const biggerDpadButton = document.querySelector("#biggerDpadButton");
 const controlsEl = document.querySelector(".controls");
@@ -528,6 +530,12 @@ let tailWiggleStartedAt = null;
 const snakeAnimationClock = window.IdleSnakeAnimationClock.createAnimationClock();
 const snakeAnimationNow = () => snakeAnimationClock.now(performance.now());
 let deathAnimation = null;
+// Sticky Goo Fork tongue: when a Seed is straight ahead within two steps, the
+// tongue grabs it and pulls it to the mouth before the head arrives. Display
+// only; the engine still eats the Seed when the head enters its cell.
+const TONGUE_STYLE = "gooFork";
+const tongueTracker = window.IdleSnakeTongue.createCatchTracker(TONGUE_STYLE);
+let tongueFrame = null;
 
 const activeDirectionKeys = new Set();
 const activeDirectionClicks = new Set();
@@ -861,6 +869,87 @@ function setSnakeSpeed(snakeSpeed) {
   if (result.events.some((event) => event.type === "actionRejected")) return;
   persistConsolidatedSave();
   syncSnakeSpeedPreference();
+}
+
+// The chomp is a recorded sound file; the engine decides when to play it.
+// On or off is a device preference, stored apart from the game save.
+const chompSoundKey = "idlesnake-chomp-sound";
+const chompSounds = window.IdleSnakeChompSounds;
+let chompSoundSetting = chompSounds.normalChompSetting(safeStorage("get", chompSoundKey).value);
+let chompAudioContext = null;
+let chompFile = null;
+let chompBuffer = null;
+
+// Fetch the small file early so that the first bite is not late.
+function loadChompFile() {
+  chompFile ??= fetch(chompSounds.chompSoundUrl).then((response) => {
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    return response.arrayBuffer();
+  });
+  chompFile.catch(() => { chompFile = null; });
+  return chompFile;
+}
+
+function decodedChomp() {
+  chompBuffer ??= loadChompFile().then((data) => chompAudioContext.decodeAudioData(data.slice(0)));
+  chompBuffer.catch(() => { chompBuffer = null; });
+  return chompBuffer;
+}
+
+// Without Web Audio, or when the page is opened from a file, use an audio element.
+function playChompElement(url, playbackRate) {
+  const audio = new Audio(url);
+  audio.preservesPitch = false;
+  audio.playbackRate = playbackRate;
+  audio.volume = 0.6;
+  audio.play().catch(() => {});
+}
+
+function playChomp(url, playbackRate = 1) {
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if (!url) return;
+  if (!AudioContextClass || location.protocol === "file:") { playChompElement(url, playbackRate); return; }
+  try {
+    chompAudioContext ??= new AudioContextClass();
+    if (chompAudioContext.state === "suspended") chompAudioContext.resume();
+    decodedChomp().then((buffer) => {
+      const source = chompAudioContext.createBufferSource();
+      const gain = chompAudioContext.createGain();
+      source.buffer = buffer;
+      source.playbackRate.value = playbackRate;
+      gain.gain.value = 0.6;
+      source.connect(gain).connect(chompAudioContext.destination);
+      source.start();
+    }).catch(() => playChompElement(url, playbackRate));
+  } catch (error) {
+    console.warn("IdleSnake chomp sound failed.", error);
+  }
+}
+
+let lastChompAt = -Infinity;
+function playEatChomp() {
+  // Catch-up ticks can report many eats at once; play only one of them.
+  const now = performance.now();
+  if (document.hidden || now - lastChompAt < 40) return;
+  lastChompAt = now;
+  playChomp(chompSounds.chompForEat(chompSoundSetting), chompSounds.chompPlaybackRate());
+}
+
+function syncChompSoundSetting() {
+  const on = chompSoundSetting !== "off";
+  if (chompSoundButton) {
+    chompSoundButton.setAttribute("aria-pressed", String(on));
+    chompSoundButton.textContent = `Chomp sound: ${on ? "On" : "Off"}`;
+  }
+  if (chompPreviewButton) chompPreviewButton.disabled = !on;
+  if (on && location.protocol !== "file:") loadChompFile().catch(() => {});
+}
+
+function toggleChompSound() {
+  chompSoundSetting = chompSoundSetting === "off" ? "on" : "off";
+  safeStorage("set", chompSoundKey, chompSoundSetting);
+  syncChompSoundSetting();
+  playEatChomp();
 }
 
 function toggleReducedMotion() {
@@ -1712,7 +1801,7 @@ function interpretSessionEvents(events) {
       case "resumed": snakeAnimationClock.resume(performance.now()); break;
       case "hatch":
       case "eggBoardHatched": idleLastPanelAt = 0; break;
-      case "eat": if (gameView.gameMode === "snake") { startDigestionAnimation(); startCrumbAnimation(event.at); startTailWiggle(); } break;
+      case "eat": if (gameView.gameMode === "snake") { playEatChomp(); startDigestionAnimation(); startCrumbAnimation(event.at); startTailWiggle(); } break;
       case "movementCorrected":
         digestionAnimations = []; crumbAnimations = []; tailWiggleStartedAt = null; deathAnimation = null;
         clearTimeout(deathOverlayTimer); deathOverlayTimer = null;
@@ -2948,6 +3037,8 @@ function drawSnake() {
     ctx.stroke();
   }
 
+  drawTongueCatch();
+
   gameView.snake.forEach((part, index) => {
     const point = points[index];
     const baseInset = Math.max(3, boardMetrics.cellSize * (index === 0 ? 0.105 : 0.135));
@@ -3460,45 +3551,85 @@ function drawFood() {
   const foodType = currentFoodType();
   const pulse = gameView.state === "running" && !effectiveReducedMotion() ? Math.sin(performance.now() / 130) * boardMetrics.cellSize * 0.05 : 0;
 
+  updateTongueFrame();
+  const caught = tongueFrame?.seedCell;
   gameView.foods.forEach((snack) => {
+    if (caught && snack.x === caught.x && snack.y === caught.y) return;
     const inset = Math.max(4, Math.floor(boardMetrics.cellSize * 0.18) - pulse);
-    const rect = cellRect(snack, inset);
-    const centerX = rect.x + rect.size / 2;
-    const centerY = rect.y + rect.size / 2;
-
-    if (snack.kind === "egg") {
-      ctx.fillStyle = "#f2e9ba";
-      ctx.beginPath();
-      ctx.ellipse(centerX, centerY, rect.size * 0.32, rect.size * 0.43, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.strokeStyle = "#182413";
-      ctx.lineWidth = Math.max(1, rect.size * 0.08);
-      ctx.stroke();
-      return;
-    }
-    ctx.fillStyle = "#182413";
-    if (foodType.kind === "fruit") {
-      ctx.beginPath();
-      ctx.arc(centerX, centerY + 1, rect.size * 0.44, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillRect(centerX - 1, rect.y - 2, 2, Math.max(3, rect.size * 0.22));
-      ctx.fillStyle = "#9cac77";
-      ctx.fillRect(centerX + 2, rect.y - 2, Math.max(2, rect.size * 0.22), 2);
-    } else if (foodType.kind === "pod") {
-      ctx.beginPath();
-      ctx.ellipse(centerX, centerY, rect.size * 0.34, rect.size * 0.48, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = "#9cac77";
-      ctx.fillRect(centerX - 1, rect.y + rect.size * 0.22, 2, Math.max(2, rect.size * 0.14));
-    } else {
-      ctx.fillRect(rect.x, rect.y, rect.size, rect.size);
-      const cut = rect.size * 0.32;
-      ctx.clearRect(rect.x + cut, rect.y + cut, rect.size - cut * 2, rect.size - cut * 2);
-    }
-
-    ctx.fillStyle = "rgba(24, 36, 19, 0.42)";
-    ctx.fillRect(rect.x + 3, rect.y + rect.size + 2, Math.max(1, rect.size - 4), 2);
+    drawSnack(snack, cellRect(snack, inset), foodType);
   });
+}
+
+function drawSnack(snack, rect, foodType) {
+  const centerX = rect.x + rect.size / 2;
+  const centerY = rect.y + rect.size / 2;
+
+  if (snack.kind === "egg") {
+    ctx.fillStyle = "#f2e9ba";
+    ctx.beginPath();
+    ctx.ellipse(centerX, centerY, rect.size * 0.32, rect.size * 0.43, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "#182413";
+    ctx.lineWidth = Math.max(1, rect.size * 0.08);
+    ctx.stroke();
+    return;
+  }
+  ctx.fillStyle = "#182413";
+  if (foodType.kind === "fruit") {
+    ctx.beginPath();
+    ctx.arc(centerX, centerY + 1, rect.size * 0.44, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillRect(centerX - 1, rect.y - 2, 2, Math.max(3, rect.size * 0.22));
+    ctx.fillStyle = "#9cac77";
+    ctx.fillRect(centerX + 2, rect.y - 2, Math.max(2, rect.size * 0.22), 2);
+  } else if (foodType.kind === "pod") {
+    ctx.beginPath();
+    ctx.ellipse(centerX, centerY, rect.size * 0.34, rect.size * 0.48, 0, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = "#9cac77";
+    ctx.fillRect(centerX - 1, rect.y + rect.size * 0.22, 2, Math.max(2, rect.size * 0.14));
+  } else {
+    ctx.fillRect(rect.x, rect.y, rect.size, rect.size);
+    const cut = rect.size * 0.32;
+    ctx.clearRect(rect.x + cut, rect.y + cut, rect.size - cut * 2, rect.size - cut * 2);
+  }
+
+  ctx.fillStyle = "rgba(24, 36, 19, 0.42)";
+  ctx.fillRect(rect.x + 3, rect.y + rect.size + 2, Math.max(1, rect.size - 4), 2);
+}
+
+function updateTongueFrame() {
+  const active = gameView.gameMode === "snake"
+    && (gameView.state === "running" || gameView.state === "paused")
+    && gameView.snake?.length
+    && !effectiveReducedMotion();
+  if (!active) {
+    tongueTracker.reset();
+    tongueFrame = null;
+    return;
+  }
+  tongueFrame = tongueTracker.update({
+    head: gameView.snake[0],
+    direction: pendingHeadDirection(),
+    seeds: gameView.foods.filter((snack) => snack.kind !== "egg"),
+    stepProgress: Math.max(0, Math.min(1, gameView.stepAccumulatorMs / Math.max(1, gameView.tickMs)))
+  });
+}
+
+// The tongue and the Seed it holds, drawn under the head.
+function drawTongueCatch() {
+  if (!tongueFrame) return;
+  const cell = boardMetrics.cellSize;
+  window.IdleSnakeTongueDraw.drawForkTongue(ctx, { cell, x: boardMetrics.x, y: boardMetrics.y }, tongueFrame);
+  const snack = gameView.foods.find((food) => food.x === tongueFrame.seedCell.x && food.y === tongueFrame.seedCell.y);
+  if (!snack) return;
+  const size = (cell - Math.max(4, Math.floor(cell * 0.18)) * 2) * tongueFrame.seed.scale;
+  const rect = {
+    x: boardMetrics.x + tongueFrame.seed.x * cell - size / 2,
+    y: boardMetrics.y + tongueFrame.seed.y * cell - size / 2,
+    size
+  };
+  drawSnack(snack, rect, currentFoodType());
 }
 
 function drawScanlines() {
@@ -4445,6 +4576,21 @@ document.querySelectorAll("[data-snake-speed]").forEach((button) => {
   });
 });
 reducedMotionButton?.addEventListener("click", toggleReducedMotion);
+chompSoundButton?.addEventListener("click", toggleChompSound);
+chompSoundButton?.addEventListener("keydown", (event) => {
+  if (!["Enter", " "].includes(event.key)) return;
+  event.preventDefault();
+  event.stopPropagation();
+  if (!event.repeat) toggleChompSound();
+});
+chompPreviewButton?.addEventListener("click", playEatChomp);
+chompPreviewButton?.addEventListener("keydown", (event) => {
+  if (!["Enter", " "].includes(event.key)) return;
+  event.preventDefault();
+  event.stopPropagation();
+  if (!event.repeat) playEatChomp();
+});
+syncChompSoundSetting();
 swipeControlsButton?.addEventListener("click", () => toggleMobileControl("swipeControls"));
 biggerDpadButton?.addEventListener("click", () => toggleMobileControl("biggerDpad"));
 minimizedKeypadButton?.addEventListener("click", () => {
