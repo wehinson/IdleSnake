@@ -547,7 +547,18 @@
     return calculateHabitatActivation(counts, foodValue).provisionsProducedPerSecond;
   }
 
-  function tickHabitats(state, dtMs, foodValue) {
+  function lengthBonus(state) {
+    const level = Math.max(0, Math.floor(Number(state.upgrades?.lengthBonusLevel) || 0));
+    const perSegment = upgradeConfig.lengthBonus.basePerSegment + level * upgradeConfig.lengthBonus.increasePerLevel;
+    const length = state.mode === "snake" ? state.active?.snake?.length || 0 : 0;
+    const activation = calculateHabitatActivation(state.habitats.counts, foodValueFromUpgrades(state.upgrades), state.notables, state.habitats.upgradeLevels, { activateAllOverCapacity: state.provisions > 0 });
+    const applied = state.mode === "snake" && state.phase === "running" && length > 0 && activation.incomePerSecond > 0;
+    const multiplier = applied ? 1 + length * perSegment : 1;
+    return { level, length, perSegment, nextPerSegment: perSegment + upgradeConfig.lengthBonus.increasePerLevel,
+      applied, multiplier, seedIncomePerSecond: activation.incomePerSecond * multiplier };
+  }
+
+  function tickHabitats(state, dtMs, foodValue, seedIncomeMultiplier = 1) {
     if (dtMs <= 0) return { events: [] };
     const baselineActivation = calculateHabitatActivation(state.habitats.counts, foodValue, state.notables, state.habitats.upgradeLevels);
     const fullActivation = calculateHabitatActivation(
@@ -571,7 +582,7 @@
     let spentProvisions = 0;
     let foragedProvisions = 0;
     segments.forEach(({ activation, seconds }) => {
-      income += activation.incomePerSecond * seconds;
+      income += activation.incomePerSecond * seconds * seedIncomeMultiplier;
       branchIncome += activation.branchesPerSecond * seconds;
       provisionsIncome += activation.provisionsProducedPerSecond * seconds;
       spentProvisions += activation.provisionsConsumedPerSecond * seconds;
@@ -632,7 +643,7 @@
       const nurseryResult = tickNursery(state.nursery, state.seeds, sliceMs, rng);
       state.seeds = nurseryResult.seeds;
       events.push(...nurseryResult.events);
-      const habitatResult = tickHabitats(state, sliceMs, foodValue);
+      const habitatResult = tickHabitats(state, sliceMs, foodValue, ctx.seedIncomeMultiplier ?? 1);
       events.push(...habitatResult.events);
       events.push(...creditEggProgress(state, habitatResult.provisionsIncome));
       remainingMs -= sliceMs;
@@ -678,6 +689,7 @@
     calculateHabitatActivation,
     totalHabitatIncomePerSecond,
     totalProvisionsIncomePerSecond,
+    lengthBonus,
     tickHabitats,
     tickEconomy
   };

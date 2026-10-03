@@ -15,6 +15,7 @@
       elapsedMs: () => frame().elapsedMs, stepAccumulatorMs: () => frame().modeAccumulatorMs,
       tickMs: () => active().tickMs || 16,
       seedsTotal: () => frame().seeds, provisionsTotal: () => frame().provisions,
+      lengthBonus: () => frame().hud.lengthBonus,
       branchesTotal: () => frame().branches, best: () => frame().best,
       upgrades: () => full().upgrades, selectedBoardLevel: () => full().selectedBoardLevel,
       selectedDuelGridSize: () => full().selectedDuelGridSize,

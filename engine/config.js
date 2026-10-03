@@ -44,6 +44,7 @@
     },
     foodCount: { baseCount: 1, baseCost: 160, costRatio: 3.75 },
     shield: { baseCost: 420, costRatio: 4.5 },
+    lengthBonus: { baseCost: 500, costRatio: 2.5, basePerSegment: 0.01, increasePerLevel: 0.05 },
     minigames: {
       levels: ["1", "2", "3", "4", "5", "6", "7", "8", "9"],
       maxLevel: 9,

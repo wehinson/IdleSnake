@@ -100,7 +100,7 @@
     return clone(active);
   }
   function normalUpgrades(value) {
-    const defaults = { boardLevel: 0, foodTypeLevel: 0, foodCountLevel: 0, shieldLevel: 0, minigamesLevel: 0 };
+    const defaults = { boardLevel: 0, foodTypeLevel: 0, foodCountLevel: 0, shieldLevel: 0, minigamesLevel: 0, lengthBonusLevel: 0 };
     return Object.fromEntries(Object.keys(defaults).map((key) => {
       const level = Math.max(0, Math.floor(Number(value && value[key]) || 0));
       const maxLevel = key === "minigamesLevel"
@@ -363,7 +363,7 @@
       nextResupplyMissionId: state.nextResupplyMissionId,
       notableCapacity: notables.capacity(state.notables, state.habitats.counts), notableRosterOverCapacity: notables.rosterOverCapacity(state.notables, state.habitats.counts),
       habitatHardCapacities, habitatOverCapacity: state.habitats.counts.map((count, index) => count > habitatHardCapacities[index]),
-      hud: { score: active && Number(active.score) || 0, best: bestForMode(state), seeds: state.seeds, provisions: state.provisions, branches: state.branches, elapsedMs: state.elapsedMs },
+      hud: { score: active && Number(active.score) || 0, best: bestForMode(state), seeds: state.seeds, provisions: state.provisions, branches: state.branches, elapsedMs: state.elapsedMs, lengthBonus: economy.lengthBonus(state) },
       availableModes: [...modeNames], supportedModes: ["snake", "duel", "maze", "crossing", "breakout", "runner", "snakebird", "sokoban", "broodline", "battleship", "centipede"],
       prompt: state.phase === "ready" ? "Ready" : state.phase === "paused" ? "Paused" : state.phase === "gameover" ? "Game Over" : ""
     };
@@ -382,7 +382,7 @@
     return freeze({
       mode: state.mode, phase: state.phase, elapsedMs: state.elapsedMs, modeAccumulatorMs: state.modeAccumulatorMs,
       seeds: state.seeds, provisions: state.provisions, branches: state.branches, best: state.best, records: memoizedFrozenClone(state.snapshotCache.records, state.records), selectedDuelGridSize: state.selectedDuelGridSize, snakeSpeed: state.snakeSpeed, reducedMotion: state.reducedMotion, fullscreenMode: state.fullscreenMode, mobileControls: memoizedFrozenClone(state.snapshotCache.mobileControls, state.mobileControls), active,
-      hud: { score: active && Number(active.score) || 0, best: bestForMode(state), seeds: state.seeds, provisions: state.provisions, branches: state.branches, elapsedMs: state.elapsedMs },
+      hud: { score: active && Number(active.score) || 0, best: bestForMode(state), seeds: state.seeds, provisions: state.provisions, branches: state.branches, elapsedMs: state.elapsedMs, lengthBonus: economy.lengthBonus(state) },
       prompt: state.phase === "ready" ? "Ready" : state.phase === "paused" ? "Paused" : state.phase === "gameover" ? "Game Over" : ""
     });
   }
@@ -458,7 +458,7 @@
       if (recentMovement && !replayingInput) recentMovement.draws.push(value);
       return value;
     };
-    if (migrated.session.mode === "snake" && !migrated.session.migrationChallenge) {
+    if (migrated.session.mode === "snake" && migrated.session.phase !== "gameover" && !migrated.session.migrationChallenge) {
       state.active = snake.restoreSnakeMode(migrated.session.active, {
         upgrades: state.upgrades, seeds: state.seeds, best: state.best,
         speedMultiplier: config.snakeConfig.speedPresets[state.snakeSpeed]
@@ -620,7 +620,8 @@
         if (segment > 0) {
           for (const settlement of state.migration.settlements) {
             if (settlement.status !== "established" || !settlement.economy) continue;
-            const ticked = economy.tickEconomy(settlement.economy, segment, { rng: () => state.rng(), foodValue: economy.foodValueFromUpgrades(settlement.economy.upgrades) });
+            const seedIncomeMultiplier = settlement.id === state.migration.activeSettlementId ? economy.lengthBonus(state).multiplier : 1;
+            const ticked = economy.tickEconomy(settlement.economy, segment, { rng: () => state.rng(), foodValue: economy.foodValueFromUpgrades(settlement.economy.upgrades), seedIncomeMultiplier });
             events.push(...ticked.events.map((item) => ({ ...item, settlementId: settlement.id })));
           }
           const migrationEvents = migration.tick(state, segment, boundary, () => state.rng(), { deferEconomySync: true }).events;
@@ -1192,14 +1193,13 @@
       }
       return result(state, events);
     }
-    function tickCore(dtMs, options) {
+    function tickSlice(dtMs) {
       // Classic Snake uses elapsed time even when frames stop in a hidden tab.
       // Other modes retain their existing live-frame limit.
       const rawDt = Math.max(0, Number(dtMs) || 0);
       const dt = state.mode === "snake" ? rawDt : Math.min(MAX_LIVE_DT, rawDt);
       const events = [];
-      const snapshotMode = options && options.snapshot === "frame" ? "frame" : "full";
-      if (!rawDt) return result(state, events, snapshotMode);
+      if (!rawDt) return events;
       events.push(...advanceSettlementWorld(rawDt));
       const seedsAfterEconomy = state.seeds;
       if (state.mode === "snake" && state.active) { state.active.seeds = state.seeds; state.active.best = state.best; }
@@ -1314,7 +1314,25 @@
       events.push(...economy.tryStartEgg(state));
       if (!state.migrationChallenge) migration.recordSnakeSeeds(state, Math.max(0, state.seeds - seedsAfterEconomy));
       migration.creditActiveSettlement(state); migration.storeActiveSettlement(state);
-      return result(state, events, snapshotMode);
+      return events;
+    }
+    function tickCore(dtMs, options) {
+      let remaining = Math.max(0, Number(dtMs) || 0);
+      const events = [];
+      // Change passive income at each movement or death deadline. A long frame
+      // must not pay the old length bonus after growth or after the run ends.
+      while (remaining > 0) {
+        let slice = remaining;
+        if (state.mode === "snake" && state.phase === "running" && state.active) {
+          const untilMove = state.active.collisionGraceRemainingMs !== null
+            ? state.active.collisionGraceRemainingMs
+            : snake.nextMoveInterval(state.active) - state.modeAccumulatorMs;
+          slice = Math.min(remaining, Math.max(0.000001, untilMove));
+        }
+        events.push(...tickSlice(slice));
+        remaining = Math.max(0, remaining - slice);
+      }
+      return result(state, events, options?.snapshot === "frame" ? "frame" : "full");
     }
     function tick(dtMs, options) {
       const rawDt = Math.max(0, Number(dtMs) || 0);
