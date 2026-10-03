@@ -1,6 +1,6 @@
 const { test, expect } = require("@playwright/test");
 
-test("long snake uses sparse sliding markings, wider colored connectors, and a quiet gridded board", async ({ page }) => {
+test("long snake uses stable varied block sizes, thinner connectors, and an aligned gridded board", async ({ page }) => {
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.setViewportSize({ width: 1440, height: 950 });
@@ -30,9 +30,8 @@ test("long snake uses sparse sliding markings, wider colored connectors, and a q
       return ctx.getImageData(0, 0, canvas.width, canvas.height).data;
     };
     const first = capture();
-    const marks = window.IdleSnakeAppearance.bodyMarkings(snake);
     accept(session.dispatch({ type: "begin" }));
-    accept(session.tick(100)); // Markings slide; every body cell stays fixed.
+    accept(session.tick(100)); // No movement deadline: all appearance stays fixed.
     const second = capture();
     let changedPixels = 0;
     for (let i = 0; i < first.length; i += 4) {
@@ -47,6 +46,18 @@ test("long snake uses sparse sliding markings, wider colored connectors, and a q
     const strokes = [];
     ctx.stroke = function () { strokes.push({ color: this.strokeStyle, width: this.lineWidth }); originalStroke.call(this); };
     drawSnake(); ctx.stroke = originalStroke;
+    const originalBlock = drawRoundedRect;
+    const sizes = [];
+    drawRoundedRect = (x, y, width, height) => { sizes.push(width); originalBlock(x, y, width, height); };
+    drawSnake(); drawRoundedRect = originalBlock;
+    const normalSize = cell - Math.max(3, cell * 0.135) * 2;
+    const areas = sizes.slice(1).map((size) => (size / normalSize) ** 2);
+    const gridLines = [];
+    const originalMoveTo = ctx.moveTo; const originalLineTo = ctx.lineTo;
+    ctx.moveTo = (x, y) => { gridLines.push({ x, y }); originalMoveTo.call(ctx, x, y); };
+    ctx.lineTo = (x, y) => { gridLines.push({ x, y }); originalLineTo.call(ctx, x, y); };
+    drawGridDirect(); ctx.moveTo = originalMoveTo; ctx.lineTo = originalLineTo;
+    const gridWidth = ctx.lineWidth;
     accept(session.dispatch({ type: "pause" }));
     const paused = capture();
     accept(session.tick(2000));
@@ -57,20 +68,23 @@ test("long snake uses sparse sliding markings, wider colored connectors, and a q
     accept(session.dispatch({ type: "playDirection", direction: "left" }));
     accept(session.tick(400));
     hideOverlay(); syncHud(); render();
-    return { length: snake.length, count: marks.length, variants: [...new Set(marks.map((mark) => mark.variant))],
-      changedPixels, boardPixels: boardMetrics.width * boardMetrics.height, dark, light, grid,
+    return { length: snake.length, areas, gridLines, gridWidth,
+      changedPixels, dark, light, grid,
       connector: strokes[0], expectedConnectorColor: window.IdleSnakeAppearance.connectorColor(snakeColors.body), cell,
       pauseFrozen, phase: session.snapshot().phase, cells: session.snapshot().active.snake };
   });
   expect(result.length).toBe(224);
-  expect(result.count).toBeLessThan(result.length / 4);
-  expect(result.variants.sort()).toEqual([0, 1, 2]);
-  expect(result.changedPixels).toBeGreaterThan(0);
-  expect(result.changedPixels / result.boardPixels).toBeLessThan(0.02);
-  result.dark.forEach((channel, index) => expect(Math.abs(channel / result.light[index] - 0.85)).toBeLessThan(0.015));
+  expect(result.areas.length).toBe(222);
+  result.areas.forEach((area) => { expect(area).toBeGreaterThanOrEqual(0.85); expect(area).toBeLessThanOrEqual(1.15); });
+  expect(Math.min(...result.areas)).toBeLessThan(0.86);
+  expect(Math.max(...result.areas)).toBeGreaterThan(1.14);
+  expect(result.changedPixels).toBe(0);
+  expect(result.gridWidth).toBe(2);
+  expect(result.gridLines.every((point) => Number.isInteger(point.x) && Number.isInteger(point.y))).toBe(true);
+  result.dark.forEach((channel, index) => expect(Math.abs(channel / result.light[index] - 0.8725)).toBeLessThan(0.015));
   expect(result.grid[0]).toBeLessThan(result.dark[0]);
   expect(result.connector.color).toBe(result.expectedConnectorColor);
-  expect(result.connector.width).toBeCloseTo(Math.max(3, result.cell * 0.46 * 1.5), 5);
+  expect(result.connector.width).toBeCloseTo(Math.max(2.25, result.cell * 0.46 * 1.5 * 0.75), 5);
   expect(result.pauseFrozen).toBe(true);
   expect(result.phase).toBe("running");
   await expect(page.locator("#overlay")).toHaveCSS("opacity", "0");

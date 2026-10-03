@@ -1,6 +1,6 @@
 const { test, expect } = require("@playwright/test");
 
-test("all segments snap with one body shade and a head-colored tail", async ({ page }) => {
+test("all segments snap with one body shade, stable block sizes, and a head-colored tail", async ({ page }) => {
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
   await page.addInitScript(() => {
@@ -25,8 +25,11 @@ test("all segments snap with one body shade and a head-colored tail", async ({ p
     const differentPixels = (a, b) => a.filter((value, index) => value !== b[index]).length;
     const exact = (rect, part, index) => {
       const inset = Math.max(3, boardMetrics.cellSize * (index === 0 ? 0.105 : 0.135));
-      return rect.x === boardMetrics.x + part.x * boardMetrics.cellSize + inset
-        && rect.y === boardMetrics.y + part.y * boardMetrics.cellSize + inset;
+      const scale = index > 0 && index < gameView.snake.length - 1 ? window.IdleSnakeAppearance.bodyBlockScale(index) : 1;
+      const size = (boardMetrics.cellSize - inset * 2) * scale;
+      return Math.abs(rect.x + rect.size / 2 - (boardMetrics.x + (part.x + 0.5) * boardMetrics.cellSize)) < 1e-8
+        && Math.abs(rect.y + rect.size / 2 - (boardMetrics.y + (part.y + 0.5) * boardMetrics.cellSize)) < 1e-8
+        && Math.abs(rect.size - size) < 1e-8;
     };
     const checks = [];
     for (const [direction, vector] of Object.entries(vectors)) {
@@ -115,8 +118,7 @@ test("all segments snap with one body shade and a head-colored tail", async ({ p
     check.initialOffset.forEach((offset) => expect(offset).toBe(0));
     expect(check.pausedPixels, check.direction).toBe(0);
     expect(check.stepChangedPixels, check.direction).toBeGreaterThan(0);
-    // Only the small markings move between cell steps.
-    expect(check.changedPixels, check.direction).toBeLessThan(500);
+    expect(check.changedPixels, check.direction).toBe(0);
     expect(check.finishedExact, check.direction).toBe(true);
   }
   expect(result.maxGap).toBe(1);

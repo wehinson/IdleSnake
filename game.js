@@ -2767,6 +2767,11 @@ function interpolatedCellRect(point, inset = 0) {
   };
 }
 
+function snakeBlockRect(point, index, inset, length = gameView.snake.length) {
+  const rect = interpolatedCellRect(point, inset);
+  return index > 0 && index < length - 1 ? window.IdleSnakeAppearance.scaleBodyBlock(rect, index) : rect;
+}
+
 function drawRoundedRect(x, y, width, height) {
   const radius = Math.min(2.5, width * 0.10, height * 0.10);
   ctx.beginPath();
@@ -2820,9 +2825,9 @@ function drawScreen(layerCtx = ctx) {
 }
 
 function setGridDrawingState(layerCtx) {
-  layerCtx.fillStyle = "rgba(0, 0, 0, 0.15)";
+  layerCtx.fillStyle = "rgba(0, 0, 0, 0.1275)";
   layerCtx.strokeStyle = "rgba(24, 36, 19, 0.32)";
-  layerCtx.lineWidth = 1;
+  layerCtx.lineWidth = 2;
   layerCtx.lineJoin = ctx.lineJoin;
   layerCtx.lineCap = ctx.lineCap;
 }
@@ -2839,25 +2844,25 @@ function drawGridDirect(layerCtx = ctx) {
     }
   }
 
-  // Align the thin grid to physical pixels to avoid soft, uneven lines.
+  // Two-pixel lines share integer boundaries, including the board outline.
   layerCtx.beginPath();
   for (let x = 1; x < gameView.grid.columns; x++) {
-    const lineX = boardMetrics.x + x * boardMetrics.cellSize + 0.5;
+    const lineX = boardMetrics.x + x * boardMetrics.cellSize;
     layerCtx.moveTo(lineX, boardMetrics.y);
     layerCtx.lineTo(lineX, boardMetrics.y + boardMetrics.height);
   }
   for (let y = 1; y < gameView.grid.rows; y++) {
-    const lineY = boardMetrics.y + y * boardMetrics.cellSize + 0.5;
+    const lineY = boardMetrics.y + y * boardMetrics.cellSize;
     layerCtx.moveTo(boardMetrics.x, lineY);
     layerCtx.lineTo(boardMetrics.x + boardMetrics.width, lineY);
   }
   layerCtx.stroke();
   layerCtx.lineWidth = 2;
   layerCtx.strokeRect(
-    boardMetrics.x - 1,
-    boardMetrics.y - 1,
-    boardMetrics.width + 2,
-    boardMetrics.height + 2
+    boardMetrics.x,
+    boardMetrics.y,
+    boardMetrics.width,
+    boardMetrics.height
   );
 }
 
@@ -2907,7 +2912,7 @@ function drawSnake() {
     // Flat end caps stay hidden below the head and the wide base of the tail.
     // A round cap at the tail center extends beyond the tapered sides.
     ctx.lineCap = "butt";
-    ctx.lineWidth = Math.max(3, cell * window.IdleSnakeAppearance.connectorWidth);
+    ctx.lineWidth = Math.max(window.IdleSnakeAppearance.connectorMinimumWidth, cell * window.IdleSnakeAppearance.connectorWidth);
     ctx.beginPath();
     points.forEach((point, index) => {
       let cx = boardMetrics.x + (point.x + 0.5) * cell;
@@ -2935,7 +2940,7 @@ function drawSnake() {
     const baseInset = Math.max(3, boardMetrics.cellSize * (index === 0 ? 0.105 : 0.135));
     const digestionPulse = index === 0 || reducedMotion ? 0 : digestionPulseForSegment(index, now);
     const inset = Math.max(1, baseInset - boardMetrics.cellSize * 0.1 * digestionPulse);
-    const rect = interpolatedCellRect(point, inset);
+    const rect = snakeBlockRect(point, index, inset);
     if (index === 0) {
       const shadowOffset = Math.max(2, boardMetrics.cellSize * 0.08);
       ctx.fillStyle = "rgba(24, 36, 19, 0.34)";
@@ -2955,7 +2960,6 @@ function drawSnake() {
       }
     }
   });
-  drawBodyMarkings(points, reducedMotion);
   const headInset = Math.max(3, Math.floor(boardMetrics.cellSize * 0.11));
   const headPoint = points[0];
   const headRect = interpolatedCellRect(headPoint, headInset);
@@ -2963,39 +2967,6 @@ function drawSnake() {
   // Aim the eyes at the direction the next step will actually move, so a fresh
   // turn shows on the head the instant it's pressed instead of a tick later.
   drawEyes(headRect.x, headRect.y, headRect.size, pendingHeadDirection());
-}
-
-function drawBodyMarkings(points, reducedMotion) {
-  const cell = boardMetrics.cellSize;
-  const markings = window.IdleSnakeAppearance.bodyMarkings(points, { elapsedMs: gameView.elapsedMs, reducedMotion });
-  const color = lightenColor(snakeColors.body, 0.10);
-  for (const marking of markings) {
-    ctx.save();
-    ctx.translate(boardMetrics.x + (marking.x + 0.5) * cell, boardMetrics.y + (marking.y + 0.5) * cell);
-    ctx.rotate(marking.angle);
-    ctx.globalAlpha *= marking.opacity;
-    ctx.strokeStyle = color; ctx.fillStyle = color;
-    ctx.lineWidth = Math.max(0.8, cell * 0.04); ctx.lineCap = "round";
-    ctx.beginPath();
-    if (marking.variant === 0) {
-      // Two small diagonal scales.
-      ctx.moveTo(-cell * 0.09, -cell * 0.12); ctx.lineTo(cell * 0.05, -cell * 0.04);
-      ctx.moveTo(-cell * 0.05, cell * 0.04); ctx.lineTo(cell * 0.09, cell * 0.12);
-      ctx.stroke();
-    } else if (marking.variant === 1) {
-      // A pair of subdued spots.
-      ctx.arc(-cell * 0.04, -cell * 0.09, cell * 0.04, 0, Math.PI * 2);
-      ctx.moveTo(cell * 0.08, cell * 0.09);
-      ctx.arc(cell * 0.04, cell * 0.09, cell * 0.04, 0, Math.PI * 2);
-      ctx.fill();
-    } else {
-      // One short stripe, with a small gap beside it.
-      ctx.moveTo(-cell * 0.10, -cell * 0.05); ctx.lineTo(cell * 0.10, -cell * 0.05);
-      ctx.moveTo(-cell * 0.03, cell * 0.08); ctx.lineTo(cell * 0.05, cell * 0.08);
-      ctx.stroke();
-    }
-    ctx.restore();
-  }
 }
 
 function shieldImpactProgress() {
@@ -3122,7 +3093,7 @@ function drawDeathAnimation(now) {
     const rotation = driftDirection * local * Math.PI * 0.72;
     const fade = local < 0.72 ? 1 : 1 - (local - 0.72) / 0.28;
     const length = cell * 0.46;
-    const thickness = Math.max(3, cell * 0.22 * 1.5);
+    const thickness = Math.max(window.IdleSnakeAppearance.connectorMinimumWidth, cell * 0.22 * 1.5 * 0.75);
 
     ctx.save();
     ctx.globalAlpha = Math.max(0, fade);
@@ -3146,7 +3117,7 @@ function drawDeathAnimation(now) {
     const local = Math.max(0, rawLocal);
 
     const baseInset = Math.max(3, cell * (index === 0 ? 0.105 : 0.135));
-    const rect = cellRect(part, baseInset);
+    const rect = snakeBlockRect(part, index, baseInset, animation.segments.length);
     const jumpEnd = 0.34;
     const jumpHeight = cell * 0.72;
     let offsetY;
