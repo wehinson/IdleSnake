@@ -4,7 +4,7 @@
 
 - Category: display (design preview).
 - Agent: Claude.
-- Status: Ready to Ship. Started from working-codex-controls at William's request.
+- Status: Tongue shipped to main as 1.0.1 (f69ffd7) on 2026-10-03, tongue commits only. This branch is kept as the reference for the next full ship: main's game.js has the tongue ported to its older plain variables (snake, foods, state), while the working branches use gameView. When working is next merged into main, keep the gameView version of updateTongueFrame, drawTongueCatch, and drawSnack from this branch.
 - Changes: new engine module `engine/tongue.js` owns the catch timing and geometry. When a Seed is straight ahead within two cells, the tongue reaches out, grabs the Seed, pulls it to the mouth, and the Seed shrinks in the mouth until the head enters the Seed cell. Five styles: Forked Flick, Sticky Lasso, Pixel Ribbon, Curl Hook, Noodle Slurp. `tongue-lab.html` shows all five side by side with play/pause, speed (1x to 0.1x), a timeline slider, and a head color choice.
 - Second set (default in the lab, "Set" menu): five Sticky Lasso variations with a forked tip: Fork Lasso, Wide Fork Snap (strong spring), Sticky Goo Fork (drops, web, drip), Whip Fork (wave and rubbery wobble), Double Snap (yank halfway, hold, snap). Engine adds `groups`, `stylesInGroup`, and the easings `outBackStrong`, `outElastic`, `twoSnap`.
 - Fork shape (second set): one continuous silhouette. The body narrows slightly, then splits into two curved tines that taper to sharp points; soft shading across the width, a single outline, and a faint center groove. No separate prong shapes. Goo drops hang from the tine middles. Browser-checked in the still frames.
