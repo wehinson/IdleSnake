@@ -34,40 +34,80 @@
   //   reachEase / pullEase: easing names from `easings`
   const styles = [
     {
-      id: "fork",
+      id: "fork", group: "first",
       name: "Forked Flick",
       summary: "Thin red forked tongue. One quick warning flick, then the fork closes on the Seed and drags it in.",
       flickUntil: 0.16, grabAt: 0.36, pullUntil: 0.64,
       reachEase: "outCubic", pullEase: "inOutSine", wobble: 0
     },
     {
-      id: "frog",
+      id: "frog", group: "first",
       name: "Sticky Lasso",
       summary: "Thick pink tongue shoots out fast. The Seed sticks to the round tip and snaps back with a springy overshoot.",
       flickUntil: 0, grabAt: 0.18, pullUntil: 0.56,
       reachEase: "outQuint", pullEase: "outBack", wobble: 0
     },
     {
-      id: "pixel",
+      id: "pixel", group: "first",
       name: "Pixel Ribbon",
       summary: "Retro LCD tongue built from screen-ink blocks. It extends and retracts in quarter-cell steps, like the board.",
       flickUntil: 0, grabAt: 0.4, pullUntil: 0.72,
       reachEase: "steps4", pullEase: "steps4", wobble: 0
     },
     {
-      id: "curl",
+      id: "curl", group: "first",
       name: "Curl Hook",
       summary: "The tongue arcs out, curls around the Seed, and reels it back along a wavy path.",
       flickUntil: 0, grabAt: 0.38, pullUntil: 0.7,
       reachEase: "inOutSine", pullEase: "inOutSine", wobble: 0.22
     },
     {
-      id: "slurp",
+      id: "slurp", group: "first",
       name: "Noodle Slurp",
       summary: "A short tongue latches on, then suction rings stretch the Seed like a noodle and slurp it in fast.",
       flickUntil: 0, grabAt: 0.3, pullUntil: 0.6,
       reachEase: "outCubic", pullEase: "inExpo", wobble: 0
+    },
+    // Second set: Sticky Lasso speed and spring, with a forked tip.
+    {
+      id: "lassoFork", group: "lassoFork",
+      name: "Fork Lasso",
+      summary: "Sticky Lasso with a forked tip. Shoots out fast, the two prongs pinch the Seed, and it snaps back with a small spring.",
+      flickUntil: 0, grabAt: 0.18, pullUntil: 0.56,
+      reachEase: "outQuint", pullEase: "outBack", wobble: 0
+    },
+    {
+      id: "wideSnap", group: "lassoFork",
+      name: "Wide Fork Snap",
+      summary: "Faster shot with wide prongs that clamp shut on the Seed. A strong spring throws the Seed past the mouth before it settles.",
+      flickUntil: 0, grabAt: 0.12, pullUntil: 0.5,
+      reachEase: "outQuint", pullEase: "outBackStrong", wobble: 0
+    },
+    {
+      id: "gooFork", group: "lassoFork",
+      name: "Sticky Goo Fork",
+      summary: "Each prong ends in a sticky drop. A strand of goo stretches between the tongue and the Seed while it is pulled in.",
+      flickUntil: 0, grabAt: 0.2, pullUntil: 0.62,
+      reachEase: "outQuint", pullEase: "outBack", wobble: 0
+    },
+    {
+      id: "whipFork", group: "lassoFork",
+      name: "Whip Fork",
+      summary: "A thinner tongue whips out in a wave that straightens at the Seed, then the fork wraps it and the tongue wobbles back like rubber.",
+      flickUntil: 0, grabAt: 0.22, pullUntil: 0.64,
+      reachEase: "outCubic", pullEase: "outElastic", wobble: 0
+    },
+    {
+      id: "doubleSnap", group: "lassoFork",
+      name: "Double Snap",
+      summary: "The fork grabs, yanks the Seed halfway, stops for a moment, then snaps it the rest of the way in.",
+      flickUntil: 0, grabAt: 0.16, pullUntil: 0.66,
+      reachEase: "outQuint", pullEase: "twoSnap", wobble: 0
     }
+  ];
+  const groups = [
+    { id: "lassoFork", name: "Sticky Lasso with a fork" },
+    { id: "first", name: "First five ideas" }
   ];
   const styleById = new Map(styles.map((style) => [style.id, style]));
 
@@ -84,7 +124,24 @@
       const c3 = c1 + 1;
       return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
     },
-    steps4: (t) => (t >= 1 ? 1 : Math.floor(t * 4) / 4)
+    steps4: (t) => (t >= 1 ? 1 : Math.floor(t * 4) / 4),
+    outBackStrong: (t) => {
+      const c1 = 3.2;
+      const c3 = c1 + 1;
+      return 1 + c3 * Math.pow(t - 1, 3) + c1 * Math.pow(t - 1, 2);
+    },
+    // Rubbery settle: overshoots and wobbles a few times around 1.
+    outElastic: (t) => {
+      if (t === 0 || t === 1) return t;
+      return Math.pow(2, -9 * t) * Math.sin((t * 10 - 0.75) * ((2 * Math.PI) / 3.2)) + 1;
+    },
+    // Fast yank to half, a short hold, then a fast yank to the mouth.
+    twoSnap: (t) => {
+      const snap = (local) => 1 - Math.pow(1 - local, 4);
+      if (t < 0.35) return 0.5 * snap(t / 0.35);
+      if (t < 0.55) return 0.5;
+      return 0.5 + 0.5 * snap((t - 0.55) / 0.45);
+    }
   };
 
   function ease(name, t) {
@@ -221,6 +278,8 @@
     MOUTH_OFFSET,
     SWALLOW_SCALE,
     styles,
+    groups,
+    stylesInGroup: (groupId) => styles.filter((style) => style.group === groupId),
     getStyle,
     ease,
     stepsUntilSeed,

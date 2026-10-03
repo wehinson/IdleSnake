@@ -23,7 +23,20 @@
   };
 
   const state = { steps: 0, playing: true, speed: 0.5, last: performance.now() };
-  const cards = Tongue.styles.map((style, index) => buildCard(style, index));
+  const groupSelect = document.getElementById("group");
+  Tongue.groups.forEach((group) => {
+    const option = document.createElement("option");
+    option.value = group.id;
+    option.textContent = group.name;
+    groupSelect.appendChild(option);
+  });
+  let cards = [];
+  function showGroup(groupId) {
+    document.getElementById("cards").innerHTML = "";
+    cards = Tongue.stylesInGroup(groupId).map((style, index) => buildCard(style, index));
+  }
+  showGroup(Tongue.groups[0].id);
+  groupSelect.addEventListener("change", () => showGroup(groupSelect.value));
 
   // ---------- page wiring ----------
   const playButton = document.getElementById("play");
@@ -200,7 +213,125 @@
 
   const seedRadius = (catchFrame) => CELL * 0.32 * catchFrame.seed.scale;
 
+  // Sticky Lasso body with a forked tip. Options change the five variations.
+  function drawForkLasso(ctx, catchFrame, options) {
+    inMouthFrame(ctx, catchFrame, (tip) => {
+      const pulling = catchFrame.phase === "pull";
+      const reach = Math.max(0, tip.x);
+      const stretch = Math.min(1, reach / (CELL * 2));
+      const thickness = CELL * options.thickness * (1 - stretch * 0.4);
+      const radius = seedRadius(catchFrame) + CELL * 0.04;
+      const forkX = pulling ? Math.max(0, reach - radius) : reach;
+      const tremble = options.tremble && pulling && Math.abs(catchFrame.pull - 0.5) < 0.001
+        ? Math.sin(catchFrame.t * 400) * CELL * 0.025 : 0;
+
+      // Tongue body as a centerline, so whip waves can bend it.
+      const points = [];
+      const segments = 18;
+      for (let i = 0; i <= segments; i += 1) {
+        const along = i / segments;
+        const wave = options.wave ? options.wave(catchFrame) * Math.sin(along * Math.PI * 3) * Math.sin(along * Math.PI) : 0;
+        points.push({ x: forkX * along, y: wave * CELL + tremble * along });
+      }
+      const end = points[points.length - 1];
+      const strokePath = (width, color) => {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = width;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.beginPath();
+        points.forEach((point, index) => (index === 0 ? ctx.moveTo(point.x, point.y) : ctx.lineTo(point.x, point.y)));
+        ctx.stroke();
+      };
+
+      // Prong paths from the fork point.
+      const prongs = [-1, 1].map((side) => {
+        const path = new Path2D();
+        let endPoint;
+        if (pulling) {
+          // Pinch around the Seed from behind.
+          const sweep = options.clamp;
+          path.moveTo(end.x, end.y);
+          path.arc(tip.x, tip.y + tremble, radius + thickness * 0.15, Math.PI, Math.PI - side * sweep, side > 0);
+          endPoint = {
+            x: tip.x + Math.cos(Math.PI - side * sweep) * radius,
+            y: tip.y + tremble + Math.sin(Math.PI - side * sweep) * radius
+          };
+        } else {
+          const spread = options.spread * Math.min(1, reach / (CELL * 0.6));
+          endPoint = {
+            x: end.x + Math.cos(spread) * CELL * options.prong,
+            y: end.y + side * Math.sin(spread) * CELL * options.prong
+          };
+          path.moveTo(end.x, end.y);
+          path.quadraticCurveTo(end.x + CELL * options.prong * 0.6, end.y, endPoint.x, endPoint.y);
+        }
+        return { path, endPoint };
+      });
+      const prongWidth = Math.max(2, thickness * 0.55);
+
+      // Outline, then fill color, for the body and prongs.
+      strokePath(thickness + 3, "#9c3f52");
+      ctx.lineWidth = prongWidth + 3;
+      ctx.strokeStyle = "#9c3f52";
+      prongs.forEach((prong) => ctx.stroke(prong.path));
+      strokePath(thickness, "#e57f8c");
+      ctx.lineWidth = prongWidth;
+      ctx.strokeStyle = "#f095a1";
+      prongs.forEach((prong) => ctx.stroke(prong.path));
+
+      // Shine line along the top of the tongue.
+      ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
+      ctx.lineWidth = Math.max(1, thickness * 0.18);
+      ctx.beginPath();
+      ctx.moveTo(thickness * 0.4, points[1].y - thickness * 0.22);
+      ctx.lineTo(Math.max(thickness * 0.4, end.x - thickness * 0.4), end.y - thickness * 0.22);
+      ctx.stroke();
+
+      if (options.goo) {
+        // Sticky drops on the prong ends and a web between the prongs.
+        ctx.fillStyle = "rgba(240, 149, 161, 0.85)";
+        prongs.forEach(({ endPoint }) => {
+          ctx.beginPath();
+          ctx.arc(endPoint.x, endPoint.y, CELL * 0.07, 0, Math.PI * 2);
+          ctx.fill();
+        });
+        ctx.fillStyle = "rgba(240, 149, 161, 0.4)";
+        ctx.beginPath();
+        ctx.moveTo(end.x, end.y);
+        ctx.quadraticCurveTo(
+          (prongs[0].endPoint.x + prongs[1].endPoint.x) / 2 - CELL * 0.06, end.y,
+          prongs[0].endPoint.x, prongs[0].endPoint.y);
+        ctx.lineTo(prongs[1].endPoint.x, prongs[1].endPoint.y);
+        ctx.closePath();
+        ctx.fill();
+        // A drip that hangs below the tongue and grows while it pulls.
+        const drip = CELL * (0.06 + (pulling ? 0.1 * Math.min(1, catchFrame.pull) : 0.03));
+        const dripX = end.x * 0.55;
+        ctx.strokeStyle = "rgba(240, 149, 161, 0.85)";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(dripX, points[10].y + thickness / 2);
+        ctx.lineTo(dripX, points[10].y + thickness / 2 + drip);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(dripX, points[10].y + thickness / 2 + drip, 2.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    });
+  }
+
   const drawTongue = {
+    lassoFork: (ctx, f) => drawForkLasso(ctx, f, { thickness: 0.22, prong: 0.2, spread: 0.5, clamp: 1.5 }),
+    wideSnap: (ctx, f) => drawForkLasso(ctx, f, { thickness: 0.24, prong: 0.27, spread: 1.0, clamp: 1.95 }),
+    gooFork: (ctx, f) => drawForkLasso(ctx, f, { thickness: 0.22, prong: 0.2, spread: 0.6, clamp: 1.45, goo: true }),
+    whipFork: (ctx, f) => drawForkLasso(ctx, f, {
+      thickness: 0.15, prong: 0.19, spread: 0.55, clamp: 1.6,
+      // Waves while it shoots out, then wobbles with the rubbery pull.
+      wave: (frame) => (frame.phase === "pull" ? Math.max(-0.18, Math.min(0.18, (1 - frame.pull) * 0.6)) : 0.22 * (1 - frame.extension))
+    }),
+    doubleSnap: (ctx, f) => drawForkLasso(ctx, f, { thickness: 0.22, prong: 0.2, spread: 0.5, clamp: 1.75, tremble: true }),
+
     fork(ctx, catchFrame) {
       inMouthFrame(ctx, catchFrame, (tip) => {
         const pulling = catchFrame.phase === "pull";

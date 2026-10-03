@@ -5,9 +5,10 @@ const tongue = require("./tongue.js");
 
 const head = { x: 2, y: 1 };
 
-test("offers five distinct tongue styles with ordered timelines", () => {
-  assert.equal(tongue.styles.length, 5);
-  assert.equal(new Set(tongue.styles.map((style) => style.id)).size, 5);
+test("offers two sets of five distinct tongue styles with ordered timelines", () => {
+  assert.equal(tongue.groups.length, 2);
+  tongue.groups.forEach((group) => assert.equal(tongue.stylesInGroup(group.id).length, 5, group.id));
+  assert.equal(new Set(tongue.styles.map((style) => style.id)).size, 10);
   tongue.styles.forEach((style) => {
     assert.ok(style.name && style.summary);
     assert.ok(style.flickUntil < style.grabAt && style.grabAt < style.pullUntil && style.pullUntil < 1, style.id);
