@@ -266,28 +266,6 @@
 
   const seedRadius = (catchFrame) => CELL * 0.32 * catchFrame.seed.scale;
 
-  // Closed outline around a centerline whose width shrinks from `width` at
-  // the first point to zero at the last point.
-  function taperedPath(line, width) {
-    const left = [];
-    const right = [];
-    line.forEach((point, index) => {
-      const next = line[Math.min(line.length - 1, index + 1)];
-      const previous = line[Math.max(0, index - 1)];
-      const dx = next.x - previous.x;
-      const dy = next.y - previous.y;
-      const length = Math.hypot(dx, dy) || 1;
-      const half = (width / 2) * (1 - index / (line.length - 1));
-      left.push({ x: point.x - (dy / length) * half, y: point.y + (dx / length) * half });
-      right.push({ x: point.x + (dy / length) * half, y: point.y - (dx / length) * half });
-    });
-    const path = new Path2D();
-    left.forEach((point, index) => (index === 0 ? path.moveTo(point.x, point.y) : path.lineTo(point.x, point.y)));
-    right.reverse().forEach((point) => path.lineTo(point.x, point.y));
-    path.closePath();
-    return path;
-  }
-
   // Sticky Lasso body with a forked tip. Options change the five variations.
   function drawForkLasso(ctx, catchFrame, options) {
     inMouthFrame(ctx, catchFrame, (tip, seed) => {
@@ -315,65 +293,95 @@
         points.push({ x: forkX * along, y: wave * CELL + tremble * along });
       }
       const end = points[points.length - 1];
-      const strokePath = (width, color) => {
-        ctx.strokeStyle = color;
-        ctx.lineWidth = width;
-        ctx.lineCap = "butt";
-        ctx.lineJoin = "round";
-        ctx.beginPath();
-        points.forEach((point, index) => (index === 0 ? ctx.moveTo(point.x, point.y) : ctx.lineTo(point.x, point.y)));
-        ctx.stroke();
-      };
 
-      // Prongs are tapered wedges that end in sharp points, so the tip reads
-      // as a clean V. Each prong is a centerline that narrows to zero width.
-      const prongBase = Math.max(3, thickness * 0.46);
-      // Start slightly inside the body so the two wedges join without a gap.
-      const root = { x: end.x - prongBase * 0.6, y: end.y };
-      const prongs = [-1, 1].map((side) => {
+      // One continuous silhouette: the body narrows a little toward the tip,
+      // then splits into two tines that curve apart and taper to points.
+      // Each tine starts on its own half of the body, so the outer edges flow
+      // straight on from the body edges and the inner edges meet at the split.
+      const bodyHalf = (index) => (thickness / 2) * (1 - 0.15 * (index / (points.length - 1)));
+      const endHalf = bodyHalf(points.length - 1);
+      const tineLength = CELL * options.prong;
+      const tines = [-1, 1].map((side) => {
+        const root = { x: end.x, y: end.y + side * endHalf / 2 };
         const line = [];
-        const samples = 10;
+        const samples = 12;
         if (pulling) {
-          // Pinch around the Seed from behind.
+          // Curl around the Seed from behind.
           const sweep = options.clamp;
-          const arcRadius = radius + prongBase * 0.3;
+          const arcRadius = radius + endHalf * 0.4;
           line.push(root);
           for (let i = 0; i <= samples; i += 1) {
-            const angle = Math.PI - side * sweep * (i / samples);
+            const angle = Math.PI - side * (0.35 + (sweep - 0.35) * (i / samples));
             line.push({ x: tip.x + Math.cos(angle) * arcRadius, y: tip.y + tremble + Math.sin(angle) * arcRadius });
           }
         } else {
-          const length = CELL * options.prong;
+          // Quadratic curve: leaves the body straight, then bends outward.
+          const control = { x: root.x + tineLength * 0.45, y: root.y };
+          const point = { x: root.x + Math.cos(spread) * tineLength, y: root.y + side * Math.sin(spread) * tineLength };
           for (let i = 0; i <= samples; i += 1) {
-            const along = i / samples;
+            const u = i / samples;
             line.push({
-              x: root.x + Math.cos(spread) * (length + prongBase * 0.6) * along,
-              y: root.y + side * Math.sin(spread) * (length + prongBase * 0.6) * along
+              x: (1 - u) * (1 - u) * root.x + 2 * (1 - u) * u * control.x + u * u * point.x,
+              y: (1 - u) * (1 - u) * root.y + 2 * (1 - u) * u * control.y + u * u * point.y
             });
           }
         }
-        return { path: taperedPath(line, prongBase), endPoint: line[line.length - 1], midPoint: line[Math.floor(line.length / 2)] };
+        // Edges: outer continues the body edge; inner faces the other tine.
+        const outer = [];
+        const inner = [];
+        line.forEach((point, index) => {
+          const next = line[Math.min(line.length - 1, index + 1)];
+          const previous = line[Math.max(0, index - 1)];
+          const length = Math.hypot(next.x - previous.x, next.y - previous.y) || 1;
+          const normal = { x: -(next.y - previous.y) / length, y: (next.x - previous.x) / length };
+          const half = (endHalf / 2) * Math.pow(1 - index / (line.length - 1), 0.85);
+          outer.push({ x: point.x + side * normal.x * half, y: point.y + side * normal.y * half });
+          inner.push({ x: point.x - side * normal.x * half, y: point.y - side * normal.y * half });
+        });
+        return { outer, inner, endPoint: line[line.length - 1], midPoint: line[Math.floor(line.length / 2)] };
       });
+      const bodyEdge = (sign) => points.map((point, index) => {
+        const next = points[Math.min(points.length - 1, index + 1)];
+        const previous = points[Math.max(0, index - 1)];
+        const length = Math.hypot(next.x - previous.x, next.y - previous.y) || 1;
+        const normal = { x: -(next.y - previous.y) / length, y: (next.x - previous.x) / length };
+        return { x: point.x + sign * normal.x * bodyHalf(index), y: point.y + sign * normal.y * bodyHalf(index) };
+      });
+      const [upper, lower] = tines;
+      const outline = [
+        ...bodyEdge(-1),
+        ...upper.outer,
+        ...upper.inner.slice().reverse(),
+        ...lower.inner,
+        ...lower.outer.slice().reverse(),
+        ...bodyEdge(1).reverse()
+      ];
+      const silhouette = new Path2D();
+      outline.forEach((point, index) => (index === 0 ? silhouette.moveTo(point.x, point.y) : silhouette.lineTo(point.x, point.y)));
+      silhouette.closePath();
+      const prongs = tines;
 
-      // Outline, then fill color, for the body; then the prong wedges.
-      strokePath(thickness + 3, "#9c3f52");
-      strokePath(thickness, "#e57f8c");
+      // Soft shading across the width, one outline, and a faint center groove.
+      const shade = ctx.createLinearGradient(0, -thickness / 2, 0, thickness / 2);
+      shade.addColorStop(0, "#f3a2ae");
+      shade.addColorStop(0.5, "#e57f8c");
+      shade.addColorStop(1, "#cf6577");
+      ctx.fillStyle = shade;
+      ctx.fill(silhouette);
       ctx.lineJoin = "miter";
-      ctx.miterLimit = 10;
-      ctx.lineWidth = 1.5;
-      ctx.strokeStyle = "#9c3f52";
-      ctx.fillStyle = "#f095a1";
-      prongs.forEach((prong) => {
-        ctx.fill(prong.path);
-        ctx.stroke(prong.path);
-      });
-
-      // Shine line along the top of the tongue.
-      ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
-      ctx.lineWidth = Math.max(1, thickness * 0.18);
+      ctx.miterLimit = 8;
+      ctx.lineWidth = 1.25;
+      ctx.strokeStyle = "#8f3549";
+      ctx.stroke(silhouette);
+      ctx.strokeStyle = "rgba(143, 53, 73, 0.4)";
+      ctx.lineWidth = 1;
+      ctx.lineCap = "round";
       ctx.beginPath();
-      ctx.moveTo(thickness * 0.4, points[1].y - thickness * 0.22);
-      ctx.lineTo(Math.max(thickness * 0.4, end.x - thickness * 0.4), end.y - thickness * 0.22);
+      points.forEach((point, index) => {
+        if (point.x < thickness * 0.4 || point.x > end.x - endHalf * 1.2) return;
+        if (index === 0 || points[index - 1].x < thickness * 0.4) ctx.moveTo(point.x, point.y);
+        else ctx.lineTo(point.x, point.y);
+      });
       ctx.stroke();
 
       if (options.goo) {
