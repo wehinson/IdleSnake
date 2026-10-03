@@ -13,6 +13,14 @@
   const SEED = { x: 6, y: 1 };
   const START_LENGTH = 4;
   const DIGESTION_SEGMENT_STEPS = 70 / 190;
+  // Still frames: a 2 x 2 grid of close-ups, each showing cells x 0.55..4.05.
+  const STILL_CELLS = { x: 0.55, y: -0.15, width: 3.5, height: 1.3 };
+  const STILLS_WIDTH = COLUMNS * CELL;
+  const STILL_LABEL = 16;
+  const STILL_SCALE = STILLS_WIDTH / 2 / (STILL_CELLS.width * CELL);
+  const STILL_PANEL_HEIGHT = STILL_LABEL + STILL_CELLS.height * CELL * STILL_SCALE;
+  const STILLS_HEIGHT = STILL_PANEL_HEIGHT * 2;
+  const STILL_SCENE = { snake: [{ x: 1, y: 0 }, { x: 0, y: 0 }], seeds: [{ x: 3, y: 0 }], digestionSteps: null };
 
   const colors = {
     screen: "#9cac77",
@@ -61,7 +69,9 @@
     card.className = "card";
     card.innerHTML = `<h2><span class="num">${index + 1}</span>${style.name}</h2>
       <canvas width="${COLUMNS * CELL}" height="${ROWS * CELL}" aria-label="${style.name} animation"></canvas>
-      <div class="phase"></div><p>${style.summary}</p>`;
+      <div class="phase"></div>
+      <canvas class="stills" aria-label="${style.name} still frames"></canvas>
+      <p>${style.summary}</p>`;
     document.getElementById("cards").appendChild(card);
     const canvas = card.querySelector("canvas");
     const ratio = Math.max(1, Math.min(3, window.devicePixelRatio || 1));
@@ -69,7 +79,17 @@
     canvas.height = ROWS * CELL * ratio;
     const ctx = canvas.getContext("2d");
     ctx.scale(ratio, ratio);
-    return { style, ctx, phase: card.querySelector(".phase"), tracker: Tongue.createCatchTracker(style.id) };
+    const stills = card.querySelector(".stills");
+    stills.width = STILLS_WIDTH * ratio;
+    stills.height = STILLS_HEIGHT * ratio;
+    const stillsCtx = stills.getContext("2d");
+    stillsCtx.scale(ratio, ratio);
+    return {
+      style, ctx, stillsCtx,
+      moments: Tongue.previewMoments(style.id),
+      phase: card.querySelector(".phase"),
+      tracker: Tongue.createCatchTracker(style.id)
+    };
   }
 
   // ---------- demo board ----------
@@ -109,13 +129,46 @@
       ? `${catchFrame.phase.toUpperCase()}  t=${catchFrame.t.toFixed(2)}`
       : scene.seeds.length ? "waiting for the Seed to come within reach" : "eaten";
 
+    drawScene(ctx, card.style.id, scene, catchFrame);
+    drawStills(card);
+  }
+
+  function drawScene(ctx, styleId, scene, catchFrame) {
     drawBoard(ctx);
     drawBody(ctx, scene);
-    if (catchFrame && catchFrame.showTongue) drawTongue[card.style.id](ctx, catchFrame);
+    if (catchFrame && catchFrame.showTongue) drawTongue[styleId](ctx, catchFrame);
     if (catchFrame) drawSeedAt(ctx, catchFrame.seed.x * CELL, catchFrame.seed.y * CELL, catchFrame.seed.scale, catchFrame.seed.stretch);
     else scene.seeds.forEach((seed) => drawSeedAt(ctx, (seed.x + 0.5) * CELL, (seed.y + 0.5) * CELL, 1, 1));
-    if (catchFrame && card.style.id === "slurp") drawSlurpEffects(ctx, catchFrame);
-    drawHead(ctx, head, catchFrame);
+    if (catchFrame && styleId === "slurp") drawSlurpEffects(ctx, catchFrame);
+    drawHead(ctx, scene.snake[0], catchFrame);
+  }
+
+  // Close-ups of the tongue at fixed moments, so the shapes can be compared.
+  function drawStills(card) {
+    const ctx = card.stillsCtx;
+    ctx.fillStyle = "#1a1c3a";
+    ctx.fillRect(0, 0, STILLS_WIDTH, STILLS_HEIGHT);
+    const head = STILL_SCENE.snake[0];
+    card.moments.forEach((moment, index) => {
+      const left = (index % 2) * (STILLS_WIDTH / 2);
+      const top = Math.floor(index / 2) * STILL_PANEL_HEIGHT;
+      const frame = Tongue.catchFrame(card.style.id, moment.t, head, "right", STILL_SCENE.seeds[0]);
+      ctx.fillStyle = "#b9b6d8";
+      ctx.font = "12px 'Courier New', monospace";
+      ctx.textBaseline = "middle";
+      ctx.fillText(moment.label, left + 6, top + STILL_LABEL / 2 + 1);
+      ctx.save();
+      ctx.beginPath();
+      ctx.rect(left + 2, top + STILL_LABEL, STILLS_WIDTH / 2 - 4, STILL_PANEL_HEIGHT - STILL_LABEL - 3);
+      ctx.clip();
+      ctx.translate(left, top + STILL_LABEL);
+      ctx.scale(STILL_SCALE, STILL_SCALE);
+      ctx.translate(-STILL_CELLS.x * CELL, -STILL_CELLS.y * CELL);
+      ctx.fillStyle = colors.screen;
+      ctx.fillRect(STILL_CELLS.x * CELL, STILL_CELLS.y * CELL, STILL_CELLS.width * CELL, STILL_CELLS.height * CELL);
+      drawScene(ctx, card.style.id, STILL_SCENE, frame);
+      ctx.restore();
+    });
   }
 
   function drawBoard(ctx) {
@@ -258,7 +311,9 @@
             y: tip.y + tremble + Math.sin(Math.PI - side * sweep) * radius
           };
         } else {
-          const spread = options.spread * Math.min(1, reach / (CELL * 0.6));
+          // Prongs open as they leave the mouth and waggle while emerging.
+          const waggle = catchFrame.phase === "emerge" ? 1 + 0.25 * Math.sin(catchFrame.t * 90) : 1;
+          const spread = options.spread * Math.min(1, reach / (CELL * 0.6)) * waggle;
           endPoint = {
             x: end.x + Math.cos(spread) * CELL * options.prong,
             y: end.y + side * Math.sin(spread) * CELL * options.prong
