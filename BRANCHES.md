@@ -10,7 +10,7 @@
 - Emerge phase (second set): each forked tongue slides about half a cell out of the mouth, holds with the prongs open and waggling, then shoots to the Seed. Each card also shows four still close-ups (Emerging, Half out, Full reach, Grab) from `previewMoments`.
 - Not yet in the game: game.js does not draw a tongue. After William picks a style, the game can call `createCatchTracker` each frame with the head, direction, Seeds, and step progress.
 - Tests: `npm run check` passed syntax, authority checks, and all 301 Node tests, including 9 new tongue tests (all directions, all ten styles, one-step and two-step catches, turn cancel, pause). A headless smoke run of the lab script with a stub canvas drew both sets at several speeds with no errors.
-- UI verification: none in a browser. The drawn shapes have not been inspected.
+- UI verification: William gave permission for a browser check. In the built-in browser the lab loaded with no console errors; still frames and main-animation captures at the emerge, reach, and pull phases were inspected for all five forked styles. That check found the fork hidden under the Seed during the reach and an almost instant Whip Fork pull; both were fixed and checked again. The first set of five was not re-inspected.
 - Version impact: none. Display only; movement, eating, score, and saves are unchanged.
 - Last update: 2026-10-03.
 

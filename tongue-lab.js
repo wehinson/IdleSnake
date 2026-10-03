@@ -268,13 +268,19 @@
 
   // Sticky Lasso body with a forked tip. Options change the five variations.
   function drawForkLasso(ctx, catchFrame, options) {
-    inMouthFrame(ctx, catchFrame, (tip) => {
+    inMouthFrame(ctx, catchFrame, (tip, seed) => {
       const pulling = catchFrame.phase === "pull";
       const reach = Math.max(0, tip.x);
       const stretch = Math.min(1, reach / (CELL * 2));
       const thickness = CELL * options.thickness * (1 - stretch * 0.4);
       const radius = seedRadius(catchFrame) + CELL * 0.04;
-      const forkX = pulling ? Math.max(0, reach - radius) : reach;
+      // Prongs open as they leave the mouth and waggle while emerging.
+      const waggle = catchFrame.phase === "emerge" ? 1 + 0.25 * Math.sin(catchFrame.t * 90) : 1;
+      const spread = options.spread * Math.min(1, reach / (CELL * 0.6)) * waggle;
+      // While reaching, stop the fork at the near edge of the Seed so the
+      // prongs stay in view instead of hiding under it.
+      const prongReach = Math.cos(spread) * CELL * options.prong;
+      const forkX = pulling ? Math.max(0, reach - radius) : Math.max(0, Math.min(reach, seed.x - radius - prongReach));
       const tremble = options.tremble && pulling && Math.abs(catchFrame.pull - 0.5) < 0.001
         ? Math.sin(catchFrame.t * 400) * CELL * 0.025 : 0;
 
@@ -283,7 +289,7 @@
       const segments = 18;
       for (let i = 0; i <= segments; i += 1) {
         const along = i / segments;
-        const wave = options.wave ? options.wave(catchFrame) * Math.sin(along * Math.PI * 3) * Math.sin(along * Math.PI) : 0;
+        const wave = options.wave ? options.wave(catchFrame) * Math.min(1, forkX / CELL) * Math.sin(along * Math.PI * 3) * Math.sin(along * Math.PI) : 0;
         points.push({ x: forkX * along, y: wave * CELL + tremble * along });
       }
       const end = points[points.length - 1];
@@ -311,9 +317,6 @@
             y: tip.y + tremble + Math.sin(Math.PI - side * sweep) * radius
           };
         } else {
-          // Prongs open as they leave the mouth and waggle while emerging.
-          const waggle = catchFrame.phase === "emerge" ? 1 + 0.25 * Math.sin(catchFrame.t * 90) : 1;
-          const spread = options.spread * Math.min(1, reach / (CELL * 0.6)) * waggle;
           endPoint = {
             x: end.x + Math.cos(spread) * CELL * options.prong,
             y: end.y + side * Math.sin(spread) * CELL * options.prong
@@ -323,7 +326,7 @@
         }
         return { path, endPoint };
       });
-      const prongWidth = Math.max(2, thickness * 0.55);
+      const prongWidth = Math.max(2, thickness * 0.42);
 
       // Outline, then fill color, for the body and prongs.
       strokePath(thickness + 3, "#9c3f52");
@@ -377,15 +380,15 @@
   }
 
   const drawTongue = {
-    lassoFork: (ctx, f) => drawForkLasso(ctx, f, { thickness: 0.22, prong: 0.2, spread: 0.5, clamp: 1.5 }),
-    wideSnap: (ctx, f) => drawForkLasso(ctx, f, { thickness: 0.24, prong: 0.27, spread: 1.0, clamp: 1.95 }),
-    gooFork: (ctx, f) => drawForkLasso(ctx, f, { thickness: 0.22, prong: 0.2, spread: 0.6, clamp: 1.45, goo: true }),
+    lassoFork: (ctx, f) => drawForkLasso(ctx, f, { thickness: 0.22, prong: 0.26, spread: 0.5, clamp: 1.5 }),
+    wideSnap: (ctx, f) => drawForkLasso(ctx, f, { thickness: 0.24, prong: 0.32, spread: 0.95, clamp: 1.95 }),
+    gooFork: (ctx, f) => drawForkLasso(ctx, f, { thickness: 0.22, prong: 0.26, spread: 0.6, clamp: 1.45, goo: true }),
     whipFork: (ctx, f) => drawForkLasso(ctx, f, {
-      thickness: 0.15, prong: 0.19, spread: 0.55, clamp: 1.6,
+      thickness: 0.15, prong: 0.24, spread: 0.55, clamp: 1.6,
       // Waves while it shoots out, then wobbles with the rubbery pull.
       wave: (frame) => (frame.phase === "pull" ? Math.max(-0.18, Math.min(0.18, (1 - frame.pull) * 0.6)) : 0.22 * (1 - frame.extension))
     }),
-    doubleSnap: (ctx, f) => drawForkLasso(ctx, f, { thickness: 0.22, prong: 0.2, spread: 0.5, clamp: 1.75, tremble: true }),
+    doubleSnap: (ctx, f) => drawForkLasso(ctx, f, { thickness: 0.22, prong: 0.26, spread: 0.5, clamp: 1.75, tremble: true }),
 
     fork(ctx, catchFrame) {
       inMouthFrame(ctx, catchFrame, (tip) => {
