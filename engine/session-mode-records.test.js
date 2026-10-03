@@ -37,10 +37,8 @@ test("canonical per-mode records update without changing Snake best and survive 
   assert.equal(crossingClear.snapshot.hud.best, 100);
   assert.ok(crossingClear.events.some((item) => item.type === "reward" && item.amount === 15), "Crossing reward is unchanged");
 
-  const width = 360; const height = 480; const segmentSize = 22;
   game.dispatch({ type: "selectMode", mode: "breakout", setup: {
-    width, height, segmentSize, gap: 3,
-    bricks: [{ x: 165, y: 375, width: 30, height: 30, hp: 1 }]
+    bricks: [{ x: 350, y: 570, width: 30, height: 30, hp: 1 }]
   } });
   game.dispatch({ type: "begin" });
   const breakoutEnded = game.tick(16);

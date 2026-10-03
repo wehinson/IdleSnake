@@ -6,6 +6,7 @@
 (function attachSession(root, factory) {
   const req = typeof require === "function" ? require : null;
   const deps = {
+    puzzleLevels: req ? req("./puzzle-levels.js") : root.IdleSnakePuzzleLevels,
     config: req ? req("./config.js") : root.IdleSnakeConfig,
     notables: req ? req("./notables.js") : root.IdleSnakeNotables,
     economy: req ? req("./economy.js") : root.IdleSnakeEconomy,
@@ -28,7 +29,7 @@
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   if (typeof window !== "undefined") window.IdleSnakeSession = api;
   else root.IdleSnakeSession = api;
-})(typeof window !== "undefined" ? window : globalThis, ({ config, notables, economy, migration, tradeRoutes, resupply, snake, duel, crossing, breakout, runner, battleship, centipede, broodline, maze, sokoban, snakebird }) => {
+})(typeof window !== "undefined" ? window : globalThis, ({ puzzleLevels, config, notables, economy, migration, tradeRoutes, resupply, snake, duel, crossing, breakout, runner, battleship, centipede, broodline, maze, sokoban, snakebird }) => {
   const SAVE_VERSION = 5;
   const MAX_LIVE_DT = 100;
   const CROSSING_STAGE_CLEAR_MS = 500;
@@ -36,6 +37,19 @@
   const directions = new Set(["up", "down", "left", "right"]);
   const directionVectors = { up: { x: 0, y: -1 }, down: { x: 0, y: 1 }, left: { x: -1, y: 0 }, right: { x: 1, y: 0 } };
   const modeNames = new Set(["snake", "duel", "maze", "breakout", "runner", "crossing", "snakebird", "sokoban", "broodline", "battleship", "centipede"]);
+  const isPuzzleMode = (mode) => mode === "snakebird" || mode === "sokoban";
+  // Shipped puzzle definitions are frozen by puzzle-levels.js and never change
+  // during a session. Their snapshot copies can therefore be shared safely.
+  const shippedPuzzleDefinitions = new WeakSet([
+    ...puzzleLevels.snakebird,
+    ...puzzleLevels.sokoban
+  ]);
+  function puzzleLevelIndex(mode, value) {
+    return Math.max(0, Math.min(puzzleLevels[mode].length - 1, Math.floor(Number(value) || 0)));
+  }
+  function puzzleRestartSetup(active) {
+    return { definition: active.definition, levelIndex: active.levelIndex ?? active.stageIndex, levelCount: active.levelCount, grid: { columns: active.width, rows: active.height } };
+  }
   const duelGridSizes = new Set([10, 15, 20, 30, 40]);
 
   // Randomness is injected (default Math.random) so the browser host and the sim
@@ -49,15 +63,52 @@
     Object.values(value).forEach(freeze);
     return Object.freeze(value);
   }
+  function memoizedFrozenClone(slot, value) {
+    const key = JSON.stringify(value);
+    if (slot.key === key) return slot.value;
+    slot.key = key;
+    slot.value = freeze(key === undefined ? undefined : JSON.parse(key));
+    return slot.value;
+  }
+  function cachedPuzzleDefinition(state, active) {
+    if (!active || !shippedPuzzleDefinitions.has(active.definition)) return clone(active?.definition);
+    const cache = state.snapshotCache.definitions;
+    let snapshot = cache.get(active.definition);
+    if (!snapshot) {
+      snapshot = freeze(clone(active.definition));
+      cache.set(active.definition, snapshot);
+    }
+    return snapshot;
+  }
+  function cachedSokobanWalls(state, active) {
+    if (!active || !shippedPuzzleDefinitions.has(active.definition)) return [...active.walls];
+    const cache = state.snapshotCache.walls;
+    let snapshot = cache.get(active.definition);
+    if (!snapshot) {
+      snapshot = freeze([...active.walls]);
+      cache.set(active.definition, snapshot);
+    }
+    return snapshot;
+  }
+  function cloneActiveForSnapshot(state) {
+    if (!state.active) return null;
+    const active = state.active;
+    if ((state.mode === "snakebird" || state.mode === "sokoban") && shippedPuzzleDefinitions.has(active.definition)) {
+      const { definition, ...dynamic } = active;
+      return clone(dynamic);
+    }
+    return clone(active);
+  }
   function normalUpgrades(value) {
-    const defaults = { boardLevel: 0, foodTypeLevel: 0, foodCountLevel: 0, shieldLevel: 0, minigamesLevel: 0 };
+    const defaults = { boardLevel: 0, foodTypeLevel: 0, foodCountLevel: 0, shieldLevel: 0, minigamesLevel: 0, lengthBonusLevel: 0, eggChanceLevel: 0 };
     return Object.fromEntries(Object.keys(defaults).map((key) => {
       const level = Math.max(0, Math.floor(Number(value && value[key]) || 0));
-      const maxLevel = key === "minigamesLevel"
-        ? config.upgradeConfig.minigames.maxLevel
-        : Number.POSITIVE_INFINITY;
+      const maxLevel = config.upgradeConfig[key.replace(/Level$/, "")]?.maxLevel ?? Number.POSITIVE_INFINITY;
       return [key, Math.min(level, maxLevel)];
     }));
+  }
+  function normalSnakeSpeed(value) {
+    return typeof value === "string" && Object.hasOwn(config.snakeConfig.speedPresets, value) ? value : "snake";
   }
   function normalReducedMotion(value) {
     return typeof value === "boolean" ? value : false;
@@ -94,7 +145,9 @@
         upgrades: normalUpgrades(legacy.upgrades),
         selectedBoardLevel: Number(legacy.board?.selectedBoardLevel) || 0,
         selectedDuelGridSize: normalDuelGridSize(legacy.selectedDuelGridSize ?? legacy.board?.selectedDuelGridSize ?? legacy.settings?.selectedDuelGridSize ?? legacy.settings?.duelGridSize),
+        snakeSpeed: normalSnakeSpeed(legacy.snakeSpeed),
         reducedMotion: normalReducedMotion(legacy.reducedMotion ?? legacy.accessibility?.reducedMotion ?? legacy.settings?.reducedMotion),
+        fullscreenMode: legacy.fullscreenMode === true || legacy.settings?.fullscreenMode === true,
         mobileControls: normalMobileControls(legacy.mobileControls ?? legacy.settings?.mobileControls, mobileControlsDefault),
         cosmetics: clone(legacy.settings?.snakeColors || legacy.cosmetics || { body: null, head: null }),
         snakebirdProgress: clone(legacy.snakebird || legacy.snakebirdProgress || { unlockedLevel: 1, clearedLevels: [], bestMoves: [], lastSelectedLevel: 1 }),
@@ -134,7 +187,9 @@
       },
       upgrades: normalUpgrades(raw.upgrades), selectedBoardLevel: Math.max(0, Number(raw.selectedBoardLevel) || 0),
       selectedDuelGridSize: normalDuelGridSize(raw.selectedDuelGridSize ?? raw.board?.selectedDuelGridSize ?? raw.settings?.selectedDuelGridSize ?? raw.settings?.duelGridSize),
+      snakeSpeed: normalSnakeSpeed(raw.snakeSpeed),
       reducedMotion: normalReducedMotion(raw.reducedMotion ?? raw.accessibility?.reducedMotion ?? raw.settings?.reducedMotion),
+      fullscreenMode: raw.fullscreenMode === true,
       mobileControls: normalMobileControls(raw.mobileControls ?? raw.settings?.mobileControls, mobileControlsDefault),
       cosmetics: raw.cosmetics && typeof raw.cosmetics === "object" ? clone(raw.cosmetics) : { body: null, head: null },
       snakebirdProgress: raw.snakebirdProgress && typeof raw.snakebirdProgress === "object" ? clone(raw.snakebirdProgress) : { unlockedLevel: 1, clearedLevels: [], bestMoves: [], lastSelectedLevel: 1 },
@@ -189,7 +244,7 @@
     state.eggBoardCountdown -= 1;
     const eggBoard = state.eggBoardCountdown <= 0;
     if (eggBoard) state.eggBoardCountdown = rollEggBoardCountdown(state.rng);
-    const active = snake.createSnakeMode(grid, { rng: () => state.rng(), upgrades: state.upgrades, seeds: state.seeds, best: state.best, snake: setup.snake, direction: setup.direction, tickMs: setup.tickMs, eggBoard });
+    const active = snake.createSnakeMode(grid, { rng: () => state.rng(), upgrades: state.upgrades, seeds: state.seeds, best: state.best, snake: setup.snake, direction: setup.direction, tickMs: setup.tickMs, speedMultiplier: config.snakeConfig.speedPresets[state.snakeSpeed], eggBoard });
     state.active = active; state.mode = "snake"; state.phase = "ready"; state.modeAccumulatorMs = 0; state.elapsedMs = 0;
   }
   function buildCrossingCars(stage, grid) {
@@ -216,16 +271,15 @@
     [[8, 15], [9, 15], [10, 15], [10, 14]].forEach(([x, y]) => open.add(key(x, y)));
     return open;
   }
-  // `setup` is optional host-supplied data (board dims, grid size, level
-  // definition, starting level index). Defaults reproduce the original built-in
-  // configuration so existing callers/tests are unaffected; the browser host
-  // injects the real level content/board metrics for full gameplay parity.
+  // `setup` is optional host-supplied game data such as a grid, level definition,
+  // or test fixture. Real-time mode dimensions are owned by their engine modules;
+  // a browser host scales their fixed coordinates only when it renders them.
   function startMode(state, mode, setup) {
     setup = setup || {};
     state.mode = mode; state.phase = "ready"; state.modeAccumulatorMs = 0; state.elapsedMs = 0;
     if (mode === "snake") return startSnake(state, setup);
     if (mode === "duel") {
-      const grid = setup.grid || { columns: 30, rows: 30 };
+      const grid = setup.grid || { columns: state.selectedDuelGridSize, rows: state.selectedDuelGridSize };
       const px = Math.floor(grid.columns / 2) - 1; const ox = Math.floor(grid.columns / 2);
       const active = { grid, player: { body: [{ x: px, y: grid.rows - 3 }, { x: px, y: grid.rows - 2 }, { x: px, y: grid.rows - 1 }], direction: "up" }, opponent: { body: [{ x: ox, y: 2 }, { x: ox, y: 1 }, { x: ox, y: 0 }], direction: "down" }, foods: [], score: 0, direction: "up", nextDirection: "up", directionQueue: [], tickMs: setup.tickMs || slowedTick(125) };
       active.foods = duel.spawnFoods(active, setup.foodCount || 5, () => state.rng()); state.active = active; return;
@@ -240,16 +294,10 @@
       broodline.spawnRound(active, () => state.rng()); state.active = active; return;
     }
     if (mode === "breakout") {
-      const width = setup.width || 720; const height = setup.height || 720; const segmentSize = setup.segmentSize || 45; const gap = setup.gap || 4; const brickWidth = (width - 28 - gap * 9) / 10;
-      const active = { board: { width, height }, score: 0, lives: 2, segmentSize, gap, paddle: { x: 0, y: height - segmentSize - 10, length: 3, input: 0 }, balls: [], powerups: [], seedBoosts: [], heartsCollected: 0, bricks: [] };
-      active.paddle.x = (width - breakout.paddleWidth(active)) / 2;
-      if (Array.isArray(setup.bricks)) active.bricks = setup.bricks.map((brick) => ({ ...brick }));
-      else for (let row = 0; row < 5; row += 1) for (let column = 0; column < 10; column += 1) active.bricks.push({ x: 14 + column * (brickWidth + gap), y: 58 + row * 20, width: brickWidth, height: 16, hp: 1 });
-      active.balls = [breakout.buildBall(active, width)]; state.active = active; return;
+      state.active = breakout.createState({ bricks: setup.bricks }); return;
     }
     if (mode === "runner") {
-      const width = Math.max(1, Number(setup.width) || 720); const height = Math.max(1, Number(setup.height) || 720);
-      state.active = runner.createState(width, height); state.active.tickMs = setup.tickMs || 16; return;
+      state.active = runner.createState(); state.active.tickMs = setup.tickMs || 16; return;
     }
     if (mode === "battleship") {
       const player = setup.playerFleet ? clone(setup.playerFleet) : battleship.emptyFleet();
@@ -269,15 +317,16 @@
       if (!active.food) maze.spawnFood(active, () => state.rng()); state.active = active; return;
     }
     if (mode === "snakebird") {
-      const definition = setup.definition || { firstClearReward: 20, replayReward: 5, map: [".........", ".........", "...F.....", ".........", "..###....", "..Hoo.F.G", "#########"] };
-      const levelIndex = Number.isInteger(setup.levelIndex) && setup.levelIndex >= 0 ? setup.levelIndex : 0;
-      const requestedCount = Number.isInteger(setup.levelCount) && setup.levelCount >= 1 ? setup.levelCount : 1;
+      const levelIndex = setup.definition ? (Number.isInteger(setup.levelIndex) && setup.levelIndex >= 0 ? setup.levelIndex : 0) : puzzleLevelIndex(mode, setup.levelIndex);
+      const definition = setup.definition || puzzleLevels.snakebird[levelIndex];
+      const requestedCount = Number.isInteger(setup.levelCount) && setup.levelCount >= 1 ? setup.levelCount : (setup.definition ? 1 : puzzleLevels.snakebird.length);
       const levelCount = Math.max(requestedCount, levelIndex + 1);
       state.active = { ...snakebird.parseLevel(definition.map), levelIndex, levelCount, definition, tickMs: 1000 }; return;
     }
     if (mode === "sokoban") {
-      const definition = setup.definition || { reward: 20, map: ["#####", "#...#", "#...#", "#...#", "#####"], snake: [{ x: 1, y: 2 }, { x: 1, y: 1 }], crates: [{ x: 2, y: 2, kind: "light" }], goals: [{ x: 3, y: 2 }], pellets: [{ x: 1, y: 3 }], plates: [], gates: [] };
-      const grid = setup.grid || { columns: 5, rows: 5 }; const levelIndex = setup.levelIndex || 0;
+      const levelIndex = setup.definition ? (setup.levelIndex || 0) : puzzleLevelIndex(mode, setup.levelIndex);
+      const definition = setup.definition || puzzleLevels.sokoban[levelIndex];
+      const grid = setup.grid || { columns: Math.max(...definition.map.map((row) => row.length)), rows: definition.map.length };
       state.active = sokoban.parseLevel(definition, grid, levelIndex); state.active.definition = definition; state.active.tickMs = 1000;
     }
     if (mode === "centipede") {
@@ -295,23 +344,24 @@
   }
   function makeSnapshot(state) {
     if (typeof state.snapshotObserver === "function") state.snapshotObserver("full");
-    let active = state.active ? clone(state.active) : null;
+    let active = cloneActiveForSnapshot(state);
+    if (active && (state.mode === "snakebird" || state.mode === "sokoban")) active.definition = cachedPuzzleDefinition(state, state.active);
     if (state.active && state.mode === "snakebird") { active.fruits = [...state.active.fruits]; active.solids = [...state.active.solids]; }
-    if (state.active && state.mode === "sokoban") active.walls = [...state.active.walls];
+    if (state.active && state.mode === "sokoban") active.walls = cachedSokobanWalls(state, state.active);
     if (state.active && state.mode === "maze") active.open = [...state.active.open];
     const habitatHardCapacities = config.habitatConfig.habitats.map((habitat, index) =>
       economy.habitatMaxCapacity(habitat, state.habitats.upgradeLevels[index], notables.assignedTo(state.notables, index)));
     const snapshot = {
       saveVersion: SAVE_VERSION, mode: state.mode, phase: state.phase, elapsedMs: state.elapsedMs, modeAccumulatorMs: state.modeAccumulatorMs,
-      seeds: state.seeds, provisions: state.provisions, branches: state.branches, best: state.best, records: clone(state.records), upgrades: clone(state.upgrades), selectedBoardLevel: state.selectedBoardLevel,
-      selectedDuelGridSize: state.selectedDuelGridSize, reducedMotion: state.reducedMotion, mobileControls: clone(state.mobileControls),
-      cosmetics: clone(state.cosmetics), snakebirdProgress: clone(state.snakebirdProgress), nursery: clone(state.nursery), habitats: clone(state.habitats), notables: clone(state.notables), eggBoardCountdown: state.eggBoardCountdown, active,
+      seeds: state.seeds, provisions: state.provisions, branches: state.branches, best: state.best, records: memoizedFrozenClone(state.snapshotCache.records, state.records), upgrades: memoizedFrozenClone(state.snapshotCache.upgrades, state.upgrades), selectedBoardLevel: state.selectedBoardLevel,
+      selectedDuelGridSize: state.selectedDuelGridSize, snakeSpeed: state.snakeSpeed, reducedMotion: state.reducedMotion, fullscreenMode: state.fullscreenMode, mobileControls: memoizedFrozenClone(state.snapshotCache.mobileControls, state.mobileControls),
+      cosmetics: memoizedFrozenClone(state.snapshotCache.cosmetics, state.cosmetics), snakebirdProgress: memoizedFrozenClone(state.snapshotCache.snakebirdProgress, state.snakebirdProgress), nursery: clone(state.nursery), habitats: clone(state.habitats), notables: clone(state.notables), eggBoardCountdown: state.eggBoardCountdown, active,
       migration: clone(state.migration), migrationChallenge: clone(state.migrationChallenge), tradeRoutes: clone(state.tradeRoutes),
       activeResupplyMissions: clone(state.activeResupplyMissions), completedResupplyMissions: clone(state.completedResupplyMissions), resupplyTotals: clone(state.resupplyTotals),
       nextResupplyMissionId: state.nextResupplyMissionId,
       notableCapacity: notables.capacity(state.notables, state.habitats.counts), notableRosterOverCapacity: notables.rosterOverCapacity(state.notables, state.habitats.counts),
       habitatHardCapacities, habitatOverCapacity: state.habitats.counts.map((count, index) => count > habitatHardCapacities[index]),
-      hud: { score: active && Number(active.score) || 0, best: bestForMode(state), seeds: state.seeds, provisions: state.provisions, branches: state.branches, elapsedMs: state.elapsedMs },
+      hud: { score: active && Number(active.score) || 0, best: bestForMode(state), seeds: state.seeds, provisions: state.provisions, branches: state.branches, elapsedMs: state.elapsedMs, lengthBonus: economy.lengthBonus(state) },
       availableModes: [...modeNames], supportedModes: ["snake", "duel", "maze", "crossing", "breakout", "runner", "snakebird", "sokoban", "broodline", "battleship", "centipede"],
       prompt: state.phase === "ready" ? "Ready" : state.phase === "paused" ? "Paused" : state.phase === "gameover" ? "Game Over" : ""
     };
@@ -322,14 +372,15 @@
   // a browser host never receives a mutable reference to session state.
   function makeFrameSnapshot(state) {
     if (typeof state.snapshotObserver === "function") state.snapshotObserver("frame");
-    const active = state.active ? clone(state.active) : null;
+    const active = cloneActiveForSnapshot(state);
+    if (active && (state.mode === "snakebird" || state.mode === "sokoban")) active.definition = cachedPuzzleDefinition(state, state.active);
     if (state.active && state.mode === "snakebird") { active.fruits = [...state.active.fruits]; active.solids = [...state.active.solids]; }
-    if (state.active && state.mode === "sokoban") active.walls = [...state.active.walls];
+    if (state.active && state.mode === "sokoban") active.walls = cachedSokobanWalls(state, state.active);
     if (state.active && state.mode === "maze") active.open = [...state.active.open];
     return freeze({
       mode: state.mode, phase: state.phase, elapsedMs: state.elapsedMs, modeAccumulatorMs: state.modeAccumulatorMs,
-      seeds: state.seeds, provisions: state.provisions, branches: state.branches, best: state.best, records: clone(state.records), selectedDuelGridSize: state.selectedDuelGridSize, reducedMotion: state.reducedMotion, mobileControls: clone(state.mobileControls), active,
-      hud: { score: active && Number(active.score) || 0, best: bestForMode(state), seeds: state.seeds, provisions: state.provisions, branches: state.branches, elapsedMs: state.elapsedMs },
+      seeds: state.seeds, provisions: state.provisions, branches: state.branches, best: state.best, records: memoizedFrozenClone(state.snapshotCache.records, state.records), selectedDuelGridSize: state.selectedDuelGridSize, snakeSpeed: state.snakeSpeed, reducedMotion: state.reducedMotion, fullscreenMode: state.fullscreenMode, mobileControls: memoizedFrozenClone(state.snapshotCache.mobileControls, state.mobileControls), active,
+      hud: { score: active && Number(active.score) || 0, best: bestForMode(state), seeds: state.seeds, provisions: state.provisions, branches: state.branches, elapsedMs: state.elapsedMs, lengthBonus: economy.lengthBonus(state) },
       prompt: state.phase === "ready" ? "Ready" : state.phase === "paused" ? "Paused" : state.phase === "gameover" ? "Game Over" : ""
     });
   }
@@ -382,9 +433,38 @@
     const mobileControlsDefault = normalMobileControls(options.mobileControlsDefault);
     const migrated = migrateLegacy(options.save, now, mobileControlsDefault);
     let state = createState(migrated, now, mobileControlsDefault);
+    Object.defineProperty(state, "snapshotCache", {
+      value: {
+        definitions: new WeakMap(),
+        walls: new WeakMap(),
+        records: { key: null, value: null },
+        upgrades: { key: null, value: null },
+        cosmetics: { key: null, value: null },
+        snakebirdProgress: { key: null, value: null },
+        mobileControls: { key: null, value: null }
+      },
+      enumerable: false
+    });
     // Injected randomness (default Math.random). A function, so it is dropped by
     // JSON serialization and never persisted into a save.
-    state.rng = typeof options.rng === "function" ? options.rng : Math.random;
+    const sourceRng = typeof options.rng === "function" ? options.rng : Math.random;
+    let randomQueue = [];
+    let recentMovement = null;
+    let replayingInput = false;
+    state.rng = () => {
+      const value = randomQueue.length ? randomQueue.shift() : sourceRng();
+      if (recentMovement && !replayingInput) recentMovement.draws.push(value);
+      return value;
+    };
+    if (migrated.session.mode === "snake" && migrated.session.phase !== "gameover" && !migrated.session.migrationChallenge) {
+      state.active = snake.restoreSnakeMode(migrated.session.active, {
+        upgrades: state.upgrades, seeds: state.seeds, best: state.best,
+        speedMultiplier: config.snakeConfig.speedPresets[state.snakeSpeed]
+      });
+      if (state.active) state.modeAccumulatorMs = Math.max(-state.active.tickMs / 2,
+        Math.min(state.active.tickMs, Number(migrated.session.modeAccumulatorMs) || 0));
+    }
+    if (!state.active) { state.phase = "ready"; state.elapsedMs = 0; state.modeAccumulatorMs = 0; }
     // Optional narrow test instrumentation. It receives only the snapshot kind
     // and never exposes authoritative state to the host.
     state.snapshotObserver = typeof options.snapshotObserver === "function" ? options.snapshotObserver : null;
@@ -392,6 +472,68 @@
     // advanceOffline(now) credits the real elapsed idle time.
     let savedAt = Number.isFinite(Number(migrated.savedAt)) ? Number(migrated.savedAt) : now;
     let simulationNow = savedAt;
+    let lastSnakeMovementAt = simulationNow - Math.max(0, state.modeAccumulatorMs);
+    function restoreCheckpoint(checkpoint) {
+      const rng = state.rng; const observer = state.snapshotObserver;
+      for (const key of Object.keys(state)) delete state[key];
+      Object.assign(state, clone(checkpoint), { rng, snapshotObserver: observer });
+    }
+    function correctRecentDirection(action) {
+      const history = recentMovement;
+      const inputAt = action.inputAt;
+      if (!history || state.mode !== "snake" || state.phase !== "running" || !Number.isFinite(inputAt)
+        || !history.eligible || inputAt <= history.lowerBound || inputAt >= history.deadline
+        || simulationNow - history.deadline > config.snakeConfig.inputLateToleranceMs) return null;
+      const trial = clone(state.active);
+      if (!snake.queueDirection(trial, action.direction)) return null;
+      const end = simulationNow;
+      recentMovement = null;
+      replayingInput = true;
+      restoreCheckpoint(history.before);
+      simulationNow = history.start;
+      lastSnakeMovementAt = history.beforeMovementAt;
+      randomQueue = history.draws.concat(randomQueue);
+      const replayEvents = [];
+      let submitted = false;
+      try {
+        for (const delta of history.ticks) {
+          const tickEnd = simulationNow + delta;
+          if (!submitted && inputAt <= tickEnd) {
+            const prefix = Math.max(0, inputAt - simulationNow);
+            if (prefix) replayEvents.push(...tickCore(prefix).events);
+            replayEvents.push(...dispatch({ type: "direction", direction: action.direction }).events);
+            submitted = true;
+            if (tickEnd > simulationNow) replayEvents.push(...tickCore(tickEnd - simulationNow).events);
+          } else replayEvents.push(...tickCore(delta).events);
+        }
+      } finally { replayingInput = false; }
+      // The host has already displayed the old tick events. Return only new
+      // effects, plus a correction event to remove any stale animation.
+      const oldEvents = history.events.map((item) => JSON.stringify(item));
+      const changedEvents = replayEvents.filter((item) => {
+        const index = oldEvents.indexOf(JSON.stringify(item));
+        if (index < 0) return true;
+        oldEvents.splice(index, 1); return false;
+      });
+      return result(state, [event("movementCorrected", { inputAt, deadline: history.deadline, processedAt: end }), ...changedEvents]);
+    }
+    const puzzleSelections = { snakebird: null, sokoban: 0 };
+    // Settlement economies are mutated in place between cross-settlement
+    // boundaries. Keep the normalized object when those mutations preserve
+    // its shape; a replaced child object or a non-canonical scalar forces a
+    // fresh normalization.
+    const normalizedSettlementEconomies = new WeakMap();
+    function rememberPuzzle() {
+      if (state.mode === "snakebird") puzzleSelections.snakebird = state.active.levelIndex;
+      if (state.mode === "sokoban") puzzleSelections.sokoban = state.active.stageIndex;
+    }
+    function randomSnakebirdLevel(previous) {
+      const count = puzzleLevels.snakebird.length;
+      if (count <= 1) return 0;
+      const exclude = Number.isInteger(previous) && previous >= 0 && previous < count;
+      const draw = Math.min((exclude ? count - 1 : count) - 1, Math.max(0, Math.floor(state.rng() * (exclude ? count - 1 : count))));
+      return exclude && draw >= previous ? draw + 1 : draw;
+    }
     function syncActiveSettlementFromCanonical() {
       migration.loadActiveSettlement(state); normalizeLocalState(state, simulationNow);
     }
@@ -401,21 +543,63 @@
     function isFounding() {
       return activeSettlement()?.status === "founding";
     }
+    function awardBoardMastery(events) {
+      if (isFounding() || state.mode !== "snake" || !state.active?.grid) return;
+      const boardSize = `${state.active.grid.columns}x${state.active.grid.rows}`;
+      const mastery = config.boardMasteryConfig.find((item) => item.boardSize === boardSize);
+      if (!mastery || state.active.score < mastery.masteryScore || state.notables.masteryRewardsClaimed[mastery.masteryId]) return;
+      state.notables.masteryRewardsClaimed[mastery.masteryId] = true;
+      const generated = notables.generate(state.notables, { type: "BOARD_MASTERY", reference: boardSize }, () => state.rng(), simulationNow, state.habitats.counts);
+      events.push(event("BOARD_MASTERY_REWARD_CLAIMED", { masteryId: mastery.masteryId }), ...generated.events);
+    }
     function foundingBlocksUpgrade(upgrade) {
       return isFounding() && !config.migrationConfig.founding.allowedUpgrades.includes(upgrade);
     }
     function finishCrossSettlementMutation() {
-      syncActiveSettlementFromCanonical(); migration.creditActiveSettlement(state); migration.storeActiveSettlement(state);
+      invalidateSettlementEconomies(); syncActiveSettlementFromCanonical(); migration.creditActiveSettlement(state); migration.storeActiveSettlement(state);
+    }
+    function invalidateSettlementEconomies() {
+      state.migration.settlements.forEach((item) => {
+        if (item.economy) normalizedSettlementEconomies.delete(item.economy);
+      });
     }
     function normalizeSettlementEconomy(settlement) {
       if (!settlement?.economy) return;
       const local = settlement.economy;
-      settlement.economy = {
+      const cached = normalizedSettlementEconomies.get(local);
+      const upgrades = local.upgrades;
+      const nursery = local.nursery;
+      // The live economy can briefly exceed the save normalizer's hatchling
+      // and egg caps when a high-capacity nursery hatches or receives cargo.
+      // Force the same bounded rebuild at the next settlement boundary.
+      const canonicalNursery = cached && nursery && typeof nursery === "object" &&
+        Array.isArray(nursery.hatchlings) && nursery.hatchlings.length <= 64 &&
+        Array.isArray(nursery.nestEggs) && nursery.nestEggs.length <= 64 &&
+        Number.isFinite(nursery.movementAccumulatorMs) && nursery.movementAccumulatorMs >= 0 && nursery.movementAccumulatorMs <= config.nurseryConfig.moveIntervalMs &&
+        Number.isFinite(nursery.seedTickAccumulatorMs) && nursery.seedTickAccumulatorMs >= 0 && nursery.seedTickAccumulatorMs <= config.nurseryConfig.seedIntervalMs &&
+        ["colonyCount", "eggProgress", "eggsStarted", "resupplyEggHolding"].every((key) =>
+          Number.isFinite(nursery[key]) && nursery[key] >= 0 && nursery[key] <= Number.MAX_SAFE_INTEGER);
+      const upgradeKeys = Object.keys(config.upgradeConfig).map((kind) => `${kind}Level`);
+      const canonicalUpgrades = cached && upgrades && typeof upgrades === "object" &&
+        Object.keys(upgrades).length === upgradeKeys.length &&
+        upgradeKeys.every((key) => {
+          const level = upgrades[key];
+          const maxLevel = config.upgradeConfig[key.replace(/Level$/, "")]?.maxLevel ?? Number.POSITIVE_INFINITY;
+          return typeof level === "number" && Number.isFinite(level) && level >= 0 && Number.isInteger(level) && level <= maxLevel;
+        });
+      const canonicalScalars = cached && ["seeds", "branches", "provisions"].every((key) =>
+        typeof local[key] === "number" && Number.isFinite(local[key]) && local[key] >= 0);
+      const canonicalBoard = cached && typeof local.selectedBoardLevel === "number" && Number.isFinite(local.selectedBoardLevel) && local.selectedBoardLevel >= 0 && Number.isInteger(local.selectedBoardLevel) && (!upgrades || local.selectedBoardLevel <= upgrades.boardLevel);
+      if (cached && cached.nursery === nursery && cached.habitats === local.habitats && cached.notables === local.notables && cached.upgrades === upgrades && canonicalScalars && canonicalBoard && canonicalUpgrades && canonicalNursery) return;
+      const normalizedUpgrades = normalUpgrades(upgrades);
+      const normalized = {
         ...local,
         seeds: Math.max(0, Number(local.seeds) || 0), branches: Math.max(0, Number(local.branches) || 0), provisions: Math.max(0, Number(local.provisions) || 0),
-        upgrades: normalUpgrades(local.upgrades), selectedBoardLevel: Math.min(normalUpgrades(local.upgrades).boardLevel, Math.max(0, Math.floor(Number(local.selectedBoardLevel) || 0))),
+        upgrades: normalizedUpgrades, selectedBoardLevel: Math.min(normalizedUpgrades.boardLevel, Math.max(0, Math.floor(Number(local.selectedBoardLevel) || 0))),
         nursery: economy.createNursery(local.nursery, simulationNow), habitats: economy.createHabitats(local.habitats), notables: notables.createState(local.notables)
       };
+      settlement.economy = normalized;
+      normalizedSettlementEconomies.set(normalized, { nursery: normalized.nursery, habitats: normalized.habitats, notables: normalized.notables, upgrades: normalized.upgrades });
     }
     function advanceSettlementWorld(dtMs) {
       const total = Math.max(0, Number(dtMs) || 0); const events = [];
@@ -435,30 +619,129 @@
         if (segment > 0) {
           for (const settlement of state.migration.settlements) {
             if (settlement.status !== "established" || !settlement.economy) continue;
-            const ticked = economy.tickEconomy(settlement.economy, segment, { rng: () => state.rng(), foodValue: economy.foodValueFromUpgrades(settlement.economy.upgrades) });
+            const seedIncomeMultiplier = settlement.id === state.migration.activeSettlementId ? economy.lengthBonus(state).multiplier : 1;
+            const ticked = economy.tickEconomy(settlement.economy, segment, { rng: () => state.rng(), foodValue: economy.foodValueFromUpgrades(settlement.economy.upgrades), seedIncomeMultiplier });
             events.push(...ticked.events.map((item) => ({ ...item, settlementId: settlement.id })));
           }
-          events.push(...migration.tick(state, segment, boundary, () => state.rng(), { deferEconomySync: true }).events);
+          const migrationEvents = migration.tick(state, segment, boundary, () => state.rng(), { deferEconomySync: true }).events;
+          events.push(...migrationEvents);
+          if (migrationEvents.some((item) => item.type === "migrationFailed")) invalidateSettlementEconomies();
           cursor = boundary;
         }
         const arrived = resupply.resolveDue(state, cursor); events.push(...arrived.events);
+        if (arrived.events.length) invalidateSettlementEconomies();
         const resolved = tradeRoutes.resolveDue(state, cursor); events.push(...resolved.events);
+        if (resolved.events.length) invalidateSettlementEconomies();
         if (segment === 0 && arrived.events.length === 0 && resolved.events.length === 0) cursor = end;
       }
       simulationNow = end; syncActiveSettlementFromCanonical();
       const awarded = migration.creditActiveSettlement(state); if (awarded) events.push(event("migrationPointsEarned", { amount: awarded }));
       migration.storeActiveSettlement(state); return events;
     }
+    function moveSnake(events, allowGrace = true) {
+      const seedsBeforeMove = state.seeds;
+      state.active.seeds = state.seeds;
+      state.active.best = state.best;
+      // Economy updates can replace the durable upgrade object while a run is
+      // active. Give the Snake engine the current values for this move, then
+      // copy consumable shield charges back into the session authority.
+      state.active.upgrades = clone(state.upgrades);
+      const previousDirection = state.active.direction;
+      const stepped = snake.stepSnake(state.active, { rng: () => state.rng(), collisionGraceMs: allowGrace ? config.snakeConfig.collisionGraceMs : 0 });
+      const shieldTurn = stepped.events.find((item) => item.type === "shieldRedirected");
+      if (shieldTurn) state.active.lastTurn = snake.turnSign(shieldTurn.from, shieldTurn.to);
+      else if (!state.active.shieldImpact) state.active.lastTurn = state.active.collisionGraceRemainingMs !== null ? null : snake.turnSign(previousDirection, state.active.direction);
+      state.seeds = state.active.seeds; state.best = state.active.best;
+      state.upgrades.shieldLevel = state.active.upgrades.shieldLevel;
+      events.push(...stepped.events);
+      stepped.events.filter((item) => item.type === "eggCollected").forEach(() => {
+        events.push(economy.addEggBoardHatchling(state, () => state.rng()));
+      });
+      awardBoardMastery(events);
+      if (state.migrationChallenge) {
+        state.migrationChallenge.collectedSeeds = state.active.score;
+        state.seeds = seedsBeforeMove;
+        state.active.seeds = seedsBeforeMove;
+        state.best = state.migrationChallenge.startingBest;
+        state.active.best = state.migrationChallenge.startingBest;
+        if (state.migrationChallenge.collectedSeeds >= state.migrationChallenge.requiredSeeds) {
+          const expeditionId = state.migrationChallenge.expeditionId;
+          migration.resolveChallenge(state, expeditionId, true, savedAt + state.migration.elapsedMs);
+          state.migrationChallenge = null; state.phase = "gameover"; events.push(event("migrationChallengeCompleted", { expeditionId }));
+        } else if (!stepped.alive) {
+          const expeditionId = state.migrationChallenge.expeditionId;
+          migration.resolveChallenge(state, expeditionId, false, savedAt + state.migration.elapsedMs);
+          state.migrationChallenge = null; state.phase = "gameover"; events.push(event("migrationChallengeFailed", { expeditionId }));
+        }
+      } else if (!stepped.alive) { state.phase = "gameover"; events.push(event("runEnded", { mode: "snake" })); }
+      if (state.phase === "gameover") { state.active.directionQueue = []; state.active.nextDirection = state.active.direction; state.modeAccumulatorMs = 0; }
+    }
     function dispatch(action) {
       action = action && typeof action === "object" ? action : {};
+      if (!replayingInput && ["direction", "playDirection"].includes(action.type)) {
+        const corrected = correctRecentDirection(action);
+        if (corrected) return corrected;
+      }
+      if (!replayingInput) recentMovement = null;
       const events = [];
       const seedsBefore = state.seeds;
       const reject = (reason) => { events.push(event("actionRejected", { action: action.type || null, reason })); return result(state, events); };
       switch (action.type) {
+        case "openMinigame": {
+          if (state.phase === "paused") return dispatch({ type: "resume" });
+          if (state.phase === "gameover") return dispatch({ type: "resetRun" });
+          const number = action.number;
+          if (number === 9 && state.mode === "duel") return dispatch({ type: "launchGame", mode: "runner" });
+          if (!Number.isInteger(number) || number < 1 || number > config.minigameCatalog.length) return reject("invalidMinigame");
+          if (number > state.upgrades.minigamesLevel) return reject("minigameLocked");
+          return dispatch({ type: "launchGame", mode: config.minigameCatalog[number - 1].mode });
+        }
+        case "resetRun":
+          if (state.phase === "paused") return dispatch({ type: "resume" });
+          return dispatch({ type: isPuzzleMode(state.mode) ? "continuePuzzle" : "restart" });
+        case "primaryAction": {
+          if (state.phase === "paused") return dispatch({ type: "resume" });
+          const priorEvents = [];
+          if (state.phase === "gameover") {
+            priorEvents.push(...dispatch({ type: "resetRun" }).events);
+            if (state.mode === "battleship") return result(state, priorEvents);
+          }
+          if (state.mode === "battleship") {
+            const type = state.active?.phase === "placement"
+              ? (battleship.FLEET[state.active.placement.index] ? "battleshipPlace" : "battleshipStart")
+              : "battleshipFire";
+            const next = dispatch({ type });
+            return result(state, [...priorEvents, ...next.events]);
+          }
+          const next = dispatch({ type: "begin", initialDelayMs: state.mode === "snake" ? state.active?.tickMs / 2 : 0 });
+          return result(state, [...priorEvents, ...next.events]);
+        }
+        case "togglePause":
+          if (state.mode === "battleship" && state.active?.phase === "placement") return dispatch({ type: "battleshipRotate" });
+          if (state.phase === "gameover") return dispatch({ type: "resetRun" });
+          if (state.phase === "ready") return result(state, events);
+          return dispatch({ type: state.phase === "paused" ? "resume" : "pause" });
+        case "playDirection":
+          if (!directions.has(action.direction)) return reject("invalidDirection");
+          if (state.phase === "paused") return dispatch({ type: "resume" });
+          if (state.phase === "gameover") return dispatch({ type: "resetRun" });
+          if (state.mode === "breakout" && !["left", "right"].includes(action.direction)) return reject("invalidDirection");
+          return dispatch({ type: "direction", direction: action.direction, inputAt: action.inputAt });
+        case "launchGame":
+          if (!modeNames.has(action.mode)) return reject("invalidMode");
+          if (!action.force && state.mode === action.mode && state.phase !== "gameover" && !["snake", "snakebird", "broodline"].includes(action.mode)) {
+            if (action.mode === "battleship" && state.active?.phase === "placement") return dispatch({ type: "battleshipShuffle" });
+            return result(state, events);
+          }
+          return dispatch({ type: isPuzzleMode(action.mode) ? "launchPuzzle" : "selectMode", mode: action.mode });
         case "start":
         case "restart":
           if (!modeNames.has(state.mode)) return reject("modeNotImplemented");
-          startMode(state, state.mode, action.setup); events.push(event("runReady", { mode: state.mode })); break;
+          {
+            const active = state.active;
+            const setup = action.setup || (isPuzzleMode(state.mode) && active ? puzzleRestartSetup(active) : undefined);
+            startMode(state, state.mode, setup); rememberPuzzle();
+          } events.push(event("runReady", { mode: state.mode })); break;
         case "battleshipStart":
           if (state.mode !== "battleship") return reject("invalidMode");
           // fall through: Battleship's explicit Start action shares lifecycle semantics with begin.
@@ -472,6 +755,7 @@
           if (state.mode === "snake") {
             const initialDelayMs = Math.max(0, Number(action.initialDelayMs) || 0);
             state.modeAccumulatorMs = -initialDelayMs;
+            lastSnakeMovementAt = simulationNow;
           }
           if (state.mode === "battleship") {
             if (state.active.player.ships.length !== battleship.FLEET.length) return reject("fleetIncomplete");
@@ -481,19 +765,48 @@
         case "pause":
           if (state.phase !== "running") return reject("notRunning");
           state.phase = "paused"; events.push(event("paused")); break;
+        case "toggleFeeding":
+          state.nursery.feedingPaused = !state.nursery.feedingPaused;
+          migration.storeActiveSettlement(state);
+          events.push(event("feedingToggled", { paused: state.nursery.feedingPaused })); break;
         case "resume":
           if (state.phase !== "paused") return reject("notPaused");
           state.phase = "running"; events.push(event("resumed")); break;
+        case "launchPuzzle":
+        case "selectPuzzleLevel":
+        case "continuePuzzle": {
+          const mode = action.type === "continuePuzzle" ? state.mode : action.mode;
+          if (!isPuzzleMode(mode)) return reject("invalidMode");
+          let levelIndex;
+          if (action.type === "selectPuzzleLevel") {
+            if (!Number.isInteger(action.levelIndex) || action.levelIndex < 0 || action.levelIndex >= puzzleLevels[mode].length) return reject("invalidLevel");
+            levelIndex = action.levelIndex;
+          } else if (action.type === "launchPuzzle") {
+            levelIndex = mode === "snakebird" ? randomSnakebirdLevel(puzzleSelections.snakebird) : puzzleLevelIndex(mode, puzzleSelections.sokoban);
+          } else {
+            if (!state.active) return reject("notReady");
+            const active = state.active;
+            const won = mode === "snakebird" ? snakebird.isComplete(active) : active.result === "won";
+            const current = active.levelIndex ?? active.stageIndex;
+            if (!won) {
+              startMode(state, mode, puzzleRestartSetup(active));
+              rememberPuzzle(); events.push(event("runReady", { mode })); break;
+            }
+            levelIndex = mode === "snakebird" ? randomSnakebirdLevel(current) : (current + 1) % puzzleLevels.sokoban.length;
+          }
+          startMode(state, mode, { levelIndex }); rememberPuzzle();
+          events.push(event("modeSelected", { mode }), event("runReady", { mode })); break;
+        }
         case "selectMode":
           if (!modeNames.has(action.mode)) return reject("invalidMode");
           // Build the ready board immediately (matches the host's launchX, which
           // shows a ready board before the first input). First direction runs it.
-          startMode(state, action.mode, action.setup);
+          startMode(state, action.mode, action.setup); rememberPuzzle();
           events.push(event("modeSelected", { mode: state.mode }), event("runReady", { mode: state.mode })); break;
         case "selectBoard": {
           const level = Math.floor(Number(action.level));
           if (!Number.isInteger(level) || level < 0 || level > state.upgrades.boardLevel) return reject("boardLocked");
-          state.selectedBoardLevel = level; migration.storeActiveSettlement(state); startMode(state, state.mode, action.setup); events.push(event("boardSelected", { level }), event("runReady", { mode: state.mode })); break;
+          state.selectedBoardLevel = level; migration.storeActiveSettlement(state); startMode(state, "snake", action.setup); events.push(event("boardSelected", { level }), event("runReady", { mode: state.mode })); break;
         }
         case "broodlineSelect": {
           if (state.mode !== "broodline") return reject("invalidMode");
@@ -581,7 +894,38 @@
             events.push(event("battleshipCursorMoved", { direction: action.direction })); break;
           }
           if (["duel", "crossing", "maze", "broodline"].includes(state.mode) && !queueModeDirection(state.mode, state.active, action.direction)) return reject("invalidDirection");
-          if (state.mode === "snake" && !snake.queueDirection(state.active, action.direction) && action.direction !== state.active.direction) return reject("invalidDirection");
+          if (state.mode === "snake") {
+            if (state.active.shieldImpact) {
+              if (!snake.queueDirectionAfterShield(state.active, action.direction)) return reject("invalidDirection");
+              events.push(event("directionQueued", { direction: action.direction }));
+              break;
+            }
+            if (state.active.collisionGraceRemainingMs !== null) {
+              if (!snake.canMoveDirection(state.active, action.direction) || !snake.turnDirection(state.active, action.direction)) return reject("unsafeCollisionTurn");
+              state.active.collisionGraceRemainingMs = null;
+              state.modeAccumulatorMs = 0;
+              events.push(event("collisionAvoided"));
+              lastSnakeMovementAt = simulationNow;
+              moveSnake(events, false);
+              state.active.lastTurn = null; // A rescue starts a full interval.
+              break;
+            }
+            const ready = state.phase === "ready";
+            const sameDirection = action.direction === (state.active.directionQueue.at(-1) || state.active.direction);
+            if (!sameDirection && !snake.queueDirection(state.active, action.direction)) return reject("invalidDirection");
+            if (sameDirection && !ready) break;
+            const moveNow = ready || (config.snakeConfig.turnTimingEnabled && state.active.lastTurn === 0) || state.modeAccumulatorMs >= snake.nextMoveInterval(state.active);
+            if (moveNow) {
+              state.phase = "running";
+              state.modeAccumulatorMs = 0;
+              if (ready) events.push(event("runStarted", { mode: "snake" }));
+              lastSnakeMovementAt = simulationNow;
+              moveSnake(events);
+            } else {
+              events.push(event("directionQueued", { direction: action.direction }));
+            }
+            break;
+          }
           if (state.mode === "runner" && (action.direction !== "up" || !runner.jump(state.active))) return reject("invalidDirection");
           let immediateMove = null;
           if (state.mode === "snakebird") { immediateMove = snakebird.applyMove(state.active, action.direction); if (!immediateMove.accepted) return reject("blocked"); }
@@ -608,12 +952,15 @@
           if (foundingBlocksUpgrade(action.upgrade)) return reject("featureUnavailableWhileFounding");
           const level = state.upgrades[key];
           const maxLevel = Number.isInteger(item.maxLevel) ? item.maxLevel : item.levels?.length - 1;
-          if (item.levels && level >= maxLevel) return reject("maxed");
+          if (Number.isFinite(maxLevel) && level >= maxLevel) return reject("maxed");
           const cost = upgradeCost(action.upgrade, level);
           if (state.seeds < cost) return reject("insufficientSeeds");
           state.seeds -= cost; state.upgrades[key] += 1;
           if (action.upgrade === "board") state.selectedBoardLevel = state.upgrades.boardLevel;
           migration.storeActiveSettlement(state);
+          if (action.upgrade === "board" || action.upgrade === "foodCount") {
+            startMode(state, "snake"); events.push(event("runReady", { mode: "snake" }));
+          }
           events.push(event("upgradePurchased", { upgrade: action.upgrade, cost })); break;
         }
         case "layEgg": return reject("automatic");
@@ -677,17 +1024,6 @@
           const generated = notables.generate(state.notables, { type: action.sourceType || "DEBUG", reference: action.sourceReference || "" }, () => state.rng(), Number(action.now) || savedAt, state.habitats.counts);
           events.push(...generated.events); break;
         }
-        case "claimBoardMastery": {
-          if (isFounding()) return reject("featureUnavailableWhileFounding");
-          const mastery = config.boardMasteryConfig.find((item) => item.masteryId === action.masteryId);
-          if (!mastery) return reject("invalidMastery");
-          if (state.notables.masteryRewardsClaimed[mastery.masteryId]) return reject("masteryAlreadyClaimed");
-          const currentSize = state.active?.grid ? `${state.active.grid.columns}x${state.active.grid.rows}` : "";
-          if (state.mode !== "snake" || currentSize !== mastery.boardSize || Number(state.active?.score) < mastery.masteryScore) return reject("masteryNotAchieved");
-          state.notables.masteryRewardsClaimed[mastery.masteryId] = true;
-          const generated = notables.generate(state.notables, { type: "BOARD_MASTERY", reference: mastery.boardSize }, () => state.rng(), Number(action.now) || savedAt, state.habitats.counts);
-          events.push(event("BOARD_MASTERY_REWARD_CLAIMED", { masteryId: mastery.masteryId }), ...generated.events); break;
-        }
         case "recruitNotable": {
           if (isFounding()) return reject("featureUnavailableWhileFounding");
           const cost = config.notableConfig.directRecruitmentCost;
@@ -713,13 +1049,11 @@
           const removed = notables.removeRetained(state.notables, action.notableId, Number(action.now) || savedAt);
           if (!removed) return reject("notableMissing");
           events.push(event(removed.hasServed ? "NOTABLE_RETIRED" : "NOTABLE_DISMISSED", { notableId: removed.id }));
-          const promoted = notables.promotePendingIfSpace(state.notables, state.habitats.counts);
-          if (promoted) events.push(event("NOTABLE_RETAINED", { notableId: promoted.id, fromPending: true }));
           break;
         }
         case "resolvePendingNotable": {
           if (isFounding()) return reject("featureUnavailableWhileFounding");
-          const resolved = notables.resolvePending(state.notables, action.decision, action.replaceNotableId, Number(action.now) || savedAt, state.habitats.counts);
+          const resolved = notables.resolvePending(state.notables, action.decision, action.replaceNotableId, Number(action.now) || savedAt, state.habitats.counts, action.candidateId);
           if (!resolved.accepted) return reject(resolved.reason); events.push(...resolved.events); break;
         }
         case "startMigration": {
@@ -751,7 +1085,8 @@
         case "selectSettlement": {
           const selected = migration.selectSettlement(state, action.settlementId);
           if (!selected.accepted) return reject(selected.reason);
-          normalizeLocalState(state, Number(action.now) || savedAt); state.active = null; state.phase = "ready"; events.push(event("settlementSelected", { settlementId: action.settlementId })); break;
+          normalizeLocalState(state, Number(action.now) || savedAt); startMode(state, "snake");
+          events.push(event("settlementSelected", { settlementId: action.settlementId }), event("runReady", { mode: "snake" })); break;
         }
         case "createTradeRoute":
         case "configureTradeDirection":
@@ -795,9 +1130,24 @@
         }
         case "setCosmetics":
           state.cosmetics = { ...state.cosmetics, ...(action.cosmetics || {}) }; events.push(event("cosmeticsChanged")); break;
+        case "setSnakeSpeed": {
+          if (typeof action.snakeSpeed !== "string" || !Object.hasOwn(config.snakeConfig.speedPresets, action.snakeSpeed)) return reject("invalidSnakeSpeed");
+          state.snakeSpeed = action.snakeSpeed;
+          if (state.mode === "snake" && state.active) {
+            const previousTickMs = state.active.tickMs;
+            snake.setSpeedMultiplier(state.active, config.snakeConfig.speedPresets[state.snakeSpeed]);
+            state.modeAccumulatorMs *= state.active.tickMs / previousTickMs;
+          }
+          events.push(event("snakeSpeedChanged", { snakeSpeed: state.snakeSpeed })); break;
+        }
         case "setReducedMotion":
           if (typeof action.reducedMotion !== "boolean") return reject("invalidReducedMotion");
           state.reducedMotion = action.reducedMotion; events.push(event("reducedMotionChanged", { reducedMotion: state.reducedMotion })); break;
+        case "setFullscreenMode":
+          if (typeof action.fullscreenMode !== "boolean") return reject("invalidFullscreenMode");
+          if (action.fullscreenMode && state.upgrades.boardLevel < 1) return reject("fullscreenLocked");
+          state.fullscreenMode = action.fullscreenMode;
+          events.push(event("fullscreenModeChanged", { fullscreenMode: state.fullscreenMode })); break;
         case "setMobileControls": {
           const controls = action.mobileControls;
           if (!controls || typeof controls.swipeControls !== "boolean" || typeof controls.biggerDpad !== "boolean") return reject("invalidMobileControls");
@@ -807,10 +1157,26 @@
         case "setSelectedDuelGridSize": {
           const size = Number(action.selectedDuelGridSize);
           if (!duelGridSizes.has(size)) return reject("invalidDuelGridSize");
-          state.selectedDuelGridSize = size; events.push(event("duelGridSizeChanged", { selectedDuelGridSize: size })); break;
+          state.selectedDuelGridSize = size;
+          if (state.mode === "duel") { startMode(state, "duel"); events.push(event("runReady", { mode: "duel" })); }
+          events.push(event("duelGridSizeChanged", { selectedDuelGridSize: size })); break;
         }
         // Explicit development grants still go through the authority instead
         // of mutating browser mirrors.
+        case "grantMinigameFunds": {
+          const amount = config.upgradeConfig.minigames.levels.reduce((sum, _, level) => sum + upgradeCost("minigames", level), 0);
+          state.seeds += amount; events.push(event("developmentGrant", { amount }), event("seedsChanged")); break;
+        }
+        case "addDevelopmentEgg": {
+          const added = economy.addDevelopmentEgg(state);
+          if (!added) return reject("nestFull");
+          events.push(added); break;
+        }
+        case "addDevelopmentHatchling": {
+          const added = economy.addDevelopmentHatchling(state, () => state.rng());
+          if (!added) return reject("nurseryFull");
+          events.push(added); break;
+        }
         case "addSeeds":
           state.seeds = Math.max(0, state.seeds + (Number(action.amount) || 0)); events.push(event("seedsChanged")); break;
         case "addColonySnakes":
@@ -819,47 +1185,52 @@
         default: return reject("unknownAction");
       }
       events.push(...economy.reconcileEggProgress(state, seedsBefore));
+      if (action.type === "direction" && state.mode === "snake") {
+        events.push(...economy.tryStartEgg(state));
+        if (!state.migrationChallenge) migration.recordSnakeSeeds(state, Math.max(0, state.seeds - seedsBefore));
+        migration.creditActiveSettlement(state); migration.storeActiveSettlement(state);
+      }
       return result(state, events);
     }
-    function tick(dtMs, options) {
-      // Economy advances by the FULL delta so idle income catches up after the
-      // tab is throttled/backgrounded; gameplay uses a clamped delta so a lag
-      // spike never teleports the snake through several cells at once.
+    function tickSlice(dtMs) {
+      // Classic Snake uses elapsed time even when frames stop in a hidden tab.
+      // Other modes retain their existing live-frame limit.
       const rawDt = Math.max(0, Number(dtMs) || 0);
-      const dt = Math.min(MAX_LIVE_DT, rawDt);
+      const dt = state.mode === "snake" ? rawDt : Math.min(MAX_LIVE_DT, rawDt);
       const events = [];
-      const snapshotMode = options && options.snapshot === "frame" ? "frame" : "full";
-      if (!rawDt) return result(state, events, snapshotMode);
+      if (!rawDt) return events;
       events.push(...advanceSettlementWorld(rawDt));
       const seedsAfterEconomy = state.seeds;
       if (state.mode === "snake" && state.active) { state.active.seeds = state.seeds; state.active.best = state.best; }
       if (state.phase === "running") state.elapsedMs += dt;
       if (state.mode === "snake" && state.phase === "running" && state.active) {
-        state.modeAccumulatorMs += dt;
-        while (state.modeAccumulatorMs >= state.active.tickMs && state.phase === "running") {
-          const stepped = snake.stepSnake(state.active, { rng: () => state.rng() });
-          state.seeds = state.active.seeds; state.best = state.active.best;
-          state.modeAccumulatorMs -= state.active.tickMs;
-          events.push(...stepped.events);
-          stepped.events.filter((item) => item.type === "eggCollected").forEach(() => {
-            events.push(economy.addEggBoardHatchling(state, () => state.rng()));
-          });
-          if (state.migrationChallenge) {
-            state.migrationChallenge.collectedSeeds = state.active.score;
-            state.seeds = seedsAfterEconomy;
-            state.active.seeds = seedsAfterEconomy;
-            state.best = state.migrationChallenge.startingBest;
-            state.active.best = state.migrationChallenge.startingBest;
-            if (state.migrationChallenge.collectedSeeds >= state.migrationChallenge.requiredSeeds) {
-              const expeditionId = state.migrationChallenge.expeditionId;
-              migration.resolveChallenge(state, expeditionId, true, savedAt + state.migration.elapsedMs);
-              state.migrationChallenge = null; state.phase = "gameover"; events.push(event("migrationChallengeCompleted", { expeditionId }));
-            } else if (!stepped.alive) {
-              const expeditionId = state.migrationChallenge.expeditionId;
-              migration.resolveChallenge(state, expeditionId, false, savedAt + state.migration.elapsedMs);
-              state.migrationChallenge = null; state.phase = "gameover"; events.push(event("migrationChallengeFailed", { expeditionId }));
+        if (state.active.collisionGraceRemainingMs !== null) {
+          state.active.collisionGraceRemainingMs -= dt;
+          if (state.active.collisionGraceRemainingMs <= 0) {
+            state.active.collisionGraceRemainingMs = null;
+            moveSnake(events, false);
+          }
+        } else {
+          state.modeAccumulatorMs += dt;
+          while (state.modeAccumulatorMs >= snake.nextMoveInterval(state.active) && state.phase === "running") {
+            state.modeAccumulatorMs -= snake.nextMoveInterval(state.active);
+            if (recentMovement && !replayingInput) {
+              recentMovement.deadline = simulationNow - state.modeAccumulatorMs;
+              recentMovement.lowerBound = lastSnakeMovementAt;
+              recentMovement.eligible = !state.active.directionQueue.length && !state.active.shieldImpact;
             }
-          } else if (!stepped.alive) { state.phase = "gameover"; events.push(event("runEnded", { mode: "snake" })); }
+            lastSnakeMovementAt = simulationNow - state.modeAccumulatorMs;
+            moveSnake(events);
+            if (state.active.collisionGraceRemainingMs !== null) {
+              state.active.collisionGraceRemainingMs -= state.modeAccumulatorMs;
+              state.modeAccumulatorMs = 0;
+              if (state.active.collisionGraceRemainingMs <= 0) {
+                state.active.collisionGraceRemainingMs = null;
+                moveSnake(events, false);
+              }
+              break;
+            }
+          }
         }
       }
       if (state.phase === "running" && state.active && state.mode === "duel") {
@@ -942,18 +1313,53 @@
       events.push(...economy.tryStartEgg(state));
       if (!state.migrationChallenge) migration.recordSnakeSeeds(state, Math.max(0, state.seeds - seedsAfterEconomy));
       migration.creditActiveSettlement(state); migration.storeActiveSettlement(state);
-      return result(state, events, snapshotMode);
+      return events;
+    }
+    function tickCore(dtMs, options) {
+      let remaining = Math.max(0, Number(dtMs) || 0);
+      const events = [];
+      // Change passive income at each movement or death deadline. A long frame
+      // must not pay the old length bonus after growth or after the run ends.
+      while (remaining > 0) {
+        let slice = remaining;
+        if (state.mode === "snake" && state.phase === "running" && state.active) {
+          const untilMove = state.active.collisionGraceRemainingMs !== null
+            ? state.active.collisionGraceRemainingMs
+            : snake.nextMoveInterval(state.active) - state.modeAccumulatorMs;
+          slice = Math.min(remaining, Math.max(0.000001, untilMove));
+        }
+        events.push(...tickSlice(slice));
+        remaining = Math.max(0, remaining - slice);
+      }
+      return result(state, events, options?.snapshot === "frame" ? "frame" : "full");
+    }
+    function tick(dtMs, options) {
+      const rawDt = Math.max(0, Number(dtMs) || 0);
+      if (!replayingInput && state.mode === "snake" && state.phase === "running" && state.active
+        && state.active.collisionGraceRemainingMs === null && state.modeAccumulatorMs + rawDt >= snake.nextMoveInterval(state.active)) {
+        recentMovement = { before: clone(state), start: simulationNow, beforeMovementAt: lastSnakeMovementAt,
+          lowerBound: lastSnakeMovementAt, ticks: [], draws: [], events: [], deadline: null, eligible: false };
+      }
+      if (recentMovement) recentMovement.ticks.push(rawDt);
+      const output = tickCore(rawDt, options);
+      if (recentMovement) {
+        recentMovement.events.push(...output.events);
+        if (recentMovement.deadline === null || simulationNow - recentMovement.deadline > config.snakeConfig.inputLateToleranceMs) recentMovement = null;
+      }
+      return output;
     }
     function advanceOffline(now) {
       const target = Math.max(savedAt, Number(now) || savedAt);
       // Offline catch-up is anchored to the last persisted wall-clock time.
       // In normal host usage this runs once at hydration; retaining that anchor
       // also preserves deterministic callers that live-tick before catch-up.
-      const dt = target - savedAt; const events = advanceSettlementWorld(dt); savedAt = target;
+      const dt = target - savedAt;
+      const events = state.mode === "snake" && state.active ? tick(dt).events : advanceSettlementWorld(dt);
+      savedAt = target;
       return result(state, events);
     }
     return { snapshot: () => makeSnapshot(state), dispatch, tick, advanceOffline,
-      serialize: () => { migration.creditActiveSettlement(state); migration.storeActiveSettlement(state); return { saveVersion: SAVE_VERSION, savedAt: simulationNow, session: clone({ ...state, active: null, migrationChallenge: null }) }; } };
+      serialize: () => { migration.creditActiveSettlement(state); migration.storeActiveSettlement(state); return { saveVersion: SAVE_VERSION, savedAt: simulationNow, session: clone({ ...state, active: state.mode === "snake" && !state.migrationChallenge ? state.active : null, migrationChallenge: null }) }; } };
   }
   return { SAVE_VERSION, MAX_LIVE_DT, migrateLegacy, createGameSession };
 });

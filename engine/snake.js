@@ -15,7 +15,7 @@
   else root.IdleSnakeSnake = engine;
 })(typeof window !== "undefined" ? window : globalThis, (config) => {
   const { snakeConfig, upgradeConfig } = config;
-  const { startTickMs, minTickMs, maxQueuedDirections } = snakeConfig;
+  const { startTickMs, maxQueuedDirections } = snakeConfig;
 
   const vectors = {
     up: { x: 0, y: -1 },
@@ -29,15 +29,13 @@
     return { columns, rows };
   }
 
-  // A run starts with three segments. Odd-area boards keep one non-snake tile
-  // so the snake's alternating path remains completable; even-area boards can
-  // be filled completely.
+  // Mastery fills the complete board. The initial segments already occupy
+  // cells, so only the remaining area must be earned through Seed pickups.
   function masteryScore(grid, startingLength = 3) {
     const columns = Math.max(0, Math.floor(Number(grid && grid.columns) || 0));
     const rows = Math.max(0, Math.floor(Number(grid && grid.rows) || 0));
     const cells = columns * rows;
-    const fillableCells = cells % 2 === 0 ? cells : cells - 1;
-    return Math.max(0, fillableCells - Math.max(0, Math.floor(Number(startingLength) || 0)));
+    return Math.max(0, cells - Math.max(0, Math.floor(Number(startingLength) || 0)));
   }
 
   function foodValue(upgrades) {
@@ -58,6 +56,17 @@
     return body.some((part) => part.x === point.x && part.y === point.y);
   }
 
+  function foodPlacementWeight(foods, point) {
+    let weight = 1;
+    for (const food of foods) {
+      if (food.kind === "egg") continue;
+      const distance = Math.max(Math.abs(point.x - food.x), Math.abs(point.y - food.y));
+      if (distance === 1) return 0.1;
+      if (distance === 2) weight = 0.2;
+    }
+    return weight;
+  }
+
   function placeFood(state, rng) {
     const { snake, foods, grid } = state;
     const occupied = new Set([
@@ -65,24 +74,39 @@
       ...foods.map((snack) => `${snack.x},${snack.y}`)
     ]);
     const open = [];
+    let totalWeight = 0;
     for (let y = 0; y < grid.rows; y += 1) {
       for (let x = 0; x < grid.columns; x += 1) {
-        if (!occupied.has(`${x},${y}`)) open.push({ x, y });
+        if (occupied.has(`${x},${y}`)) continue;
+        const point = { x, y };
+        const weight = foodPlacementWeight(foods, point);
+        open.push({ point, weight });
+        totalWeight += weight;
       }
     }
     if (open.length === 0) return null;
-    return open[Math.floor(rng() * open.length)];
+    let draw = Math.min(Math.max(Number(rng()) || 0, 0), 1 - Number.EPSILON) * totalWeight;
+    for (const candidate of open) {
+      draw -= candidate.weight;
+      if (draw < 0) return candidate.point;
+    }
+    return open.at(-1).point;
   }
 
   function seedFoodCount(state) {
     return state.foods.filter((snack) => snack.kind !== "egg").length;
   }
 
+  function eggSpawnChance(upgrades) {
+    const level = Math.max(0, Math.min(upgradeConfig.eggChance.maxLevel, Math.floor(Number(upgrades?.eggChanceLevel) || 0)));
+    return Math.min(1, snakeConfig.eggSpawnChance + level * upgradeConfig.eggChance.increasePerLevel);
+  }
+
   function spawnSeed(state, rng) {
     const seed = placeFood(state, rng);
     if (!seed) return false;
     state.foods.push({ ...seed, kind: "seed" });
-    if (state.eggBoard && rng() < snakeConfig.eggSpawnChance) {
+    if (state.eggBoard && rng() < eggSpawnChance(state.upgrades)) {
       const egg = placeFood(state, rng);
       if (egg) state.foods.push({ ...egg, kind: "egg" });
     }
@@ -130,9 +154,37 @@
     const currentVector = vectors[queuedFrom];
     const nextVector = vectors[next];
     if (currentVector.x + nextVector.x === 0 && currentVector.y + nextVector.y === 0) return false;
-    if (state.directionQueue.length >= maxQueuedDirections) state.directionQueue.shift();
+    if (state.directionQueue.length >= maxQueuedDirections) return false;
     state.directionQueue.push(next);
     state.nextDirection = next;
+    return true;
+  }
+
+  // A shield owns its safe redirect until the impact sequence ends. Inputs made
+  // during that pause are kept behind the redirect and run on later ticks.
+  function queueDirectionAfterShield(state, next) {
+    if (!state.shieldImpact || !vectors[next]) return false;
+    const queuedFrom = state.directionQueue.at(-1) || state.shieldImpact.redirectDirection;
+    if (next === queuedFrom) return false;
+    const currentVector = vectors[queuedFrom];
+    const nextVector = vectors[next];
+    if (currentVector.x + nextVector.x === 0 && currentVector.y + nextVector.y === 0) return false;
+    if (state.directionQueue.length >= maxQueuedDirections) return false;
+    state.directionQueue.push(next);
+    state.nextDirection = next;
+    return true;
+  }
+
+  // Immediate session turns validate against the last completed move.
+  // A second perpendicular input can therefore complete a quick U-turn.
+  function turnDirection(state, next) {
+    if (!vectors[next] || next === state.direction) return false;
+    const current = vectors[state.direction];
+    const target = vectors[next];
+    if (current.x + target.x === 0 && current.y + target.y === 0) return false;
+    state.direction = next;
+    state.nextDirection = next;
+    state.directionQueue = [];
     return true;
   }
 
@@ -152,6 +204,10 @@
           { x: startX, y: startY + 2 }
         ];
     const direction = opts.direction && vectors[opts.direction] ? opts.direction : "up";
+    const boardLevel = Math.max(0, upgradeConfig.board.levels.indexOf(`${grid.columns}x${grid.rows}`));
+    // This baseline keeps board scaling separate from food acceleration.
+    // movementInterval applies the preset to this starting speed, before the curve.
+    const initialTickMs = opts.tickMs || startTickMs / (1 + boardLevel * snakeConfig.boardSpeedIncreasePerLevel);
     const state = {
       grid,
       snake: body,
@@ -159,15 +215,96 @@
       direction,
       nextDirection: direction,
       directionQueue: [],
+      collisionGraceRemainingMs: null,
+      shieldImpact: null,
+      lastTurn: 0,
       score: 0,
-      tickMs: opts.tickMs || startTickMs,
+      initialTickMs,
+      speedMultiplier: opts.speedMultiplier || 1,
+      tickMs: initialTickMs / (opts.speedMultiplier || 1),
       upgrades: opts.upgrades || { foodTypeLevel: 0, foodCountLevel: 0, shieldLevel: 0 },
       seeds: opts.seeds || 0,
+      runSeedsEarned: 0,
       best: opts.best || 0,
       eggBoard: Boolean(opts.eggBoard)
     };
+    state.tickMs = movementInterval(state);
     spawnFoods(state, rng);
     return state;
+  }
+
+  function accelerationProgress(score, target) {
+    const progress = Math.max(0, Math.min(1, (Number(score) || 0) / Math.max(1, Number(target) || 1)));
+    const rate = snakeConfig.accelerationRateIncrease;
+    const thirds = progress * 3;
+    return (Math.min(1, thirds) + Math.max(0, Math.min(1, thirds - 1)) * rate
+      + Math.max(0, thirds - 2) * rate * rate) / (1 + rate + rate * rate);
+  }
+
+  // Restore an active Classic board without drawing new food or consuming RNG.
+  function restoreSnakeMode(saved, opts) {
+    if (!saved || !saved.grid || !Array.isArray(saved.snake) || !Array.isArray(saved.foods)) return null;
+    const { columns, rows } = saved.grid;
+    if (!Number.isInteger(columns) || !Number.isInteger(rows) || columns < 3 || rows < 3 || columns > 100 || rows > 100) return null;
+    const validPoint = (p) => p && Number.isInteger(p.x) && Number.isInteger(p.y) && !isWallHit(saved.grid, p);
+    if (!saved.snake.length || saved.snake.length > columns * rows || !saved.snake.every(validPoint)
+      || saved.foods.length > columns * rows || !saved.foods.every((p) => validPoint(p) && ["seed", "egg"].includes(p.kind))
+      || !vectors[saved.direction]) return null;
+    const occupied = [...saved.snake, ...saved.foods].map((p) => `${p.x},${p.y}`);
+    if (new Set(occupied).size !== occupied.length) return null;
+    const state = JSON.parse(JSON.stringify(saved));
+    state.upgrades = opts.upgrades;
+    state.seeds = opts.seeds; state.best = opts.best;
+    state.initialTickMs = Number.isFinite(saved.initialTickMs) && saved.initialTickMs > 0 ? saved.initialTickMs : startTickMs;
+    state.speedMultiplier = opts.speedMultiplier;
+    state.score = Math.max(0, Math.min(masteryScore(state.grid), Math.floor(Number(saved.score) || 0)));
+    state.runSeedsEarned = Math.max(0, Number(saved.runSeedsEarned) || 0);
+    state.directionQueue = [];
+    for (const direction of Array.isArray(saved.directionQueue) ? saved.directionQueue.slice(0, maxQueuedDirections) : []) queueDirection(state, direction);
+    state.nextDirection = state.directionQueue.at(-1) || state.direction;
+    state.collisionGraceRemainingMs = Number.isFinite(saved.collisionGraceRemainingMs)
+      ? Math.max(0, Math.min(snakeConfig.collisionGraceMs, saved.collisionGraceRemainingMs)) : null;
+    state.shieldImpact = saved.shieldImpact && vectors[saved.shieldImpact.redirectDirection]
+      && vectors[saved.shieldImpact.incomingDirection] && Number.isInteger(saved.shieldImpact.ticksRemaining)
+      && saved.shieldImpact.ticksRemaining >= 1 && saved.shieldImpact.ticksRemaining <= 3
+      ? state.shieldImpact : null;
+    state.tickMs = movementInterval(state);
+    return state;
+  }
+
+  // Preset and board scale the entire speed curve, including its maximum.
+  function movementInterval(state) {
+    const startingSpeed = 1000 / (state.initialTickMs || startTickMs) * (state.speedMultiplier || 1);
+    const maximumSpeed = startingSpeed * snakeConfig.maximumSpeedMultiplier;
+    const food = Math.max(0, state.score || 0);
+    const progress = accelerationProgress(food, masteryScore(state.grid));
+    return 1000 / (startingSpeed + (maximumSpeed - startingSpeed) * progress);
+  }
+
+  function setSpeedMultiplier(state, multiplier) {
+    state.speedMultiplier = multiplier;
+    state.tickMs = movementInterval(state);
+  }
+
+  function turnSign(from, to) {
+    const order = ["up", "right", "down", "left"];
+    const delta = (order.indexOf(to) - order.indexOf(from) + 4) % 4;
+    return delta === 1 ? 1 : delta === 3 ? -1 : 0;
+  }
+
+  function nextMoveInterval(state) {
+    if (!snakeConfig.turnTimingEnabled) return state.tickMs;
+    const queued = state.directionQueue[0];
+    const turn = queued ? turnSign(state.direction, queued) : 0;
+    return state.tickMs * (turn !== 0 && turn === state.lastTurn ? 0.5 : 1);
+  }
+
+  function canMoveDirection(state, direction) {
+    const vector = vectors[direction];
+    if (!vector) return false;
+    const head = state.snake[0];
+    const next = { x: head.x + vector.x, y: head.y + vector.y };
+    return !isWallHit(state.grid, next) && !isSnakeHit(state.snake, next, false);
   }
 
   // Advance the snake one grid step. Returns { state, events, alive }.
@@ -177,7 +314,19 @@
     const rng = ctx.rng || Math.random;
     const events = [];
 
-    if (state.directionQueue.length > 0) {
+    if (state.shieldImpact) {
+      const impact = state.shieldImpact;
+      impact.ticksElapsed += 1;
+      impact.ticksRemaining -= 1;
+      if (impact.ticksRemaining > 0) {
+        events.push({ type: "shieldImpactTick", ticksRemaining: impact.ticksRemaining });
+        return { state, events, alive: true };
+      }
+      state.direction = impact.redirectDirection;
+      state.nextDirection = state.directionQueue.at(-1) || state.direction;
+      state.shieldImpact = null;
+      events.push({ type: "shieldRedirected", from: impact.incomingDirection, to: impact.redirectDirection });
+    } else if (state.directionQueue.length > 0) {
       state.direction = state.directionQueue.shift();
       state.nextDirection = state.directionQueue.length > 0
         ? state.directionQueue[state.directionQueue.length - 1]
@@ -187,20 +336,32 @@
     const head = state.snake[0];
     const vector = vectors[state.direction];
     let nextHead = { x: head.x + vector.x, y: head.y + vector.y };
-    let shieldRedirected = false;
     const collision = isWallHit(state.grid, nextHead) || isSnakeHit(state.snake, nextHead, false);
 
     if (collision) {
       const redirect = findShieldRedirect(state);
       if (redirect) {
         state.upgrades.shieldLevel -= 1;
-        state.direction = redirect.direction;
         state.nextDirection = redirect.direction;
         state.directionQueue = [];
-        nextHead = redirect.point;
-        shieldRedirected = true;
-        events.push({ type: "shield" });
+        state.shieldImpact = {
+          incomingDirection: state.direction,
+          redirectDirection: redirect.direction,
+          collisionPoint: nextHead,
+          ticksElapsed: 0,
+          ticksRemaining: 3
+        };
+        events.push({ type: "shield", incomingDirection: state.direction, redirectDirection: redirect.direction, collisionPoint: nextHead });
+        return { state, events, alive: true };
       } else {
+        if (ctx.collisionGraceMs > 0) {
+          state.collisionGraceRemainingMs = ctx.collisionGraceMs;
+          state.directionQueue = [];
+          state.nextDirection = state.direction;
+          events.push({ type: "collisionPending" });
+          return { state, events, alive: true };
+        }
+        state.collisionGraceRemainingMs = null;
         state.phase = "gameover";
         if (state.score > state.best) {
           state.best = state.score;
@@ -214,6 +375,7 @@
     const eatenFoodIndex = state.foods.findIndex((snack) => snack.x === nextHead.x && snack.y === nextHead.y);
     const willEat = eatenFoodIndex >= 0;
     state.snake.unshift(nextHead);
+    let respawnSeed = false;
 
     if (willEat) {
       const eaten = state.foods[eatenFoodIndex];
@@ -224,15 +386,24 @@
         state.score += 1;
         const gained = foodValue(state.upgrades);
         state.seeds += gained;
-        state.tickMs = Math.max(minTickMs, startTickMs - state.score * 2.8);
+        state.runSeedsEarned = (state.runSeedsEarned || 0) + gained;
+        state.tickMs = movementInterval(state);
         events.push({ type: "eat", value: gained, at: nextHead });
         events.push({ type: "seedsChanged" });
         events.push({ type: "speedChanged", tickMs: state.tickMs });
-        spawnSeed(state, rng);
+        respawnSeed = true;
       }
+    }
+
+    if (!willEat) {
+      state.snake.pop();
+    }
+
+    if (respawnSeed) {
+      spawnSeed(state, rng);
       // Near a full board there may not be enough room to replenish every
-      // unlocked food slot. Keep the seeds that fit, then finish only at the
-      // board's parity-aware mastery score.
+      // unlocked food slot. Keep the seeds that fit, then finish when the
+      // snake fills the complete board.
       if (state.score >= masteryScore(state.grid)) {
         state.phase = "gameover";
         state.best = Math.max(state.best, state.score);
@@ -240,11 +411,8 @@
         events.push({ type: "win" });
         return { state, events, alive: false };
       }
-    } else {
-      state.snake.pop();
     }
 
-    if (shieldRedirected) events.push({ type: "hudDirty" });
     return { state, events, alive: true };
   }
 
@@ -252,17 +420,28 @@
     vectors,
     parseGridSize,
     masteryScore,
+    accelerationProgress,
     foodValue,
     foodCount,
     isWallHit,
     isSnakeHit,
     placeFood,
+    foodPlacementWeight,
     seedFoodCount,
+    eggSpawnChance,
     spawnSeed,
     spawnFoods,
     findShieldRedirect,
     queueDirection,
+    queueDirectionAfterShield,
+    turnDirection,
     createSnakeMode,
+    restoreSnakeMode,
+    setSpeedMultiplier,
+    movementInterval,
+    canMoveDirection,
+    turnSign,
+    nextMoveInterval,
     stepSnake
   };
 });

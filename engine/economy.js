@@ -54,6 +54,9 @@
           y: clampNumber(raw.y, 0, nurseryConfig.rows - 1, index === 0 ? 4 : nurseryConfig.rows - 5),
           direction: vectors[raw.direction] ? raw.direction : (index % 2 === 0 ? "right" : "left"),
           progressMs: clampNumber(raw.progressMs, 0, nurseryConfig.growthMs, 0),
+          feedingAccumulatorMs: clampNumber(raw.feedingAccumulatorMs, 0, nurseryConfig.seedIntervalMs,
+            clampNumber(raw.progressMs, 0, nurseryConfig.growthMs, 0) % nurseryConfig.seedIntervalMs),
+          tailWiggle: Boolean(raw.tailWiggle),
           temporary: Boolean(raw.temporary)
         }))
       : [];
@@ -84,6 +87,7 @@
       eggProgress: clampNumber(saved.eggProgress, 0, Number.MAX_SAFE_INTEGER, 0),
       eggsStarted: Math.floor(clampNumber(saved.eggsStarted, 0, Number.MAX_SAFE_INTEGER, 0)),
       hatchlings,
+      feedingPaused: saved.feedingPaused === true,
       colonyCount: clampNumber(saved.colonyCount, 0, Number.MAX_SAFE_INTEGER, 0),
       seedTickAccumulatorMs: clampNumber(saved.seedTickAccumulatorMs, 0, nurseryConfig.seedIntervalMs, 0),
       movementAccumulatorMs: clampNumber(saved.movementAccumulatorMs, 0, nurseryConfig.moveIntervalMs, 0)
@@ -189,6 +193,8 @@
       y: index === 0 ? 4 : nurseryConfig.rows - 5,
       direction: index % 2 === 0 ? "right" : "left",
       progressMs: 0,
+      feedingAccumulatorMs: 0,
+      tailWiggle: false,
       temporary: index >= (capacity == null ? nurseryConfig.capacity : capacity)
     };
   }
@@ -207,16 +213,38 @@
     return { type: "eggBoardHatched", temporary: hatchling.temporary };
   }
 
+  function addDevelopmentEgg(state) {
+    if (!canStartEgg(state.nursery)) return null;
+    const activation = calculateHabitatActivation(
+      state.habitats.counts, foodValueFromUpgrades(state.upgrades), state.notables, state.habitats.upgradeLevels);
+    const reductionMs = activation.eggHatchReductionSeconds * 1000;
+    startEgg(state.nursery, Math.max(0, nurseryConfig.eggHatchMs - reductionMs));
+    return { type: "developmentEggAdded" };
+  }
+
+  function addDevelopmentHatchling(state, rng) {
+    const capacity = nurseryCapacity(state.nursery);
+    if (state.nursery.hatchlings.length >= capacity) return null;
+    state.nursery.hatchlings.push(createHatchling(state.nursery.hatchlings, rng, capacity));
+    return { type: "developmentHatchlingAdded" };
+  }
+
   function moveHatchlings(nursery, rng) {
     nursery.hatchlings.forEach((hatchling) => {
+      hatchling.tailWiggle = false;
+      if (hatchlingLength(hatchling.progressMs) >= 2 && rng() < nurseryConfig.hatchlingTailWiggleChance) {
+        hatchling.tailWiggle = true;
+        return;
+      }
+      const currentVector = vectors[hatchling.direction];
       const choices = Object.keys(vectors).filter((directionName) => {
         const vector = vectors[directionName];
         const point = { x: hatchling.x + vector.x, y: hatchling.y + vector.y };
-        return point.x >= 0 && point.x < nurseryConfig.columns && point.y >= 0 && point.y < nurseryConfig.rows;
+        const reverses = currentVector && vector.x === -currentVector.x && vector.y === -currentVector.y;
+        return !reverses && point.x >= 0 && point.x < nurseryConfig.columns && point.y >= 0 && point.y < nurseryConfig.rows;
       });
       if (choices.length === 0) return;
 
-      const currentVector = vectors[hatchling.direction];
       const straight = currentVector
         ? { x: hatchling.x + currentVector.x, y: hatchling.y + currentVector.y }
         : null;
@@ -245,18 +273,23 @@
       return { seeds, changed: false };
     }
 
-    nursery.seedTickAccumulatorMs += deltaMs;
-    while (nursery.seedTickAccumulatorMs >= nurseryConfig.seedIntervalMs && nursery.hatchlings.length > 0) {
+    let remainingMs = deltaMs;
+    while (!nursery.feedingPaused && remainingMs > 0 && nursery.hatchlings.length > 0) {
       const activeCount = nursery.hatchlings.length;
-      if (seeds < activeCount) {
-        nursery.seedTickAccumulatorMs = 0;
-        break;
-      }
-      seeds -= activeCount;
-      nursery.seedTickAccumulatorMs -= nurseryConfig.seedIntervalMs;
+      if (seeds < activeCount) break;
+      const slice = Math.min(remainingMs, ...nursery.hatchlings.map((h) => Math.min(
+        nurseryConfig.seedIntervalMs - (h.feedingAccumulatorMs ?? (h.progressMs % nurseryConfig.seedIntervalMs)),
+        nurseryConfig.growthMs - h.progressMs)));
       nursery.hatchlings.forEach((hatchling) => {
-        hatchling.progressMs = Math.min(nurseryConfig.growthMs, hatchling.progressMs + nurseryConfig.seedIntervalMs);
+        hatchling.feedingAccumulatorMs = (hatchling.feedingAccumulatorMs ?? (hatchling.progressMs % nurseryConfig.seedIntervalMs)) + slice;
+        hatchling.progressMs = Math.min(nurseryConfig.growthMs, hatchling.progressMs + slice);
+        if (hatchling.feedingAccumulatorMs >= nurseryConfig.seedIntervalMs || hatchling.progressMs >= nurseryConfig.growthMs) {
+          seeds -= 1;
+          hatchling.feedingAccumulatorMs = 0;
+        }
       });
+      remainingMs -= slice;
+      nursery.seedTickAccumulatorMs = nursery.hatchlings[0]?.feedingAccumulatorMs || 0;
       changed = true;
 
       const graduates = nursery.hatchlings.filter((h) => h.progressMs >= nurseryConfig.growthMs);
@@ -299,44 +332,37 @@
       nursery.nestEggs.push({ elapsedMs: 0, hatchDurationMs: nurseryConfig.eggHatchMs });
       nursery.resupplyEggHolding -= 1;
     }
-    // Extra nest slots incubate independently. Finished eggs stay in their
-    // slot until there is nursery-yard space, just like the original slot.
-    nursery.nestEggs = nursery.nestEggs.filter((egg) => {
-      egg.elapsedMs = Math.min(egg.hatchDurationMs, egg.elapsedMs + dtMs);
-      if (egg.elapsedMs < egg.hatchDurationMs || nursery.hatchlings.length >= nurseryCapacity(nursery)) return true;
-      nursery.hatchlings.push(createHatchling(nursery.hatchlings, rng, nurseryCapacity(nursery)));
-      events.push({ type: "eggHatched" });
-      return false;
-    });
-
-    // Hatch the finished nest egg if the yard has a slot; never discard it.
-    const hatchIfPossible = () => {
-      if (nursery.eggElapsedMs === null || nursery.eggElapsedMs < nursery.eggHatchDurationMs) return;
-      if (nursery.hatchlings.length >= nurseryCapacity(nursery)) return; // hold
-      nursery.hatchlings.push(createHatchling(nursery.hatchlings, rng, nurseryCapacity(nursery)));
-      events.push({ type: "hatch" });
-      nursery.eggElapsedMs = null;
-      nursery.seedTickAccumulatorMs = 0;
-    };
-
-    if (nursery.eggElapsedMs !== null) {
-      const remaining = Math.max(0, nursery.eggHatchDurationMs - nursery.eggElapsedMs);
-      if (dtMs >= remaining) {
-        // Age hatchlings up to the hatch instant (may graduate one, freeing a
-        // slot), attempt to hatch, then age the rest. If the yard was full the
-        // egg holds at eggHatchMs; a graduation during the remaining time frees a
-        // slot, so re-attempt the hatch afterwards rather than waiting a tick.
-        ({ seeds } = advanceNursery(nursery, seeds, remaining, rng));
-        nursery.eggElapsedMs = nursery.eggHatchDurationMs; // finished (held if full)
-        hatchIfPossible();
-        ({ seeds } = advanceNursery(nursery, seeds, dtMs - remaining, rng));
-        hatchIfPossible();
-        return { seeds, events };
+    // Split time at every hatch and graduation. A hatchling must not receive
+    // feeding time from the interval in which it was still an egg.
+    const hatchFinishedEggs = () => {
+      const capacity = nurseryCapacity(nursery);
+      if (nursery.eggElapsedMs !== null && nursery.eggElapsedMs >= nursery.eggHatchDurationMs
+        && nursery.hatchlings.length < capacity) {
+        nursery.hatchlings.push(createHatchling(nursery.hatchlings, rng, capacity));
+        nursery.eggElapsedMs = null;
+        events.push({ type: "hatch" });
       }
-      nursery.eggElapsedMs += dtMs;
+      nursery.nestEggs = nursery.nestEggs.filter((egg) => {
+        if (egg.elapsedMs < egg.hatchDurationMs || nursery.hatchlings.length >= capacity) return true;
+        nursery.hatchlings.push(createHatchling(nursery.hatchlings, rng, capacity));
+        events.push({ type: "eggHatched" }); return false;
+      });
+    };
+    hatchFinishedEggs();
+    let remainingMs = dtMs;
+    while (remainingMs > 0) {
+      const boundaries = nursery.nestEggs.map((egg) => egg.hatchDurationMs - egg.elapsedMs);
+      if (nursery.eggElapsedMs !== null) boundaries.push(nursery.eggHatchDurationMs - nursery.eggElapsedMs);
+      if (!nursery.feedingPaused && seeds >= nursery.hatchlings.length) {
+        boundaries.push(...nursery.hatchlings.map((h) => nurseryConfig.growthMs - h.progressMs));
+      }
+      const slice = Math.min(remainingMs, ...boundaries.filter((time) => time > 0));
+      ({ seeds } = advanceNursery(nursery, seeds, slice, rng));
+      if (nursery.eggElapsedMs !== null) nursery.eggElapsedMs = Math.min(nursery.eggHatchDurationMs, nursery.eggElapsedMs + slice);
+      nursery.nestEggs.forEach((egg) => { egg.elapsedMs = Math.min(egg.hatchDurationMs, egg.elapsedMs + slice); });
+      hatchFinishedEggs();
+      remainingMs -= slice;
     }
-
-    ({ seeds } = advanceNursery(nursery, seeds, dtMs, rng));
     return { seeds, events };
   }
 
@@ -521,7 +547,18 @@
     return calculateHabitatActivation(counts, foodValue).provisionsProducedPerSecond;
   }
 
-  function tickHabitats(state, dtMs, foodValue) {
+  function lengthBonus(state) {
+    const level = Math.max(0, Math.floor(Number(state.upgrades?.lengthBonusLevel) || 0));
+    const perSegment = upgradeConfig.lengthBonus.basePerSegment + level * upgradeConfig.lengthBonus.increasePerLevel;
+    const length = state.mode === "snake" ? state.active?.snake?.length || 0 : 0;
+    const activation = calculateHabitatActivation(state.habitats.counts, foodValueFromUpgrades(state.upgrades), state.notables, state.habitats.upgradeLevels, { activateAllOverCapacity: state.provisions > 0 });
+    const applied = state.mode === "snake" && state.phase === "running" && length > 0 && activation.incomePerSecond > 0;
+    const multiplier = applied ? 1 + length * perSegment : 1;
+    return { level, length, perSegment, nextPerSegment: perSegment + upgradeConfig.lengthBonus.increasePerLevel,
+      applied, multiplier, seedIncomePerSecond: activation.incomePerSecond * multiplier };
+  }
+
+  function tickHabitats(state, dtMs, foodValue, seedIncomeMultiplier = 1) {
     if (dtMs <= 0) return { events: [] };
     const baselineActivation = calculateHabitatActivation(state.habitats.counts, foodValue, state.notables, state.habitats.upgradeLevels);
     const fullActivation = calculateHabitatActivation(
@@ -545,7 +582,7 @@
     let spentProvisions = 0;
     let foragedProvisions = 0;
     segments.forEach(({ activation, seconds }) => {
-      income += activation.incomePerSecond * seconds;
+      income += activation.incomePerSecond * seconds * seedIncomeMultiplier;
       branchIncome += activation.branchesPerSecond * seconds;
       provisionsIncome += activation.provisionsProducedPerSecond * seconds;
       spentProvisions += activation.provisionsConsumedPerSecond * seconds;
@@ -606,7 +643,7 @@
       const nurseryResult = tickNursery(state.nursery, state.seeds, sliceMs, rng);
       state.seeds = nurseryResult.seeds;
       events.push(...nurseryResult.events);
-      const habitatResult = tickHabitats(state, sliceMs, foodValue);
+      const habitatResult = tickHabitats(state, sliceMs, foodValue, ctx.seedIncomeMultiplier ?? 1);
       events.push(...habitatResult.events);
       events.push(...creditEggProgress(state, habitatResult.provisionsIncome));
       remainingMs -= sliceMs;
@@ -631,6 +668,8 @@
     createHabitats,
     createHatchling,
     addEggBoardHatchling,
+    addDevelopmentEgg,
+    addDevelopmentHatchling,
     eggRequirement,
     canStartEgg,
     eggHeldForSpace,
@@ -650,6 +689,7 @@
     calculateHabitatActivation,
     totalHabitatIncomePerSecond,
     totalProvisionsIncomePerSecond,
+    lengthBonus,
     tickHabitats,
     tickEconomy
   };

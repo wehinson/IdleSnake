@@ -59,10 +59,9 @@
       epithet: weighted(cfg.namePools.epithets.map((value) => ({ value, weight: 1 })), rng), createdAt: Number(now) || 0,
       sourceType: source.type, sourceReference: source.reference || "", powerType: type, powerMagnitude: magnitudeFor(type, rng), status: "INACTIVE"
     });
-    const canRetain = state.retained.length < capacity(state, habitatCounts) && !rosterOverCapacity(state, habitatCounts);
-    if (canRetain) state.retained.push(notable);
-    else { notable.status = "PENDING"; state.pending.push(notable); }
-    return { notable: clone(notable), retained: canRetain, events: [{ type: "NOTABLE_GENERATED", notable: clone(notable) }, { type: canRetain ? "NOTABLE_RETAINED" : "NOTABLE_PENDING", notableId: notable.id }] };
+    notable.status = "PENDING";
+    state.pending.push(notable);
+    return { notable: clone(notable), retained: false, events: [{ type: "NOTABLE_GENERATED", notable: clone(notable) }, { type: "NOTABLE_PENDING", notableId: notable.id }] };
   }
   function findRetained(state, id) { return state.retained.find((item) => item.id === id); }
   function isForagerEligible(habitat) { return Boolean(habitat && !habitat.producesProvisions && habitat.producesSeeds !== false); }
@@ -96,17 +95,18 @@
     else { removed.status = "DISMISSED"; state.dismissedCount += 1; }
     return removed;
   }
-  function promotePendingIfSpace(state, habitatCounts) {
-    if (!state.pending.length || state.retained.length >= capacity(state, habitatCounts)) return null;
-    const promoted = state.pending.shift(); promoted.status = "INACTIVE"; promoted.assignedHabitatId = null; state.retained.push(promoted);
-    return clone(promoted);
-  }
-  function resolvePending(state, decision, replaceId, now, habitatCounts) {
-    const candidate = state.pending[0]; if (!candidate) return { accepted: false, reason: "noPending" };
-    if (decision === "RELIEVE") { state.pending.shift(); state.dismissedCount += 1; return { accepted: true, events: [{ type: "NOTABLE_DISMISSED", notableId: candidate.id }] }; }
+  function resolvePending(state, decision, replaceId, now, habitatCounts, candidateId) {
+    const candidateIndex = candidateId == null ? 0 : state.pending.findIndex((item) => item.id === candidateId);
+    const candidate = state.pending[candidateIndex]; if (!candidate) return { accepted: false, reason: candidateId == null ? "noPending" : "candidateMissing" };
+    if (decision === "RELIEVE" || decision === "REJECT") { state.pending.splice(candidateIndex, 1); state.dismissedCount += 1; return { accepted: true, events: [{ type: "NOTABLE_DISMISSED", notableId: candidate.id }] }; }
+    if (decision === "ACCEPT") {
+      if (state.retained.length >= capacity(state, habitatCounts)) return { accepted: false, reason: "notableCapacityFull" };
+      state.pending.splice(candidateIndex, 1); candidate.status = "INACTIVE"; candidate.assignedHabitatId = null; state.retained.push(candidate);
+      return { accepted: true, events: [{ type: "NOTABLE_RETAINED", notableId: candidate.id }] };
+    }
     if (decision !== "REPLACE") return { accepted: false, reason: "invalidDecision" };
     const removed = removeRetained(state, replaceId, now); if (!removed) return { accepted: false, reason: "replacementMissing" };
-    state.pending.shift(); candidate.status = "INACTIVE"; state.retained.push(candidate);
+    state.pending.splice(candidateIndex, 1); candidate.status = "INACTIVE"; state.retained.push(candidate);
     return { accepted: true, events: [{ type: removed.hasServed ? "NOTABLE_RETIRED" : "NOTABLE_DISMISSED", notableId: removed.id }, { type: "NOTABLE_RETAINED", notableId: candidate.id }], removed: clone(removed) };
   }
   function recordContribution(state, notableId, habitatId, dtMs, contributions) {
@@ -118,5 +118,5 @@
     Object.entries(contributions).forEach(([field, value]) => { if (STAT_FIELDS.includes(field)) notable[field] += Math.max(0, Number(value) || 0); });
   }
   function assignedTo(state, habitatId) { return state?.retained?.find((item) => item.status === "ASSIGNED" && item.assignedHabitatId === habitatId) || null; }
-  return { createState, capacity, rosterOverCapacity, generate, findRetained, assignedTo, isForagerEligible, hardCapacity, assign, unassign, removeRetained, promotePendingIfSpace, resolvePending, recordContribution };
+  return { createState, capacity, rosterOverCapacity, generate, findRetained, assignedTo, isForagerEligible, hardCapacity, assign, unassign, removeRetained, resolvePending, recordContribution };
 });

@@ -12,7 +12,7 @@
   const historyInteger = (value) => Math.max(0, Math.min(Number.MAX_SAFE_INTEGER, Math.floor(Number(value) || 0)));
   const roundPoints = (value) => Math.round(nonnegative(value) * 1000) / 1000;
   const historyLimit = Math.max(1, integer(config.historyRetentionConfig?.migrationPerOutcome) || 50);
-  const upgradeDefaults = { boardLevel: 0, foodTypeLevel: 0, foodCountLevel: 0, shieldLevel: 0, minigamesLevel: 0 };
+  const upgradeDefaults = { boardLevel: 0, foodTypeLevel: 0, foodCountLevel: 0, shieldLevel: 0, minigamesLevel: 0, lengthBonusLevel: 0, eggChanceLevel: 0 };
   function retainLatest(items) { return items.length > historyLimit ? items.slice(-historyLimit) : items; }
   function historyCount(savedTotal, items) { return Math.max(historyInteger(savedTotal), items.length); }
   function recordHistory(migration, key, totalKey, expedition) {

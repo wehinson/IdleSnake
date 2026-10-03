@@ -5,6 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Snake Forever</title>
     <link rel="stylesheet" href="styles.css">
+    <!-- Theme redesigns: ThemeKit plus one scoped stylesheet and one data file per theme. -->
+    <script src="themes/theme-kit.js"></script>
+    <link rel="stylesheet" href="themes/clear-cover-2/theme.css">
+    <link rel="stylesheet" href="themes/amber-graphite/theme.css">
+    <link rel="stylesheet" href="themes/night-green/theme.css">
+    <link rel="stylesheet" href="themes/oxblood/theme.css">
+    <link rel="stylesheet" href="themes/carbon/theme.css">
+    <script src="themes/clear-cover-2/theme.js"></script>
+    <script src="themes/amber-graphite/theme.js"></script>
+    <script src="themes/night-green/theme.js"></script>
+    <script src="themes/oxblood/theme.js"></script>
+    <script src="themes/carbon/theme.js"></script>
+    <script>ThemeKit.start({ storageKey: "idlesnake.theme.v1" });</script>
   </head>
   <body>
     <div class="app-layout">
@@ -13,6 +26,12 @@
         <div class="menu-stat">
           <span>Seeds</span>
           <strong id="seedsTotal">000000</strong>
+          <div class="seed-income-summary">
+            Income <b id="seedIncomePerSecond">+0/s</b>
+          </div>
+          <div class="length-bonus-summary" id="lengthBonusSummary" hidden>
+            Length Bonus <b id="lengthBonusMultiplier">1.00×</b>
+          </div>
         </div>
         <nav class="menu-tabs" aria-label="Menu areas">
           <button class="menu-tab is-active" type="button" data-menu-tab="upgrades" aria-selected="true">Upgrades</button>
@@ -22,22 +41,17 @@
         </nav>
 
         <section class="upgrade-list menu-panel-content" data-menu-panel="upgrades" aria-label="Upgrades">
-          <div class="menu-section-heading">
-            <span>Upgrade shop</span>
-            <span class="menu-section-mark">BUY</span>
-          </div>
-
           <article class="upgrade-card" data-upgrade-card="board">
             <div class="upgrade-card-heading">
               <div>
                 <span class="upgrade-label">Board size</span>
-                <strong id="boardUpgradeName">5x7</strong>
+                <strong id="boardUpgradeName">5x8</strong>
               </div>
               <span class="upgrade-level" id="boardUpgradeLevel">LV 1</span>
             </div>
             <select class="upgrade-select" id="boardSizeSelect" aria-label="Active board size" hidden></select>
-            <p class="upgrade-current" id="boardUpgradeCurrent">5x7 board</p>
-            <p class="upgrade-next" id="boardUpgradeNext">Next: 5x9</p>
+            <p class="upgrade-current" id="boardUpgradeCurrent">5x8 board</p>
+            <p class="upgrade-next" id="boardUpgradeNext">Next: 5x10</p>
             <button class="upgrade-button" id="boardUpgradeButton" type="button">Buy</button>
           </article>
 
@@ -93,6 +107,32 @@
             <button class="upgrade-button" id="minigamesButton" type="button">Buy</button>
           </article>
 
+          <article class="upgrade-card" data-upgrade-card="lengthBonus">
+            <div class="upgrade-card-heading">
+              <div>
+                <span class="upgrade-label">Length Bonus</span>
+                <strong id="lengthBonusName">1% per segment</strong>
+              </div>
+              <span class="upgrade-level" id="lengthBonusLevel">LV 0</span>
+            </div>
+            <p class="upgrade-current">More passive Seeds while Snake is running</p>
+            <p class="upgrade-next" id="lengthBonusNext">Next: 6% per segment</p>
+            <button class="upgrade-button" id="lengthBonusButton" type="button">Buy</button>
+          </article>
+
+          <article class="upgrade-card" data-upgrade-card="eggChance">
+            <div class="upgrade-card-heading">
+              <div>
+                <span class="upgrade-label">Egg chance</span>
+                <strong id="eggChanceName">0.5% per Seed spawn</strong>
+              </div>
+              <span class="upgrade-level" id="eggChanceLevel">LV 0</span>
+            </div>
+            <p class="upgrade-current">Applies only on egg boards</p>
+            <p class="upgrade-next" id="eggChanceNext">Next: 1% per Seed spawn</p>
+            <button class="upgrade-button" id="eggChanceButton" type="button">Buy</button>
+          </article>
+
           <div class="reset-progress">
             <button class="reset-progress-button" id="resetProgressButton" type="button" aria-label="Hold to reset all progress">
               <span class="reset-progress-fill" id="resetProgressFill"></span>
@@ -102,10 +142,6 @@
         </section>
 
         <section class="nursery-panel menu-panel-content" data-menu-panel="nursery" aria-label="Nursery" hidden>
-          <div class="menu-section-heading">
-            <span>Breeding program</span>
-            <span class="menu-section-mark">GROW</span>
-          </div>
           <div class="nursery-currency" aria-label="Nursery currencies">
             <span>Branches <strong id="nurseryBranchTotal">0</strong></span>
           </div>
@@ -113,13 +149,13 @@
           <article class="nursery-goal-card">
             <span class="upgrade-label">Next milestone</span>
             <div class="egg-progress-heading">
-              <strong id="nurseryEggProgressText">0 / 500 seeds</strong>
+              <strong id="nurseryEggProgressText">0 / 500</strong>
               <span class="egg-progress-rate" id="eggProgressRate" aria-label="Egg progress rate">+0/s</span>
             </div>
             <div class="growth-bar egg-progress-bar" role="progressbar" aria-label="Progress to next egg" aria-valuemin="0" aria-valuemax="500" aria-valuenow="0">
               <span id="eggProgressFill"></span>
             </div>
-            <p id="nurserySeedStatus">500 seeds to next egg</p>
+            <p id="nurserySeedStatus">500 provisions to next egg</p>
           </article>
 
           <article class="nest-card">
@@ -141,6 +177,7 @@
                 <span class="upgrade-label">Hatchling yard</span>
                 <strong>Nursery</strong>
               </div>
+              <button id="pauseFeedingButton" class="nursery-feeding-button" type="button" aria-pressed="false">Pause feeding</button>
               <span class="upgrade-level" id="nurseryCapacity">0 / 2</span>
             </div>
             <div class="nursery-grid" id="nurseryGrid" aria-label="12 by 15 Nursery grid"></div>
@@ -155,11 +192,6 @@
 
         <section class="colony-panel menu-panel-content" data-menu-panel="colony" aria-label="Colony" hidden>
           <div class="colony-overview" id="colonyOverview">
-            <div class="menu-section-heading">
-              <span>Long-term record</span>
-              <span class="menu-section-mark">LOG</span>
-            </div>
-
             <article class="colony-placeholder">
               <span class="upgrade-label">Snakes available</span>
               <strong id="colonyCount">000</strong>
@@ -195,7 +227,23 @@
               <div><span class="upgrade-label">Colony leaders</span><strong id="notablesSummary">Notables: 0 / 1</strong></div>
               <span class="menu-section-mark">LEAD</span>
             </div>
-            <div id="pendingNotable"></div>
+            <section class="notable-candidates" aria-labelledby="notableCandidatesHeading">
+              <div class="notable-section-heading">
+                <h3 id="notableCandidatesHeading">Candidates</h3>
+                <span id="candidateQueueSummary">0 waiting</span>
+              </div>
+              <p class="colony-note">Select a candidate to review. Five candidates are shown on each page.</p>
+              <div class="candidate-list" id="candidateList"></div>
+              <nav class="candidate-pagination" id="candidatePagination" aria-label="Candidate pages" hidden>
+                <button type="button" id="candidatePreviousPage">Previous</button>
+                <span id="candidatePageStatus">Page 1 of 1</span>
+                <button type="button" id="candidateNextPage">Next</button>
+              </nav>
+            </section>
+            <section class="candidate-decision" aria-labelledby="candidateDecisionHeading">
+              <h3 id="candidateDecisionHeading">Candidate to keep</h3>
+              <div id="pendingNotable"></div>
+            </section>
             <button class="upgrade-button" id="recruitNotableButton" type="button">Recruit Notable · Sacrifice 150 unassigned snakes</button>
             <h3>Notables</h3>
             <div class="notables-roster" id="notablesRoster"></div>
@@ -208,7 +256,6 @@
 
         <section class="migration-panel menu-panel-content" data-menu-panel="migration" aria-label="Settlement" hidden>
           <div class="settle-overview" id="settleOverview">
-            <div class="menu-section-heading"><span>Settlement</span><span class="menu-section-mark">GO</span></div>
             <article class="migration-summary-card">
               <div><span>Available</span><strong id="migrationAvailable">0 MP</strong></div>
               <div><span>Lifetime</span><strong id="migrationLifetime">0 MP</strong></div>
@@ -239,7 +286,6 @@
             <div class="migration-list" id="migrationHistory"></div>
           </div>
           <section class="trade-panel" id="tradePanel" hidden aria-label="Trade">
-            <div class="menu-section-heading"><span>Trade routes</span><span class="menu-section-mark">LINK</span></div>
             <article class="trade-route-builder">
               <div class="trade-route-pair">
                 <label class="migration-field">Settlement A<select id="tradeSettlementA"></select></label>
@@ -274,7 +320,7 @@
             </div>
             <div>
               <span class="stat-label">Grid</span>
-              <strong id="gridLabel">5x7</strong>
+              <strong id="gridLabel">5x8</strong>
               <select class="grid-select" id="duelGridSelect" aria-label="VS Snake grid size" hidden>
                 <option value="10">10x10</option>
                 <option value="15">15x15</option>
@@ -307,11 +353,26 @@
                 <span class="color-choice-label">BODY</span>
                 <div class="color-swatches" id="bodyColorChoices" role="group" aria-label="Snake body color"></div>
               </div>
-              <button class="personalization-back" id="reducedMotionButton" type="button" aria-pressed="false">Reduced motion: Off</button>
+              <button class="personalization-back" id="reducedMotionButton" type="button" aria-pressed="false" aria-describedby="reducedMotionNote">Reduced motion: Off</button>
+              <p class="motion-setting-note" id="reducedMotionNote">Stops food pulses, bite and death effects, and button movement. Game pieces still move. Your device setting also applies.</p>
               <div class="color-choice-group">
                 <span class="color-choice-label">HEAD</span>
                 <div class="color-swatches" id="headColorChoices" role="group" aria-label="Snake head color"></div>
               </div>
+              <section class="mobile-controls-settings" aria-labelledby="snakeSpeedHeading">
+                <h2 id="snakeSpeedHeading">Snake speed</h2>
+                <div class="snake-speed-options" role="group" aria-label="Snake speed">
+                  <button class="mobile-control-toggle" type="button" data-snake-speed="turtle" aria-label="Turtle speed" title="Turtle speed" aria-pressed="false">
+                    <img class="snake-speed-icon" src="assets/speed-icons/turtle.png" alt="" aria-hidden="true" draggable="false">
+                  </button>
+                  <button class="mobile-control-toggle" type="button" data-snake-speed="snake" aria-label="Snake speed, default" title="Snake speed, default" aria-pressed="true">
+                    <img class="snake-speed-icon" src="assets/speed-icons/snake.png" alt="" aria-hidden="true" draggable="false">
+                  </button>
+                  <button class="mobile-control-toggle" type="button" data-snake-speed="rabbit" aria-label="Rabbit speed" title="Rabbit speed" aria-pressed="false">
+                    <img class="snake-speed-icon" src="assets/speed-icons/rabbit.png" alt="" aria-hidden="true" draggable="false">
+                  </button>
+                </div>
+              </section>
               <section class="mobile-controls-settings" aria-labelledby="chompSoundHeading">
                 <h2 id="chompSoundHeading">Chomp sound</h2>
                 <div class="chomp-sound-options">
@@ -376,12 +437,19 @@
               <button class="phone-key minigame-key" type="button" data-minigame="8" aria-label="Venom Strike battleship" title="Venom Strike">8</button>
               <button class="phone-key minigame-key" type="button" data-minigame="9" aria-label="Minigame 9">9</button>
               <button class="phone-key minigame-key personalization-key" type="button" data-minigame="0" aria-label="Personalization">0</button>
+              <button id="fullscreenModeButton" class="phone-key fullscreen-mode-button" type="button" aria-pressed="false" aria-label="Fullscreen" hidden><span aria-hidden="true">⛶</span></button>
             </div>
             <button class="minimized-keypad-button" id="minimizedKeypadButton" type="button" aria-expanded="false" aria-controls="minigameKeypad">Games</button>
             <button class="large-dpad-personalize-button" id="largeDpadPersonalizeButton" type="button">Personalize</button>
             <button id="startButton" class="action-key" type="button">Start</button>
             <button id="pauseButton" class="action-key" type="button">Pause</button>
             <button id="resetButton" class="action-key" type="button">Reset</button>
+            <div class="fullscreen-controls" aria-label="Fullscreen controls">
+              <button id="fullscreenSettingsButton" class="action-key" type="button">Settings</button>
+              <button id="fullscreenMinigamesButton" class="action-key" type="button" aria-expanded="false" aria-controls="fullscreenMinigameMenu">Minigames</button>
+              <button id="phoneModeButton" class="action-key" type="button">Phone Mode</button>
+              <div id="fullscreenMinigameMenu" class="fullscreen-minigame-menu" role="group" aria-label="Minigames" hidden></div>
+            </div>
           </div>
         </section>
       </main>
@@ -394,6 +462,7 @@
     <script src="engine/trade-routes.js"></script>
     <script src="engine/resupply.js"></script>
     <script src="engine/snake.js"></script>
+    <script src="engine/snake-appearance.js"></script>
     <script src="engine/sokoban.js"></script>
     <script src="engine/maze.js"></script>
     <script src="engine/crossing.js"></script>
@@ -405,10 +474,18 @@
     <script src="engine/centipede.js"></script>
     <script src="snakebird-engine.js"></script>
     <script src="engine/save-guard.js"></script>
-    <script src="engine/chomp-sounds.js"></script>
+    <script src="engine/puzzle-levels.js"></script>
     <script src="engine/session.js"></script>
+    <script src="engine/save-projection.js"></script>
+    <script src="engine/queries.js"></script>
+    <script src="engine/state-reader.js"></script>
+    <script src="scripts/snake-timing.js"></script>
+    <script src="scripts/animation-clock.js"></script>
+    <script src="engine/chomp-sounds.js"></script>
     <script src="engine/tongue.js"></script>
     <script src="scripts/tongue-draw.js"></script>
+
+    <script src="scripts/ui-sounds.js"></script>
     <script src="game.js"></script>
   </body>
 </html>

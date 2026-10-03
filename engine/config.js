@@ -11,9 +11,21 @@
 })(typeof window !== "undefined" ? window : globalThis, () => {
   const gameplaySpeed = 1;
   const slowedTick = (milliseconds) => Math.round(milliseconds / gameplaySpeed);
+  const boardLevels = ["5x8", "5x10", "8x10", "11x11", "12x15", "15x21", "15x22", "20x25"];
+  const minigameCatalog = [
+    { mode: "duel", name: "Vs Snake" },
+    { mode: "maze", name: "Snake Forever" },
+    { mode: "breakout", name: "Brick Breakout" },
+    { mode: "crossing", name: "Snakeger" },
+    { mode: "snakebird", name: "Snakebird" },
+    { mode: "sokoban", name: "Sokoban" },
+    { mode: "broodline", name: "Broodline" },
+    { mode: "battleship", name: "Venom Strike" },
+    { mode: "centipede", name: "Centipede" }
+  ];
   const upgradeConfig = {
     board: {
-      levels: ["5x7", "5x9", "7x9", "9x9", "9x13", "11x15", "15x21", "21x21"],
+      levels: boardLevels,
       baseCost: 18,
       costRatio: 2.35
     },
@@ -32,6 +44,8 @@
     },
     foodCount: { baseCount: 1, baseCost: 160, costRatio: 3.75 },
     shield: { baseCost: 420, costRatio: 4.5 },
+    lengthBonus: { baseCost: 500, costRatio: 2.5, basePerSegment: 0.01, increasePerLevel: 0.05 },
+    eggChance: { baseCost: 500, costRatio: 2.5, increasePerLevel: 0.005, maxLevel: 199 },
     minigames: {
       levels: ["1", "2", "3", "4", "5", "6", "7", "8", "9"],
       maxLevel: 9,
@@ -45,11 +59,17 @@
     // the opening cadence 40% slower while preserving the existing speed-up
     // progression and minimum tick interval.
     startTickMs: slowedTick(190 / 0.6),
-    minTickMs: slowedTick(82),
-    maxQueuedDirections: 2,
+    boardSpeedIncreasePerLevel: 0.10,
+    speedPresets: { turtle: 0.75, snake: 1, rabbit: 1.5 },
+    maximumSpeedMultiplier: 3,
+    accelerationRateIncrease: 1.15,
+    inputLateToleranceMs: 34,
+    maxQueuedDirections: 3,
+    turnTimingEnabled: false,
+    collisionGraceMs: 120,
     eggBoardMinRuns: 100,
     eggBoardMaxRuns: 200,
-    eggSpawnChance: 0.05
+    eggSpawnChance: 0.005
   };
 
   const nurseryConfig = {
@@ -59,11 +79,12 @@
     eggCost: 500,
     eggCostRatio: 1.01,
     eggHatchMs: 5 * 60 * 1000,
-    growthMs: 10 * 60 * 1000,
-    twoBlockMs: 2 * 60 * 1000,
-    threeBlockMs: 7 * 60 * 1000,
-    seedIntervalMs: 1000,
+    growthMs: 15 * 60 * 1000,
+    twoBlockMs: 5 * 60 * 1000,
+    threeBlockMs: 10 * 60 * 1000,
+    seedIntervalMs: 900,
     moveIntervalMs: 430,
+    hatchlingTailWiggleChance: 0.05,
     upgrades: {
       // Nursery improvements are deliberately late-game sinks. Each purchase
       // advances exactly one level; there is no bulk-buy path.
@@ -139,19 +160,12 @@
     }
   };
 
-  // Mastery rewards use stable IDs and explicit configured scores. These values
-  // intentionally match the former board-area rule, but are no longer inferred
-  // by reward code and can be balanced independently later.
-  const boardMasteryConfig = [
-    { masteryId: "snake-board-5x7", boardSize: "5x7", masteryScore: 31 },
-    { masteryId: "snake-board-5x9", boardSize: "5x9", masteryScore: 41 },
-    { masteryId: "snake-board-7x9", boardSize: "7x9", masteryScore: 59 },
-    { masteryId: "snake-board-9x9", boardSize: "9x9", masteryScore: 77 },
-    { masteryId: "snake-board-9x13", boardSize: "9x13", masteryScore: 113 },
-    { masteryId: "snake-board-11x15", boardSize: "11x15", masteryScore: 161 },
-    { masteryId: "snake-board-15x21", boardSize: "15x21", masteryScore: 311 },
-    { masteryId: "snake-board-21x21", boardSize: "21x21", masteryScore: 437 }
-  ];
+  // Every mastery target fills the board after accounting for the three cells
+  // occupied by the starting snake. New board sizes inherit the same rule.
+  const boardMasteryConfig = boardLevels.map((boardSize) => {
+    const [columns, rows] = boardSize.split("x").map(Number);
+    return { masteryId: `snake-board-${boardSize}`, boardSize, masteryScore: Math.max(0, columns * rows - 3) };
+  });
 
   const migrationConfig = {
     destinations: ["Wetlands", "Highlands", "Badlands", "Coast"],
@@ -257,5 +271,5 @@
     completedResupplyMissions: 50
   };
 
-  return { gameplaySpeed, upgradeConfig, snakeConfig, nurseryConfig, habitatConfig, notableConfig, boardMasteryConfig, migrationConfig, tradeRouteConfig, resupplyConfig, historyRetentionConfig };
+  return { gameplaySpeed, minigameCatalog, upgradeConfig, snakeConfig, nurseryConfig, habitatConfig, notableConfig, boardMasteryConfig, migrationConfig, tradeRouteConfig, resupplyConfig, historyRetentionConfig };
 });

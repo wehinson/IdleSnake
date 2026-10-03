@@ -30,11 +30,12 @@ test("every board has an explicit stable mastery id and reachable configured sco
   });
 });
 
-test("weighted generation is stable and queues at capacity", () => {
-  const state = notableState([baseNotable()]);
+test("weighted generation is stable and always queues for a decision", () => {
+  const state = notableState();
   const generated = notables.generate(state, { type: "TEST", reference: "Board" }, rngSequence([0, 0, 0, 0]), 100, []);
   assert.equal(generated.notable.powerType, "PRODUCTION_INCREASE");
   assert.equal(generated.notable.powerMagnitude, 0.15);
+  assert.equal(state.retained.length, 0);
   assert.equal(state.pending.length, 1);
   const restored = notables.createState(JSON.parse(JSON.stringify(state)));
   assert.deepEqual(restored.pending[0], state.pending[0]);
@@ -69,6 +70,44 @@ test("pending replacement archives served leaders and dismisses unused leaders",
   assert.equal(unused.elders.length, 0); assert.equal(unused.dismissedCount, 1);
 });
 
+test("a selected pending candidate can be resolved without changing earlier candidates", () => {
+  const state = notableState([baseNotable()]);
+  state.pending = [
+    baseNotable({ id: "candidate-1", status: "PENDING", name: "First" }),
+    baseNotable({ id: "candidate-2", status: "PENDING", name: "Second" }),
+    baseNotable({ id: "candidate-3", status: "PENDING", name: "Third" })
+  ];
+  const relieved = notables.resolvePending(state, "RELIEVE", null, 3, [], "candidate-2");
+  assert.equal(relieved.accepted, true);
+  assert.deepEqual(state.pending.map((item) => item.id), ["candidate-1", "candidate-3"]);
+  const replaced = notables.resolvePending(state, "REPLACE", "n1", 4, [], "candidate-3");
+  assert.equal(replaced.accepted, true);
+  assert.deepEqual(state.pending.map((item) => item.id), ["candidate-1"]);
+  assert.equal(state.retained[0].id, "candidate-3");
+  assert.equal(notables.resolvePending(state, "RELIEVE", null, 5, [], "missing").reason, "candidateMissing");
+});
+
+test("accepting a candidate is required before it enters the retained roster", () => {
+  const state = notableState();
+  notables.generate(state, { type: "TEST" }, rngSequence([0, 0, 0, 0]), 2, []);
+  assert.equal(state.retained.length, 0);
+  assert.equal(state.pending.length, 1);
+  assert.equal(notables.resolvePending(state, "ACCEPT", null, 3, []).accepted, true);
+  assert.equal(state.retained.length, 1);
+  assert.equal(state.retained[0].status, "INACTIVE");
+  assert.equal(state.pending.length, 0);
+});
+
+test("accepting a candidate requires available Notable capacity", () => {
+  const state = notableState([baseNotable()]);
+  state.pending = [baseNotable({ id: "candidate-1", status: "PENDING" })];
+  const result = notables.resolvePending(state, "ACCEPT", null, 3, [], "candidate-1");
+  assert.equal(result.accepted, false);
+  assert.equal(result.reason, "notableCapacityFull");
+  assert.deepEqual(state.retained.map((item) => item.id), ["n1"]);
+  assert.deepEqual(state.pending.map((item) => item.id), ["candidate-1"]);
+});
+
 test("production, Forager, and contribution tracking use final recurring output", () => {
   const leader = baseNotable({ status: "ASSIGNED", assignedHabitatId: 0, powerType: "PRODUCTION_INCREASE", powerMagnitude: 0.5 });
   const state = { seeds: 0, provisions: 0, upgrades: { foodTypeLevel: 0 }, nursery: economy.createNursery({}, 0), habitats: economy.createHabitats({ counts: [1] }), notables: notableState([leader]) };
@@ -98,8 +137,10 @@ test("session direct recruitment is atomic and persists its generated result", (
   const result = game.dispatch({ type: "recruitNotable", now: 10 });
   assert.equal(result.snapshot.nursery.colonyCount, 350);
   assert.equal(result.snapshot.notables.directRecruitmentsCompleted, 1);
+  assert.equal(result.snapshot.notables.retained.length, 0);
+  assert.equal(result.snapshot.notables.pending.length, 1);
   const restored = sessionApi.createGameSession({ save: game.serialize(), now: 10, rng: () => 0.99 }).snapshot();
-  assert.deepEqual(restored.notables.retained, result.snapshot.notables.retained);
+  assert.deepEqual(restored.notables.pending, result.snapshot.notables.pending);
 });
 
 test("session rejects recruitment below cost and placement above hard capacity", () => {
@@ -118,10 +159,10 @@ test("batch placement can create multiple persistent candidates in order", () =>
   const game = sessionApi.createGameSession({ save: save({ habitats: { counts: [] } }), now: 1, rng: rngSequence(Array(40).fill(0)) });
   const result = game.dispatch({ type: "placeHabitat", index: 0, count: 4, now: 1 });
   assert.equal(result.snapshot.nursery.colonyCount, 496);
-  assert.deepEqual(result.snapshot.notables.retained.map((item) => item.id), ["notable-1", "notable-2"]);
-  assert.deepEqual(result.snapshot.notables.pending.map((item) => item.id), ["notable-3", "notable-4"]);
+  assert.deepEqual(result.snapshot.notables.retained, []);
+  assert.deepEqual(result.snapshot.notables.pending.map((item) => item.id), ["notable-1", "notable-2", "notable-3", "notable-4"]);
   const restored = sessionApi.createGameSession({ save: game.serialize(), now: 1, rng: () => 0.99 }).snapshot();
-  assert.deepEqual(restored.notables.pending.map((item) => item.id), ["notable-3", "notable-4"]);
+  assert.deepEqual(restored.notables.pending.map((item) => item.id), ["notable-1", "notable-2", "notable-3", "notable-4"]);
 });
 
 test("consumption reduction lowers recurring costs but never below zero", () => {
@@ -141,14 +182,13 @@ test("removing a capacity leader leaves population intact and marks over capacit
   assert.equal(result.snapshot.habitatOverCapacity[0], true);
 });
 
-test("retiring or dismissing a retained notable immediately promotes the first pending candidate", () => {
+test("retiring or dismissing a retained notable leaves every candidate pending", () => {
   const retained = baseNotable({ id: "kept" });
   const firstPending = baseNotable({ id: "waiting-1", status: "PENDING" });
   const secondPending = baseNotable({ id: "waiting-2", status: "PENDING" });
   const game = sessionApi.createGameSession({ save: save({ notables: { retained: [retained], pending: [firstPending, secondPending] }, habitats: { counts: [] } }), now: 1, rng: () => 0.5 });
   const result = game.dispatch({ type: "dismissNotable", notableId: "kept", now: 2 });
-  assert.deepEqual(result.snapshot.notables.retained.map((item) => item.id), ["waiting-1"]);
-  assert.equal(result.snapshot.notables.retained[0].status, "INACTIVE");
-  assert.deepEqual(result.snapshot.notables.pending.map((item) => item.id), ["waiting-2"]);
-  assert.ok(result.events.some((item) => item.type === "NOTABLE_RETAINED" && item.fromPending));
+  assert.deepEqual(result.snapshot.notables.retained, []);
+  assert.deepEqual(result.snapshot.notables.pending.map((item) => item.id), ["waiting-1", "waiting-2"]);
+  assert.equal(result.events.some((item) => item.type === "NOTABLE_RETAINED"), false);
 });

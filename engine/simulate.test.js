@@ -35,6 +35,33 @@ test("runHeadless invokes the controller each step with the latest snapshot", ()
   assert.deepEqual(seen.map((s) => s.i), [0, 1, 2, 3, 4]);
 });
 
+test("runHeadless stops when a controller action ends a turn-based puzzle", () => {
+  let tickCalls = 0;
+  const game = {
+    snapshot: () => ({ mode: "sokoban", phase: "running" }),
+    dispatch: () => ({
+      snapshot: { mode: "sokoban", phase: "gameover" },
+      events: [{ type: "runEnded", mode: "sokoban", won: true }]
+    }),
+    tick: () => {
+      tickCalls += 1;
+      return { snapshot: { mode: "sokoban", phase: "gameover" }, events: [] };
+    }
+  };
+
+  const result = runHeadless(game, {
+    stepMs: 100,
+    steps: 10,
+    controller: () => ({ type: "direction", direction: "right" })
+  });
+
+  assert.equal(result.ended, true);
+  assert.equal(result.steps, 1);
+  assert.equal(result.snapshot.phase, "gameover");
+  assert.equal(tickCalls, 0);
+  assert.deepEqual(result.events, [{ type: "runEnded", mode: "sokoban", won: true }]);
+});
+
 test("a bot controller can steer the snake (direction reflected in movement)", () => {
   const game = createGameSession({ now: 0, rng: lcg(3) });
   game.dispatch({ type: "selectMode", mode: "snake" });

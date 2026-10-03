@@ -1,0 +1,817 @@
+/* Amber Graphite (Claude)
+   A brushed gunmetal phone with graphite keys and a softer amber backlight with scanlines.
+   The menu is near-black with a faint grid, Schibsted Grotesk, and sharp solid off-white
+   buttons. The nursery is a second, green LCD. */
+
+html[data-theme="amber-graphite"] {
+  --s-font: "Schibsted Grotesk", "Helvetica Neue", Arial, sans-serif;
+  --s-page: #0b0b0c;
+  --s-menu: #121213;
+  --s-raise: #1d1d1f;
+  --s-raise-2: #262628;
+  --s-line: #2a2a2d;
+  --s-line-strong: #3e3e43;
+  --s-grid: rgba(255, 255, 255, 0.03);
+  --s-text: #f1ede4;
+  --s-muted: #a8a49b;
+  --s-faint: #64615b;
+  --s-accent: #e0a24a;
+  --s-accent-ink: #1a1206;
+  --s-accent-text: #f0bb6c;
+  --s-button: #f1ede4;
+  --s-button-ink: #121213;
+  --s-button-hover: #ffffff;
+  --s-radius-panel: 10px;
+  --s-radius-box: 6px;
+  --s-radius-pill: 999px;
+  --s-radius-button: 6px;
+  --s-c1: #e0a24a;
+  --s-c2: #b9c9a0;
+  --s-c3: #9fc4e0;
+  --s-stop: #d9583f;
+  --s-stop-text: #f08a70;
+  --s-go: #6fbf5a;
+  --s-egg: #f6dfae;
+  --s-nursery-bg: #a9c48f;
+  --s-nursery-ink: #1d2a14;
+  --s-nursery-frame: #2a2a2d;
+  --s-lcd: #d9aa5e;
+  --s-lcd-ink: #2b1a05;
+  --s-lcd-dim: #7a5520;
+  --s-lcd-glow: inset 0 0 18px rgba(43, 26, 5, 0.25), 0 0 18px rgba(217, 170, 94, 0.12);
+  --s-seed: #8a2414;
+  --s-lens: #0c0c0d;
+  --s-hint: #8f8b84;
+  --s-brand: #c9c5bc;
+  --s-key-bg: linear-gradient(180deg, #3b3d41, #26282b);
+  --s-key-border: #0e0f10;
+  --s-key-highlight: rgba(255, 255, 255, 0.12);
+  --s-key-base: #070708;
+  --s-key-ink: #ece8df;
+  --s-nav-bg: linear-gradient(180deg, #5d6066, #3b3d42);
+  --s-nav-ink: #f1ede4;
+  --s-key-locked: #1c1d1f;
+  --s-key-locked-border: #111213;
+  --s-key-locked-ink: #57544f;
+  --s-dpad-well: #141516;
+}
+
+/* ---------- shared round 3 system ----------
+   A dark, flat, minimal menu: a faint grid behind it, a grotesk for every word and number,
+   open ruled rows instead of cards, solid high-contrast buttons, and pill tabs.
+   The phone is the only 3D object: rounded keys, Start and Reset with coloured underlines,
+   and an LCD with horizontal scanlines and a soft glow. */
+
+html[data-theme="amber-graphite"] {
+  color-scheme: dark;
+  --screen: var(--s-lcd);
+  --screen-ink: var(--s-lcd-ink);
+  --paper: var(--s-text);
+  --font-body: var(--s-font);
+  --font-ui: var(--s-font);
+}
+
+html[data-theme="amber-graphite"] body {
+  background: var(--s-page);
+  color: var(--s-text);
+  font-family: var(--s-font);
+  font-variant-numeric: tabular-nums;
+}
+
+html[data-theme="amber-graphite"] .app-layout {
+  grid-template-columns: minmax(280px, 360px) minmax(300px, 330px);
+  gap: clamp(24px, 7vw, 80px);
+  align-items: center;
+}
+
+@media (max-width: 800px) {
+  html[data-theme="amber-graphite"] .app-layout {
+    grid-template-columns: minmax(0, 360px);
+  }
+}
+
+/* ---------- the menu ---------- */
+
+html[data-theme="amber-graphite"] .menu-panel {
+  padding: 20px 20px 16px;
+  border: 1px solid var(--s-line);
+  border-radius: var(--s-radius-panel);
+  background:
+    linear-gradient(var(--s-grid) 1px, transparent 1px) 0 0 / 16px 16px,
+    linear-gradient(90deg, var(--s-grid) 1px, transparent 1px) 0 0 / 16px 16px,
+    var(--s-menu);
+  background-attachment: local;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
+  color: var(--s-text);
+  scrollbar-color: var(--s-line-strong) var(--s-menu);
+}
+
+html[data-theme="amber-graphite"] .menu-panel h1 {
+  margin: 0 0 16px;
+  color: var(--s-text);
+  font-family: var(--s-font);
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  text-transform: none;
+}
+
+html[data-theme="amber-graphite"] .menu-section-heading {
+  color: var(--s-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+html[data-theme="amber-graphite"] .menu-section-mark {
+  color: var(--s-accent);
+}
+
+html[data-theme="amber-graphite"] .menu-stat {
+  padding: 16px;
+  border: 0;
+  border-radius: var(--s-radius-box);
+  background: var(--s-raise);
+  box-shadow: none;
+  color: var(--s-text);
+}
+
+html[data-theme="amber-graphite"] .menu-stat span {
+  color: var(--s-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+html[data-theme="amber-graphite"] .menu-stat strong {
+  font-family: var(--s-font);
+  font-size: clamp(2.25rem, 8vw, 3rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+html[data-theme="amber-graphite"] .menu-tabs {
+  gap: 4px;
+  margin-top: 16px;
+  padding: 4px;
+  border: 0;
+  border-radius: var(--s-radius-pill);
+  background: var(--s-raise);
+}
+
+html[data-theme="amber-graphite"] .menu-tab {
+  padding: 8px 4px;
+  border: 0;
+  border-radius: var(--s-radius-pill);
+  background: transparent;
+  color: var(--s-muted);
+  font-family: var(--s-font);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-transform: none;
+}
+
+html[data-theme="amber-graphite"] .menu-tab.is-active,
+html[data-theme="amber-graphite"] .menu-tab[aria-selected="true"] {
+  border-color: transparent;
+  background: var(--s-accent);
+  box-shadow: none;
+  color: var(--s-accent-ink);
+}
+
+html[data-theme="amber-graphite"] .menu-tab:disabled {
+  color: var(--s-faint);
+}
+
+html[data-theme="amber-graphite"] .menu-tab-notification {
+  background: var(--s-text);
+  color: var(--s-menu);
+}
+
+/* Open ruled rows instead of boxes */
+html[data-theme="amber-graphite"] :is(.upgrade-card, .nursery-goal-card, .nest-card, .nursery-yard-card, .nursery-currency, .migration-summary-card, .migration-builder, .migration-expedition-card, .trade-route-builder, .trade-direction-card, .colony-placeholder, .colony-income-summary, .habitat-card, .notable-card, .hatchling-row, .candidate-decision, .notable-candidates) {
+  padding: 12px 0 16px;
+  border: 0;
+  border-bottom: 1px solid var(--s-line);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--s-text);
+}
+
+html[data-theme="amber-graphite"] .menu-panel :is(strong, h2, h3, h4, .habitat-name, .upgrade-card-heading strong, .nursery-card-heading strong, .notable-card > strong) {
+  color: var(--s-text) !important;
+  font-family: var(--s-font);
+  font-weight: 600;
+}
+
+html[data-theme="amber-graphite"] .menu-panel :is(.upgrade-card-heading strong, .nursery-card-heading strong, .habitat-name) {
+  font-size: 1.0625rem;
+}
+
+html[data-theme="amber-graphite"] .menu-panel :is(p, li, label, .upgrade-current, .nursery-timer, .nursery-meta, .nursery-meta span, .colony-note, .colony-income-summary, .habitat-notable, .habitat-production, .habitat-bonus, .habitat-primary-row, .habitat-over-capacity-row, .habitat-idle-snakes, .notable-card, .notable-service, .hatchling-row, .hatchling-row-heading span, .migration-field, .migration-cargo-note, .migration-required, .migration-founding, .migration-attrition, .trade-direction-derived, .trade-direction-fields label, .trade-worker-row, .nursery-currency, .nest-visual span) {
+  color: var(--s-muted) !important;
+  font-family: var(--s-font);
+}
+
+html[data-theme="amber-graphite"] .menu-panel :is(.upgrade-label, .habitat-output-types, .colony-summary-heading) {
+  color: var(--s-muted) !important;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+html[data-theme="amber-graphite"] .menu-panel :is(.upgrade-next, .egg-progress-rate) {
+  color: var(--s-accent-text) !important;
+  font-weight: 600;
+}
+
+html[data-theme="amber-graphite"] .menu-panel :is(.migration-error, .habitat-max-count.is-at-maximum, .habitat-natural-count.is-over-natural, .habitat-idle-snakes) {
+  color: var(--s-stop-text) !important;
+}
+
+html[data-theme="amber-graphite"] .upgrade-level,
+html[data-theme="amber-graphite"] .egg-progress-rate {
+  padding: 2px 8px;
+  border: 0;
+  border-radius: var(--s-radius-pill);
+  background: var(--s-raise);
+  color: var(--s-muted) !important;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+html[data-theme="amber-graphite"] .upgrade-card.is-maxed .upgrade-level {
+  background: var(--s-accent);
+  color: var(--s-accent-ink) !important;
+}
+
+/* Colony: the habitat type is a coloured rule on the left of an open row */
+html[data-theme="amber-graphite"] .habitat-card:not(.is-locked) {
+  padding-left: 12px;
+  box-shadow: inset 3px 0 0 var(--s-line-strong);
+}
+
+html[data-theme="amber-graphite"] .habitat-card.produces-provisions:not(.is-locked) {
+  box-shadow: inset 3px 0 0 var(--s-c1);
+}
+
+html[data-theme="amber-graphite"] .habitat-card.produces-branches:not(.is-locked) {
+  box-shadow: inset 3px 0 0 var(--s-c2);
+}
+
+html[data-theme="amber-graphite"] .habitat-card.speeds-egg-hatch:not(.is-locked) {
+  box-shadow: inset 3px 0 0 var(--s-c3);
+}
+
+html[data-theme="amber-graphite"] .habitat-card.produces-provisions:not(.is-locked) :is(.habitat-production, .habitat-output-types) {
+  color: var(--s-c1) !important;
+}
+
+html[data-theme="amber-graphite"] .habitat-card.produces-branches:not(.is-locked) :is(.habitat-production, .habitat-output-types) {
+  color: var(--s-c2) !important;
+}
+
+html[data-theme="amber-graphite"] .habitat-card.speeds-egg-hatch:not(.is-locked) :is(.habitat-production, .habitat-output-types) {
+  color: var(--s-c3) !important;
+}
+
+html[data-theme="amber-graphite"] .habitat-card.is-locked {
+  opacity: 0.5;
+}
+
+/* Flat solid buttons with sharp contrast */
+html[data-theme="amber-graphite"] .menu-panel :is(button:not(.menu-tab):not(.candidate-list-item), .upgrade-button) {
+  min-height: 36px;
+  border: 0;
+  border-radius: var(--s-radius-button);
+  background: var(--s-button);
+  box-shadow: none;
+  color: var(--s-button-ink);
+  font-family: var(--s-font);
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+html[data-theme="amber-graphite"] .menu-panel :is(button:not(.menu-tab):not(.candidate-list-item), .upgrade-button):not(:disabled):hover {
+  background: var(--s-button-hover);
+}
+
+html[data-theme="amber-graphite"] .menu-panel :is(button:not(.menu-tab):not(.candidate-list-item), .upgrade-button):not(:disabled):active {
+  transform: translateY(1px);
+}
+
+html[data-theme="amber-graphite"] .menu-panel :is(button:not(.menu-tab), .upgrade-button):disabled {
+  background: var(--s-raise);
+  color: var(--s-faint);
+  filter: none;
+}
+
+html[data-theme="amber-graphite"] .menu-panel :is(button, select, input):focus-visible {
+  outline: 2px solid var(--s-accent);
+  outline-offset: 2px;
+}
+
+html[data-theme="amber-graphite"] .trade-open-button.is-ready {
+  background: var(--s-accent) !important;
+  color: var(--s-accent-ink) !important;
+}
+
+html[data-theme="amber-graphite"] .menu-panel :is(.migration-expedition-actions button.is-danger, .reset-progress-button) {
+  background: transparent !important;
+  box-shadow: inset 0 0 0 1.5px var(--s-stop) !important;
+  color: var(--s-stop-text) !important;
+}
+
+html[data-theme="amber-graphite"] .reset-progress {
+  border-top: 1px solid var(--s-line);
+}
+
+html[data-theme="amber-graphite"] .reset-progress-fill {
+  background: var(--s-stop);
+  opacity: 0.3;
+}
+
+html[data-theme="amber-graphite"] .menu-panel :is(select, input, .upgrade-select) {
+  min-height: 32px;
+  border: 1px solid var(--s-line-strong);
+  border-radius: var(--s-radius-box);
+  background: var(--s-raise);
+  color: var(--s-text);
+  font-family: var(--s-font);
+  font-size: 0.875rem;
+}
+
+html[data-theme="amber-graphite"] .growth-bar {
+  height: 6px;
+  border: 0;
+  border-radius: var(--s-radius-pill);
+  background: var(--s-raise);
+}
+
+html[data-theme="amber-graphite"] .growth-bar span {
+  border-radius: var(--s-radius-pill);
+  background: var(--s-accent);
+}
+
+html[data-theme="amber-graphite"] .nursery-feeding-button[aria-pressed="true"] {
+  background: var(--s-accent) !important;
+  color: var(--s-accent-ink) !important;
+}
+
+html[data-theme="amber-graphite"] .nest-visual {
+  border: 1px dashed var(--s-line-strong);
+  border-radius: var(--s-radius-box);
+  background: transparent;
+  color: var(--s-muted);
+}
+
+html[data-theme="amber-graphite"] .nest-visual.has-egg {
+  border-style: solid;
+  background: transparent;
+}
+
+html[data-theme="amber-graphite"] .egg-shape {
+  border: 1.5px solid var(--s-text);
+  background: radial-gradient(circle at 35% 30%, #ffffff, var(--s-egg));
+  box-shadow: none;
+}
+
+/* The nursery is its own small LCD, in a second colour */
+html[data-theme="amber-graphite"] .nursery-grid {
+  border: 6px solid var(--s-nursery-frame);
+  border-radius: var(--s-radius-box);
+  background: var(--s-nursery-bg);
+  box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.35);
+}
+
+html[data-theme="amber-graphite"] .nursery-cell,
+html[data-theme="amber-graphite"] .nursery-cell:nth-child(odd) {
+  background: transparent;
+}
+
+html[data-theme="amber-graphite"] .nursery-cell.is-body::after,
+html[data-theme="amber-graphite"] .nursery-cell.is-tail::after,
+html[data-theme="amber-graphite"] .nursery-cell.is-head::after {
+  background: var(--s-nursery-ink);
+}
+
+html[data-theme="amber-graphite"] .nursery-cell.is-head::before {
+  background: var(--s-nursery-bg);
+}
+
+html[data-theme="amber-graphite"] .habitat-capacity-tooltip {
+  border: 1px solid var(--s-line-strong);
+  border-radius: var(--s-radius-box);
+  background: var(--s-raise-2);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
+  color: var(--s-text);
+}
+
+html[data-theme="amber-graphite"] .habitat-capacity-tooltip :is(strong, li) {
+  color: var(--s-text) !important;
+}
+
+html[data-theme="amber-graphite"] .candidate-list-item {
+  border: 0;
+  border-radius: var(--s-radius-box);
+  background: transparent;
+  color: var(--s-text);
+  font-family: var(--s-font);
+}
+
+html[data-theme="amber-graphite"] .candidate-list-item[aria-pressed="true"] {
+  background: var(--s-raise);
+  box-shadow: inset 3px 0 0 var(--s-accent);
+  color: var(--s-text);
+}
+
+html[data-theme="amber-graphite"] .trade-network-edge {
+  stroke: var(--s-line-strong);
+}
+
+html[data-theme="amber-graphite"] .trade-network-edge.is-selected {
+  stroke: var(--s-accent);
+}
+
+html[data-theme="amber-graphite"] .trade-network-node circle {
+  fill: var(--s-raise);
+  stroke: var(--s-text);
+}
+
+html[data-theme="amber-graphite"] .trade-network-node text {
+  fill: var(--s-text);
+  font-family: var(--s-font);
+}
+
+/* ---------- the phone: the LCD ---------- */
+
+html[data-theme="amber-graphite"] .phone-shell::before,
+html[data-theme="amber-graphite"] .phone-shell::after {
+  content: none;
+}
+
+html[data-theme="amber-graphite"] .phone-brand {
+  min-width: 0;
+  padding: 4px 0 0;
+  background: transparent;
+  color: var(--s-brand);
+  font-family: var(--s-font);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+}
+
+html[data-theme="amber-graphite"] .screen-frame {
+  padding: 12px;
+  border: 1px solid #000000;
+  border-radius: 14px 14px 20px 20px;
+  background: var(--s-lens);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme="amber-graphite"] .status-strip {
+  gap: 0;
+  margin-bottom: 0;
+  padding: 4px 4px 0;
+  border-radius: 4px 4px 0 0;
+  background: var(--s-lcd);
+}
+
+html[data-theme="amber-graphite"] .status-strip div {
+  padding: 4px 2px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--s-lcd-ink);
+}
+
+html[data-theme="amber-graphite"] .status-strip div + div {
+  background: linear-gradient(var(--s-lcd-dim), var(--s-lcd-dim)) left center / 1px 60% no-repeat;
+}
+
+html[data-theme="amber-graphite"] .stat-label {
+  color: var(--s-lcd-dim);
+  font-family: var(--s-font);
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+html[data-theme="amber-graphite"] .status-strip strong {
+  font-family: var(--s-font);
+  font-size: clamp(0.8rem, 3.8vw, 1rem);
+  letter-spacing: -0.01em;
+  font-weight: 700;
+  text-shadow: none;
+}
+
+html[data-theme="amber-graphite"] .grid-select {
+  border: 1px solid var(--s-lcd-dim);
+  border-radius: 4px;
+  background: var(--s-lcd);
+  color: var(--s-lcd-ink);
+  font-family: var(--s-font);
+}
+
+html[data-theme="amber-graphite"] .screen-bezel {
+  padding: 4px;
+  border: 0;
+  border-radius: 0 0 4px 4px;
+  background: var(--s-lcd);
+  box-shadow: var(--s-lcd-glow);
+}
+
+/* The canvas background shows through the hollow centre of a seed */
+html[data-theme="amber-graphite"] #game {
+  border: 0;
+  border-radius: 0;
+  background: var(--s-seed);
+  image-rendering: auto;
+}
+
+html[data-theme="amber-graphite"] .screen-plate {
+  padding: 8px 12px;
+  border: 2px solid var(--s-lcd-ink);
+  border-radius: 6px;
+  background: var(--s-lcd);
+  box-shadow: none;
+  color: var(--s-lcd-ink);
+}
+
+html[data-theme="amber-graphite"] #stateText,
+html[data-theme="amber-graphite"] .ready-start-prompt {
+  color: var(--s-lcd-ink);
+  font-family: var(--s-font);
+  font-weight: 700;
+  text-transform: none;
+}
+
+html[data-theme="amber-graphite"] .screen-hint {
+  color: var(--s-hint);
+  font-family: var(--s-font);
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: none;
+}
+
+html[data-theme="amber-graphite"] .personalization-screen,
+html[data-theme="amber-graphite"] .broodline-screen {
+  border: 0;
+  border-radius: 0;
+  background: var(--s-lcd);
+  box-shadow: none;
+  color: var(--s-lcd-ink);
+  font-family: var(--s-font);
+}
+
+html[data-theme="amber-graphite"] .personalization-heading {
+  border-bottom: 1px solid var(--s-lcd-dim);
+}
+
+html[data-theme="amber-graphite"] .color-swatch {
+  border: 1px solid var(--s-lcd-dim);
+  border-radius: 999px;
+  box-shadow: none;
+}
+
+html[data-theme="amber-graphite"] .color-swatch::after {
+  border-radius: 999px;
+}
+
+html[data-theme="amber-graphite"] .color-swatch[aria-pressed="true"] {
+  outline: 2px solid var(--s-lcd-ink);
+  outline-offset: 2px;
+}
+
+html[data-theme="amber-graphite"] :is(.personalization-back, .mobile-control-toggle, .broodline-card) {
+  border: 1px solid var(--s-lcd-dim);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--s-lcd-ink);
+  font-family: var(--s-font);
+  font-weight: 600;
+  text-transform: none;
+}
+
+html[data-theme="amber-graphite"] .broodline-card {
+  border-radius: 8px;
+}
+
+html[data-theme="amber-graphite"] :is(.mobile-control-toggle[aria-pressed="true"], .broodline-card.is-selected) {
+  background: var(--s-lcd-ink);
+  color: var(--s-lcd);
+}
+
+html[data-theme="amber-graphite"] .save-data-area {
+  border: 1px solid var(--s-lcd-dim);
+  border-radius: 4px;
+  background: var(--s-lcd);
+  color: var(--s-lcd-ink);
+  font-family: var(--s-font);
+}
+
+/* ---------- the phone: keys ---------- */
+
+html[data-theme="amber-graphite"] :is(.nav-key, .action-key, .phone-key) {
+  border: 1px solid var(--s-key-border);
+  background: var(--s-key-bg);
+  box-shadow: inset 0 1px 0 var(--s-key-highlight), 0 2px 0 var(--s-key-base);
+  color: var(--s-key-ink);
+  font-family: var(--s-font);
+  font-weight: 700;
+}
+
+html[data-theme="amber-graphite"] :is(.nav-key, .action-key, .phone-key):focus-visible {
+  outline: 2px solid var(--s-accent);
+  outline-offset: 2px;
+  box-shadow: inset 0 1px 0 var(--s-key-highlight), 0 2px 0 var(--s-key-base);
+}
+
+html[data-theme="amber-graphite"] .phone-key {
+  min-height: 26px;
+  border-radius: 999px;
+  font-size: 0.875rem;
+}
+
+/* Rounded navigation keys: a pill rocker for up and down, rounded ovals left and right */
+html[data-theme="amber-graphite"] .nav-key {
+  background: var(--s-nav-bg);
+  color: var(--s-nav-ink);
+}
+
+html[data-theme="amber-graphite"] .nav-up {
+  border-radius: 28px 28px 14px 14px;
+}
+
+html[data-theme="amber-graphite"] .nav-down {
+  border-radius: 14px 14px 28px 28px;
+}
+
+html[data-theme="amber-graphite"] .nav-left {
+  border-radius: 22px 14px 14px 22px;
+}
+
+html[data-theme="amber-graphite"] .nav-right {
+  border-radius: 14px 22px 22px 14px;
+}
+
+html[data-theme="amber-graphite"] .action-key {
+  min-height: 34px;
+  border-radius: 10px;
+  font-size: 0.8125rem;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+
+/* Start and Reset carry a short coloured underline */
+html[data-theme="amber-graphite"] #startButton {
+  box-shadow: inset 0 1px 0 var(--s-key-highlight), inset 0 -4px 0 -1px var(--s-go), 0 2px 0 var(--s-key-base);
+}
+
+html[data-theme="amber-graphite"] #resetButton {
+  box-shadow: inset 0 1px 0 var(--s-key-highlight), inset 0 -4px 0 -1px var(--s-stop), 0 2px 0 var(--s-key-base);
+}
+
+html[data-theme="amber-graphite"] :is(.nav-key:active, .nav-key.is-pressed, .action-key:active, .action-key.is-active) {
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.45);
+  filter: brightness(0.92);
+}
+
+html[data-theme="amber-graphite"] .minigame-key.is-locked {
+  border-color: var(--s-key-locked-border);
+  background: var(--s-key-locked);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
+  color: var(--s-key-locked-ink);
+  filter: none;
+}
+
+html[data-theme="amber-graphite"] .grid-key[aria-pressed="true"] {
+  background: var(--s-accent);
+  color: var(--s-accent-ink);
+}
+
+html[data-theme="amber-graphite"] .phone-nav.is-large-dpad {
+  border: 1px solid var(--s-key-border);
+  background: var(--s-dpad-well);
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+html[data-theme="amber-graphite"] .phone-nav.is-large-dpad .nav-key {
+  border-color: var(--s-key-border);
+  border-radius: 18px;
+  background: var(--s-nav-bg);
+  box-shadow: 0 2px 0 var(--s-key-base);
+}
+
+html[data-theme="amber-graphite"] .phone-nav.is-large-dpad .nav-chevron {
+  color: var(--s-nav-ink);
+}
+
+html[data-theme="amber-graphite"] .is-fullscreen-mode .phone-shell {
+  width: 100%;
+  border-radius: 24px;
+}
+
+/* ---------- the brushed gunmetal phone ---------- */
+
+html[data-theme="amber-graphite"] .phone-shell {
+  width: min(94vw, 310px);
+  padding: 20px 20px 24px;
+  border: 1px solid #121315;
+  border-radius: 44px 44px 40px 40px / 34px 34px 32px 32px;
+  background:
+    repeating-linear-gradient(0deg, rgba(255, 255, 255, 0.035) 0 1px, rgba(0, 0, 0, 0.05) 1px 2px),
+    linear-gradient(90deg, #26282b 0%, #44474d 16%, #575a60 38%, #45484d 62%, #2f3135 84%, #222427 100%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -2px 4px rgba(0, 0, 0, 0.4),
+    0 28px 44px -12px rgba(0, 0, 0, 0.7);
+}
+
+html[data-theme="amber-graphite"] .speaker-slot {
+  width: 40px;
+  height: 4px;
+  border-radius: 2px;
+  background: #0c0c0d;
+  box-shadow: 0 1px 0 rgba(255, 255, 255, 0.12);
+  filter: none;
+}
+
+/* Swatch previews show the colour the LCD draws */
+html[data-theme="amber-graphite"] .color-swatch[data-color="#29391f"] {
+  background: #29391f;
+}
+
+html[data-theme="amber-graphite"] .color-swatch[data-color="#32204f"] {
+  background: #32204f;
+}
+
+html[data-theme="amber-graphite"] .color-swatch[data-color="#16465a"] {
+  background: #16465a;
+}
+
+html[data-theme="amber-graphite"] .color-swatch[data-color="#176052"] {
+  background: #176052;
+}
+
+html[data-theme="amber-graphite"] .color-swatch[data-color="#843b2f"] {
+  background: #843b2f;
+}
+
+html[data-theme="amber-graphite"] .color-swatch[data-color="#a55b25"] {
+  background: #a55b25;
+}
+
+html[data-theme="amber-graphite"] .color-swatch[data-color="#702c57"] {
+  background: #702c57;
+}
+
+html[data-theme="amber-graphite"] .color-swatch[data-color="#252a32"] {
+  background: #252a32;
+}
+
+html[data-theme="amber-graphite"] .color-swatch[data-color="#182413"] {
+  background: #2b1a05;
+}
+
+html[data-theme="amber-graphite"] .color-swatch[data-color="#583b83"] {
+  background: #583b83;
+}
+
+html[data-theme="amber-graphite"] .color-swatch[data-color="#267b91"] {
+  background: #267b91;
+}
+
+html[data-theme="amber-graphite"] .color-swatch[data-color="#2d8b68"] {
+  background: #2d8b68;
+}
+
+html[data-theme="amber-graphite"] .color-swatch[data-color="#b3483d"] {
+  background: #b3483d;
+}
+
+html[data-theme="amber-graphite"] .color-swatch[data-color="#b0802d"] {
+  background: #b0802d;
+}
+
+html[data-theme="amber-graphite"] .color-swatch[data-color="#9b477e"] {
+  background: #9b477e;
+}
+
+html[data-theme="amber-graphite"] .color-swatch[data-color="#596474"] {
+  background: #596474;
+}
+
+/* Keep the current keypad focus and fullscreen menu rules in every theme. */
+html[data-theme="amber-graphite"] .phone-key:focus,
+html[data-theme="amber-graphite"] .phone-key:focus-visible { outline: none; }
+@media (min-width: 801px) {
+  html[data-theme="amber-graphite"] body.is-fullscreen-mode .app-layout.has-fullscreen-option {
+    grid-template-columns: minmax(0, 450px) minmax(0, 1fr);
+  }
+}

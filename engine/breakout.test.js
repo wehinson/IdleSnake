@@ -79,3 +79,10 @@ test("runs headless with no DOM", () => {
   assert.equal(typeof document, "undefined");
   assert.doesNotThrow(() => breakout.step(state(), ctx()));
 });
+
+test("createState uses fixed engine dimensions", () => {
+  const s = breakout.createState();
+  assert.deepEqual(s.board, { width: breakout.BOARD_WIDTH, height: breakout.BOARD_HEIGHT });
+  assert.equal(s.segmentSize, breakout.SEGMENT_SIZE);
+  assert.equal(s.gap, breakout.GAP);
+});

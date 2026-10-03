@@ -7,8 +7,12 @@
   else root.IdleSnakeRunner = engine;
 })(typeof window !== "undefined" ? window : globalThis, () => {
   const config = { gravity: 1450, jumpVelocity: 515, startSpeed: 155, speedPerSecond: 5.5, maxSpeed: 330, scoreDistance: 12, segmentDelayMs: 55, segmentCount: 6 };
+  const BOARD_WIDTH = 720;
+  const BOARD_HEIGHT = 720;
 
-  function createState(boardWidth, boardHeight) {
+  function createState() {
+    const boardWidth = BOARD_WIDTH;
+    const boardHeight = BOARD_HEIGHT;
     const size = Math.max(22, Math.floor(boardHeight * 0.075));
     const groundY = boardHeight - Math.max(38, Math.floor(boardHeight * 0.13));
     return { boardWidth, boardHeight, groundY, elapsedMs: 0, distance: 0, score: 0, speed: config.startSpeed, nextObstacleAt: boardWidth * 0.9, player: { x: Math.floor(boardWidth * 0.18), y: groundY - size, size, vy: 0, grounded: true }, obstacles: [], jumpStartedAt: null };
@@ -62,5 +66,5 @@
     return Math.max(0, config.jumpVelocity * t - config.gravity * t * t / 2);
   }
 
-  return { config, createState, jump, step, segmentYOffset };
+  return { config, BOARD_WIDTH, BOARD_HEIGHT, createState, jump, step, segmentYOffset };
 });

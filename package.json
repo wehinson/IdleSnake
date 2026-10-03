@@ -1,6 +1,6 @@
 {
   "name": "idlesnake",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "private": true,
   "description": "A browser-based idle Snake game.",
   "scripts": {
@@ -10,7 +10,9 @@
     "check:authority": "node scripts/check-authority.js",
     "check": "npm run check:syntax && npm run check:authority && npm test",
     "test:browser": "playwright test",
-    "serve": "node scripts/serve.js"
+    "serve": "node scripts/serve.js",
+    "play": "node scripts/play.js",
+    "theme-lab": "node scripts/theme-lab.mjs"
   },
   "devDependencies": {
     "@playwright/test": "^1.56.1"

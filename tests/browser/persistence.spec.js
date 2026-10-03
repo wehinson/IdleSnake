@@ -51,7 +51,7 @@ test("consolidated persistence retains held eggs, Battleship wins, and the egg-b
   expect(automatic.saveVersion).toBe(5);
   expect(automatic.session.records.battleshipBest).toBe(12);
   expect(automatic.session.nursery.resupplyEggHolding).toBe(3);
-  expect(automatic.session.eggBoardCountdown).toBe(75);
+  expect(automatic.session.eggBoardCountdown).toBe(76);
 
   await page.reload({ waitUntil: "networkidle" });
   await openSaveData(page);
@@ -59,7 +59,7 @@ test("consolidated persistence retains held eggs, Battleship wins, and the egg-b
   expect(reexported.saveVersion).toBe(5);
   expect(reexported.session.records.battleshipBest).toBe(12);
   expect(reexported.session.nursery.resupplyEggHolding).toBe(3);
-  expect(reexported.session.eggBoardCountdown).toBe(74);
+  expect(reexported.session.eggBoardCountdown).toBe(76);
   expect(pageErrors).toEqual([]);
   expect(consoleErrors).toEqual([]);
   await context.close();

@@ -59,7 +59,7 @@
   function validateSessionSave(candidate) {
     if (!Number.isFinite(candidate.savedAt) || candidate.savedAt < 0 || !isObject(candidate.session)) return invalid("structure", "Invalid save structure.");
     const session = candidate.session;
-    const objects = ["records", "upgrades", "cosmetics", "snakebirdProgress", "nursery", "habitats", "notables", "migration", "resupplyTotals"];
+    const objects = ["records", "upgrades", "cosmetics", "snakebirdProgress", "nursery", "habitats", "notables", "migration", "resupplyTotals", "active"];
     for (const key of objects) if (session[key] !== undefined && session[key] !== null && !isObject(session[key])) return invalid("structure", "Invalid save structure.");
     const arrays = ["tradeRoutes", "activeResupplyMissions", "completedResupplyMissions"];
     for (const key of arrays) if (session[key] !== undefined && !Array.isArray(session[key])) return invalid("structure", "Invalid save structure.");
@@ -67,9 +67,13 @@
     for (const [parent, key] of nestedArrays) if (session[parent]?.[key] !== undefined && !Array.isArray(session[parent][key])) return invalid("structure", "Invalid save structure.");
     const nestedObjects = [["notables", "masteryRewardsClaimed"], ["migration", "historyTotals"], ["migration", "contributions"]];
     for (const [parent, key] of nestedObjects) if (session[parent]?.[key] !== undefined && !isObject(session[parent][key])) return invalid("structure", "Invalid save structure.");
-    const nonNegativeFields = ["elapsedMs", "modeAccumulatorMs", "seeds", "provisions", "branches", "best", "selectedBoardLevel", "selectedDuelGridSize", "nextTradeRouteId", "nextResupplyMissionId"];
+    const nonNegativeFields = ["elapsedMs", "seeds", "provisions", "branches", "best", "selectedBoardLevel", "selectedDuelGridSize", "nextTradeRouteId", "nextResupplyMissionId"];
     if (nonNegativeFields.some((key) => session[key] !== undefined && (!Number.isFinite(session[key]) || session[key] < 0))) return invalid("structure", "Invalid save structure.");
+    if (session.modeAccumulatorMs !== undefined && (!Number.isFinite(session.modeAccumulatorMs) || session.modeAccumulatorMs < -10000)) return invalid("structure", "Invalid save structure.");
+    if (session.nursery?.feedingPaused !== undefined && typeof session.nursery.feedingPaused !== "boolean") return invalid("structure", "Invalid save structure.");
+    if (session.snakeSpeed !== undefined && !["turtle", "snake", "rabbit"].includes(session.snakeSpeed)) return invalid("structure", "Invalid snake speed.");
     if (session.reducedMotion !== undefined && typeof session.reducedMotion !== "boolean") return invalid("structure", "Invalid save structure.");
+    if (session.fullscreenMode !== undefined && typeof session.fullscreenMode !== "boolean") return invalid("structure", "Invalid save structure.");
     if (session.records !== undefined && !nonNegativeNumbers(session.records)) return invalid("structure", "Invalid save structure.");
     if (session.resupplyTotals !== undefined && !nonNegativeNumbers(session.resupplyTotals)) return invalid("structure", "Invalid save structure.");
     if (session.migration?.historyTotals !== undefined && !nonNegativeNumbers(session.migration.historyTotals)) return invalid("structure", "Invalid save structure.");
