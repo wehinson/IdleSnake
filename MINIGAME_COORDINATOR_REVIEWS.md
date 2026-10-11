@@ -1,5 +1,31 @@
 # Minigame coordinator independent reviews
 
+## Arcade coordinator independent R2 — ACCEPT
+
+Task `node:delegated-task:command%3Amcp%3Aab0d5ba8-7bee-42d0-aa6d-445234728aef%3Adelegate-task%3Aminigame-batch-arcade-independent-r2-087fea5-20261011`, terminalcompleted/nochildren, exact087fea5174137dfef42ce71b1358a96daaa5454e. Complete published result:
+
+**ACCEPT** — coordinator R2 at exact tip `087fea5174137dfef42ce71b1358a96daaa5454e`.
+
+Clean local HEAD matches remote on the requested branch. Base remains `31e773efee60c85d6781078803e4eae208911e4e`; the sole commit after `cca751c` changes only `game.js`, `scripts/minigame-feedback.test.js` and `BRANCHES.md`.
+
+The coordinator R1 P2 is resolved:
+
+- Post-tick/event combat frames refresh progress, kills, wave, enemies, armor, egg countdown and elapsed time without input.
+- The new frame refresh excludes formation, paused, ready and gameover states.
+- Terminal overlay and authoritative reward hint survive later frames and explicit HUD refresh.
+- Unchanged goal text does not rewrite the polite live region.
+
+No additional actionable findings emerged from adjacent source review. Snapshot reading, camera/reset/reduced-motion behavior, Ready’s single-input start and formation controls remain coherent. No undefined references were introduced; rules, outcomes, cadences and connector ordering are unchanged.
+
+Independent verification: **1 selected test passed**, plus **40 assertions across nine bounded frames** using the actual frame/HUD functions and real hint setter; delta `git diff --check` passed. No check failures or hangs.
+
+Reused evidence: parent’s fresh exact-`087fea5` check, corroborated by its log, passed **357/357 tests**, syntax for **123 JS files**, and authority/canonical persistence for **11 modes**. I did not rerun it. Prior **356/full and 52/focused** results remain evidence for pre-delta `cca751c` only. Worker R1 remains **CANCELLED**, and worker R2’s reported PASS did not override coordinator R1.
+
+Combined integration verification remains required: remove obsolete `duelGridSelect`, supply the connector wrapper, preserve reward terminal guards/synchronous flush, and place `controlledMove` immediately after `movePlayer`, before bullet/respawn processing, retaining clocks and fresh-shot state.
+
+Physical phone layout, appearance and live-announcement experience remain unverified. No files, claims, saves, routes, servers or checkout state were changed.
+
+
 ## Rewards coordinator independent R1 — ACCEPT
 
 Exact final707e51f475aa47ed434f4ab0c112014cc78f60a8, identical runtime/tests to eaef9a593c4c75eb3e7fe91ebfe4436eff1d7033 (two final docs). Task `node:delegated-task:command%3Amcp%3Aab0d5ba8-7bee-42d0-aa6d-445234728aef%3Adelegate-task%3Aminigame-batch-rewards-independent-r1-707e51f-20261011`, terminalcompleted/nochildren. Individualgate ACCEPT, combinedintegration unverified.
