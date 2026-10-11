@@ -1,5 +1,18 @@
 # Branch status
 
+## working — Notables pending indicator
+
+- Category: display only.
+- Agent: Codex, GPT 6.1 Sol, low reasoning effort, on Jimothy in the T3-managed thread.
+- Status: Ready With Caveat.
+- Changes: the main Colony Notables button shows the actual queue length as `X Pending` when at least one candidate is pending, including `1 Pending`; it hides the indicator only at zero. The retained/capacity label, Over Capacity warning, and internal panel summary are retained. Full session snapshots refresh the summary immediately for generation, decisions, loading, and settlement context changes. The small outlined indicator inherits button text color in Original and all ten themes, including the five Nokia themes.
+- Files: index.html, game.js, styles.css, BRANCHES.md.
+- Verification: `npm run check` passed syntax, authority checks, and all 371 Node tests. Direct Node VM checks of the actual summary and snapshot functions passed queue transitions (0, 1, 4, 3, 1, 0, 2, 0), capacity warnings, and a changed settlement count/capacity. `git diff --check` passed. No new persistent tests were added for this small presentation change.
+- Caveat: no browser or computer automation was used or authorized. Appearance and layout have not been verified by eye.
+- Version impact: none; gameplay, save behavior, and save format are unchanged. No main merge or deployment requested.
+- Notes: unrelated uncommitted balance work is preserved and excluded from this task commit, as explicitly instructed. Back up this task to origin/working.
+- Last update: 2026-10-10.
+
 ## working — Fullscreen button always available
 
 - Category: engine and controls.

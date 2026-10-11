@@ -374,6 +374,8 @@ const colonyProvisionConsumptionRateEl = document.querySelector("#colonyProvisio
 const habitatListEl = document.querySelector("#habitatList");
 const colonyOverviewEl = document.querySelector("#colonyOverview");
 const notablesButtonEl = document.querySelector("#notablesButton");
+const notablesButtonLabelEl = document.querySelector("#notablesButtonLabel");
+const notablesPendingIndicatorEl = document.querySelector("#notablesPendingIndicator");
 const notablesPanelEl = document.querySelector("#notablesPanel");
 const notablesSummaryEl = document.querySelector("#notablesSummary");
 const notablesRosterEl = document.querySelector("#notablesRoster");
@@ -504,6 +506,8 @@ function acceptSnapshot(snapshot) {
   }
   if (snapshot.nursery) latestSnapshot = snapshot;
   latestFrameSnapshot = snapshot;
+  // Full snapshots include candidate decisions, generation, loads, and settlement changes.
+  if (snapshot.nursery) syncNotablesSummary();
 }
 function dispatchSession(action) {
   const tracing = snakeTiming.enabled;
@@ -1644,7 +1648,11 @@ function syncNotablesSummary() {
   const capacity = latestSnapshot?.notableCapacity ?? window.IdleSnakeNotables.capacity(gameView.notablesState, gameView.habitats.counts);
   const over = gameView.notablesState.retained.length > capacity;
   const label = `Notables: ${gameView.notablesState.retained.length} / ${capacity}${over ? " · Over Capacity" : ""}`;
-  notablesButtonEl.textContent = label; if (notablesSummaryEl) notablesSummaryEl.textContent = label;
+  setText(notablesButtonLabelEl, label);
+  const pendingCount = gameView.notablesState.pending.length;
+  setText(notablesPendingIndicatorEl, pendingCount ? `${pendingCount} Pending` : "");
+  setHidden(notablesPendingIndicatorEl, pendingCount === 0);
+  if (notablesSummaryEl) setText(notablesSummaryEl, label);
   return over;
 }
 
