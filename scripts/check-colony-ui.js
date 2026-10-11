@@ -69,7 +69,7 @@ ctx.gameView.provisionsTotal = 0;
 ctx.gameView.branchesTotal = 0;
 ctx.padScore = String;
 for (const name of ['colonyCountEl', 'colonyPlacedCountEl', 'colonyProvisionTotalEl', 'colonyBranchTotalEl', 'colonySeedIncomeRateEl', 'colonyProvisionIncomeRateEl', 'colonyBranchIncomeRateEl']) ctx[name] = new El();
-ctx.habitatCardRefs = config.habitatConfig.habitats.map(() => Object.fromEntries(['card', 'outputTypes', 'notable', 'assignedCount', 'naturalCount', 'maxCount', 'capacityTooltip', 'overCapacityRow', 'idleSnakes', 'bonus', 'button', 'upgradeButton'].map(key => [key, new El()])));
+ctx.habitatCardRefs = config.habitatConfig.habitats.map(() => Object.fromEntries(['card', 'legacyProgress', 'outputTypes', 'notable', 'assignedCount', 'naturalCount', 'maxCount', 'capacityTooltip', 'overCapacityRow', 'idleSnakes', 'bonus', 'button', 'upgradeButton'].map(key => [key, new El()])));
 vm.runInContext(source.slice(source.indexOf('function renderHabitats()'), source.indexOf('function placeSnakeInHabitat(')), ctx);
 ctx.renderHabitats();
 const panel = queries.habitatPanel(ctx.latestSnapshot);

@@ -3,7 +3,7 @@
 ## task/colony-batch-20261011 — Nine-change integration and independent review
 
 - Agent: Codex, GPT 6.1 Sol, high effort, local Jimothy; T3 integration thread `mcp:4179fc65-6476-4132-ab6c-582e4df713e3`.
-- Status: All three individual gates PASS and exact tips merged here with merge commits: UI `6cb9d3a`, economy `fda0f85`, Seed R7 `b3ed476`. Integrated code tip `da9e833`; combined validation requested, no PR yet. Current state/task IDs in BATCH_REVIEW.md; routine/final results route Agent Operations `mcp:bb549ea6-daa7-494c-9049-62a5453eef80`.
+- Status: All three individual gates PASS and exact tips merged here. Combined npm395/syntax/authority PASS; UI script stopped on missing synthetic legacyProgress ref. One-field fixture adaptation ready, runtime/assertions unchanged; targeted script grant pending, no PR yet. Current state/task IDs in BATCH_REVIEW.md; routine/final results route Agent Operations `mcp:bb549ea6-daa7-494c-9049-62a5453eef80`.
 - Cleanup: all 13 recorded terminal review children and three final workers settled, verified agent-created. User-created threads remain open; respect explicit reopen/keep-open requests. Original workers remain resumable for fixes; history, classifications, branches, checkouts and previews preserved.
 - Base: local active working `31e773efee60c85d6781078803e4eae208911e4e`. Work only in this integration checkout; final delivery is one PR into working, with no working/main merge or deployment.
 - Scope and evidence: [BATCH_REVIEW.md](BATCH_REVIEW.md) records all nine acceptance conditions, worker threads/branches, interfaces, review steps and eventual reviewed commit/task IDs.
