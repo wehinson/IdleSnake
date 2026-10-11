@@ -2000,7 +2000,8 @@ function gameLoop(now) {
     syncPanels(wallNow);
   }
 
-  if (gameView.gameMode === "snake" && gameView.state === "running") syncHud();
+  if (gameView.state === "running" && (gameView.gameMode === "snake"
+    || (gameView.gameMode === "broodline" && gameView.broodline?.phase === "combat"))) syncHud();
 
   ;
   render();
@@ -3748,7 +3749,10 @@ function syncHud() {
     gridLabelEl.textContent = `R${gameView.broodline.round} W${gameView.broodline.wave}/5`; timerEl.textContent = formatTime(gameView.elapsedMs);
     setText(seedsTotalEl, padSeeds(gameView.seedsTotal));
     setHidden(duelGridSelect, true); setHidden(gridLabelEl, false);
-    setScreenHint(window.IdleSnakeMinigameFeedback.broodlineGoal(gameView.broodline, gameView.state));
+    if (gameView.state !== "gameover") {
+      const goal = window.IdleSnakeMinigameFeedback.broodlineGoal(gameView.broodline, gameView.state);
+      if (screenHint?.textContent !== goal) setScreenHint(goal);
+    }
     return;
   }
   setText(scoreLabelEl, isSnakebird ? "Moves" : "Score");

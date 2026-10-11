@@ -170,3 +170,56 @@ test("actual Broodline rendering uses camera-space connectors/map and reduced mo
   assert.equal(camera.x, 0); assert.equal(camera.y, 0);
   gameView.state = "running"; context.drawBroodline(); assert.equal(camera.x, 2); assert.equal(camera.y, 2);
 });
+
+test("actual gameLoop refreshes Broodline combat HUD without input through a wave transition and preserves formation/pause/terminal hints", () => {
+  const elements = Object.fromEntries(["scoreLabelEl", "bestLabelEl", "scoreEl", "bestEl", "gridLabelEl", "timerEl", "seedsTotalEl",
+    "duelGridSelect", "seedIncomePerSecondEl", "lengthBonusSummaryEl", "lengthBonusMultiplierEl"].map((name) => [name, { textContent: "", hidden: false }]));
+  const view = { gameMode: "broodline", state: "running", seedsTotal: 10, elapsedMs: 0,
+    lengthBonus: { seedIncomePerSecond: 0, applied: false, multiplier: 1 }, broodline: null };
+  let hint = "", overlay = "", frame = 0, renders = 0, scheduled = 0, hintUpdates = 0;
+  const screenHint = { textContent: "" };
+  const snapshots = [
+    { state: "running", phase: "combat", pendingSeeds: 2, kills: 1, wave: 1, enemies: 2, armor: 2, hatchAt: 2300 },
+    { state: "running", phase: "combat", pendingSeeds: 9, kills: 2, wave: 2, enemies: 5, armor: 1, hatchAt: 1100, events: [{ type: "wave", wave: 2 }] },
+    { state: "running", phase: "formation", pendingSeeds: 25, kills: 6, wave: 5, enemies: 0, armor: 0, hatchAt: 1000, events: [{ type: "roundClear" }] },
+    { state: "paused", phase: "formation", pendingSeeds: 25, kills: 6, wave: 5, enemies: 0, armor: 0, hatchAt: 1000 },
+    { state: "gameover", phase: "ended", pendingSeeds: 25, kills: 6, wave: 5, enemies: 0, armor: 0, hatchAt: 1000,
+      events: [{ type: "runEnded", mode: "broodline", reason: "Run ended", reward: 37 }] },
+    { state: "gameover", phase: "ended", pendingSeeds: 25, kills: 6, wave: 5, enemies: 0, armor: 0, hatchAt: 1000 }
+  ];
+  const context = vm.createContext({ ...elements, screenHint, gameView: view, window: { IdleSnakeMinigameFeedback: F },
+    snakeTiming: { enabled: false }, idleLastPanelAt: 0, Date: { now: () => frame * 220 },
+    setText: (element, text) => { element.textContent = text; }, setHidden: (element, hidden) => { element.hidden = hidden; },
+    padScore: String, padSeeds: String, formatTime: String, formatDecimal: String, formatNumber: String,
+    syncPrimaryActionButton() {}, syncPanels() {}, render: () => { renders++; }, requestAnimationFrame: () => ++scheduled,
+    setScreenHint: (text) => { hint = text; screenHint.textContent = text; hintUpdates++; }, showOverlay: (text) => { overlay = text; }, hideBroodlineFormation() {},
+    showBroodlineFormation: () => { hint = "Arrange the chain, then continue or collect Seeds"; },
+    tickIdleWorld: () => {
+      const next = snapshots[frame++];
+      view.state = next.state; view.elapsedMs = frame * 220;
+      view.broodline = { ...next, round: 1, maxArmor: 3, enemies: Array.from({ length: next.enemies }, () => ({})),
+        chain: [{ kind: "egg", hatchAt: next.hatchAt }] };
+      return next.events || [];
+    }
+  });
+  vm.runInContext(functions("gameLoop", "launchCentipede") + functions("syncHud", "syncPrimaryActionButton")
+    + functions("interpretSessionEvents", "formatDuration"), context);
+  context.gameLoop(220);
+  assert.equal(elements.scoreEl.textContent, "2"); assert.equal(elements.bestEl.textContent, "1");
+  assert.equal(elements.gridLabelEl.textContent, "R1 W1/5"); assert.equal(elements.timerEl.textContent, "220");
+  assert.match(hint, /Wave 1\/5 · 2 enemies · Armor 2\/3 · Egg 3s/);
+  const updates = hintUpdates; context.syncHud(); assert.equal(hintUpdates, updates, "unchanged live feedback is not re-announced");
+  context.gameLoop(440);
+  assert.equal(elements.scoreEl.textContent, "9"); assert.equal(elements.bestEl.textContent, "2");
+  assert.equal(elements.gridLabelEl.textContent, "R1 W2/5"); assert.equal(elements.timerEl.textContent, "440");
+  assert.match(hint, /Wave 2\/5 · 5 enemies · Armor 1\/3 · Egg 2s/);
+  context.gameLoop(660); assert.match(hint, /Arrange companions.*continue or collect/);
+  hint = "Paused"; context.gameLoop(880); assert.equal(hint, "Paused");
+  context.gameLoop(1100); assert.equal(overlay, "Run ended · +37 Seeds");
+  // The reward owner adds the terminal reward hint at integration. Any later
+  // frame or explicit HUD refresh must leave that authoritative message alone.
+  hint = "+37 Seeds earned · Start to try again";
+  context.gameLoop(1320); context.syncHud();
+  assert.equal(hint, "+37 Seeds earned · Start to try again"); assert.equal(overlay, "Run ended · +37 Seeds");
+  assert.equal(renders, 6); assert.equal(scheduled, 6);
+});
