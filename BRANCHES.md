@@ -479,3 +479,33 @@ The entries below record prior checks and decisions. All intended work is includ
 - Version impact: none; the impact state exists only during the active run and is not saved.
 - Last update: 2026-09-09.
 - Notes: a held shield shows a small blue arc ahead of the head. A collision consumes one shield immediately, freezes the body for three movement intervals, accepts valid queued turns behind the forced redirect, and pauses cleanly. No commit or release was made.
+
+
+## task/colony-ui-20261011 ? Colony and Notables UI batch
+
+- Agent: Codex, GPT 6.1 Sol; isolated T3 task worktree based on active working (31e773e).
+- Status: Ready for individual review, with visual verification caveat. Integration target: task/colony-batch-20261011 only; no individual PR or working/main merge.
+- Scope: adjacent Income/Length Bonus HUD with yellow multiplier; current habitat Effect bylines; single sequential candidate card with Keep/Reject below; top-left Colony back control and top-right plain retained/capacity count; side-by-side roster actions and red removal controls; in-place service label refresh; consumption tracking and obsolete nursery feeding presentation removal.
+- Compatibility: pending queue, acceptance capacity, replacement, assignments, hold confirmation, served Retire versus unused Dismiss, saved state, and adult provision mechanics preserved. No engine, workflow, package, or root-checkout balance files changed.
+- Interface: habitatPanel seedRate/branchRate/provisionRate/foragerRate/eggHatchReduction; economy branch provides production scaling and active length bonus. Byline sums producer and Forager provisions. Lake uses hatch seconds per egg, never production per second. Economy owns habitat progression and current overview Seed total.
+- Acceptance: node scripts/check-colony-ui.js passes actual renderer plus engine/query VM checks for 7?6?5?4?3?0 pending, capacity blocking without loss, Reject/Keep, Dismiss queue preservation, Unassign, served replacement archive, badge/count, hidden zero state, service/control identity, current habitat rates and Lake zero/active effects. Minimal DOM only; no browser launched.
+- Tests: 35 targeted tests passed (node --test engine/notables.test.js engine/length-bonus.test.js engine/ui-boundary.test.js); npm run check passed all 335 tests, syntax, and authority checks; git diff --check passed. Existing candidate browser tests adapted for sequential Keep/Reject coverage, not executed. Economy owns feeding-control browser expectation adaptations.
+- Preview: http://localhost:4173/test3/ serves this exact checkout through the coordinator-owned shared server. Page, game.js, and styles.css return HTTP 200; routes/server left untouched.
+- Visual gaps: no browser/computer use authorized; small-layout geometry, card squareness with long content, contrast across themes, focus/accessibility interaction, and browser scenarios need user/approved review. Combined economy/progression/current-rate acceptance belongs to integration review.
+- Version impact: none; no save schema or release bump. Last update: 2026-10-11.
+
+
+### UI review correction - aggregate contribution wording (2026-10-11)
+
+- Independent economy review P2: production and shortage historical totals now sum resources, so Seed-only labels overstated Seed contributions (e.g. 0.05 Seed + 0.05 Branch displayed as 0.1 Seeds).
+- Changed only the two contribution labels to "bonus resources" and "resources during shortages"; saved totals, engine effects, and mechanics unchanged.
+- Extended node scripts/check-colony-ui.js to assert the actual UI contribution and service strings for both power types and preserve numeric totals. Direct VM acceptance and npm run check (335 tests, syntax/authority) passed; no browser executed.
+- Status: correction ready for independent review; UI round 1 and integration acceptance remain coordinator-owned.
+
+
+### UI round 1 correction - retained habitat smoke coverage (2026-10-11)
+
+- Updated smoke.spec.js current-effect assertions for Lake/Forest/River instead of removed static output descriptions. Preserved basic controls, configuration/card/cell counts, nursery status, and tail-shape coverage.
+- Current effects use an occupied legacy fixture [0,2,3,4] that remains visible after economy preceding-chain gates hide fresh locked habitats. Populations stay below milestones/natural capacity; expected rates derive independently from shared base rate, production multiplier, and habitat coefficients. Checks include visible cards and nonzero current hatch/Seed/Branch/Provision effects.
+- Contribution wording P2 was already corrected at dcd4134; actual UI contribution/service string assertions remain in the committed direct acceptance script. Saved totals unchanged.
+- Validation: node scripts/check-colony-ui.js and npm run check (335 tests plus syntax/authority) passed; git diff --check clean. Browser scenarios adapted only; no browser executed. Capped Lake query and working-followup numerical expectations remain economy-owned.
