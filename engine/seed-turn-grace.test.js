@@ -5,7 +5,8 @@ const snake = require("./snake.js");
 const { snakeConfig } = require("./config.js");
 const { validateSaveCandidate } = require("./save-guard.js");
 
-function gameAt({ foods = [{ x: 11, y: 10, kind: "seed" }], body, speed = "snake", score = 0 } = {}) {
+function gameAt({ foods = [{ x: 11, y: 10, kind: "seed" }], body, speed = "snake", score = 0,
+  upgrades = {}, rng = () => 0.5 } = {}) {
   const initial = createGameSession({ now: 1000, rng: () => 0.5 });
   initial.dispatch({ type: "selectMode", mode: "snake", setup: {
     grid: { columns: 20, rows: 20 }, tickMs: 200, direction: "right",
@@ -15,7 +16,8 @@ function gameAt({ foods = [{ x: 11, y: 10, kind: "seed" }], body, speed = "snake
   saved.session.active.foods = foods;
   saved.session.active.score = score;
   saved.session.snakeSpeed = speed;
-  const game = createGameSession({ save: saved, now: 1000, rng: () => 0.5 });
+  Object.assign(saved.session.upgrades, upgrades);
+  const game = createGameSession({ save: saved, now: 1000, rng });
   game.dispatch({ type: "begin" });
   return game;
 }
@@ -244,4 +246,175 @@ test("approved tongue presentation keeps the imminent heading through grace and 
   assert.equal(pickup.events.filter(e => e.type === "eat").length, 1);
   assert.equal(game.snapshot().active.foods.some(f => f.x === 11 && f.y === 10), false);
   assert.equal(after.frame, null);
+});
+
+test("timestamped grace replacement behind earlier buffers agrees before pickup and 0/5/16/34 ms late", () => {
+  function run(lateness, delayed) {
+    let draws = 0;
+    const game = gameAt({ foods: [{ x: 10, y: 9, kind: "seed" }], rng: () => { draws++; return 0.5; } });
+    game.tick(100); turn(game, "up"); turn(game, "left");
+    game.tick(70); turn(game, "down");
+    if (delayed) game.tick(30 + lateness);
+    else game.tick(28);
+    const replacement = turn(game, "up", 1198);
+    assert.equal(rejected(replacement), false);
+    assert.equal(deferred(replacement), true);
+    assert.equal(replacement.events.some(e => e.type === "eat" || e.type === "movementCorrected"), false);
+    if (!delayed) game.tick(2 + lateness);
+    assert.deepEqual(game.snapshot().active.directionQueue, ["left", "up"]);
+    assert.deepEqual(game.snapshot().active.seedTurnQueueGuards, [1]);
+    const invalid = turn(game, "right", 1199);
+    assert.equal(rejected(invalid), true);
+    assert.deepEqual(game.snapshot().active.directionQueue, ["left", "up"]);
+    assert.equal(draws, 1, "replay must reuse the canonical pickup RNG draw");
+    const saved = game.serialize();
+    assert.equal(validateSaveCandidate(saved).ok, true);
+    const restored = createGameSession({ save: saved, now: saved.savedAt, rng: () => 0.5 });
+    assert.deepEqual(restored.snapshot().active, game.snapshot().active);
+    return { snapshot: game.snapshot(), saved };
+  }
+  for (const lateness of [0, 5, 16, 34]) assert.deepEqual(run(lateness, true), run(lateness, false));
+});
+
+const respawnSafetyBody = [
+  [10, 10], [9, 10], [9, 11], [10, 11], [11, 11],
+  [11, 10], [11, 9], [11, 8], [10, 8], [10, 7]
+].map(([x, y]) => ({ x, y }));
+const respawnSafetyFoods = [{ x: 10, y: 9, kind: "seed" }, { x: 9, y: 9, kind: "seed" }];
+const respawnSafetyDraws = [0, 0.4228240862476992, 0];
+
+test("core revalidates grace turn after buffered pickups and their respawns without speculative RNG", () => {
+  function run(reload) {
+    let state = snake.createSnakeMode({ columns: 20, rows: 20 }, {
+      snake: respawnSafetyBody, direction: "right", tickMs: 200,
+      upgrades: { foodTypeLevel: 0, foodCountLevel: 1, shieldLevel: 0 }, rng: () => 0.5
+    });
+    state.foods = structuredClone(respawnSafetyFoods);
+    state.directionQueue = ["up", "left", "up"];
+    assert.equal(snake.deferSeedTurn(state, "right"), true);
+    let draws = 0;
+    const events = [];
+    for (let stepIndex = 0; stepIndex < 4; stepIndex++) {
+      const result = snake.stepSnake(state, { rng: () => {
+        assert.ok(draws < respawnSafetyDraws.length, "only actual pickups may consume RNG");
+        return respawnSafetyDraws[draws++];
+      } });
+      assert.equal(result.alive, true);
+      events.push(...result.events);
+      if (stepIndex === 0) assert.deepEqual(state.seedTurnQueueGuards, [2]);
+      if (stepIndex === 1) assert.deepEqual(state.seedTurnQueueGuards, [1]);
+      if (stepIndex === 2) {
+        assert.deepEqual(state.snake[0], { x: 9, y: 8 });
+        assert.equal(state.snake.length, 13, "newly spawned Seed grew the body");
+        assert.deepEqual(state.directionQueue, ["right"]);
+        assert.deepEqual(state.seedTurnQueueGuards, [0]);
+      }
+      if (reload) {
+        const saved = JSON.parse(JSON.stringify(state));
+        state = snake.restoreSnakeMode(saved, { upgrades: saved.upgrades, seeds: saved.seeds,
+          best: saved.best, speedMultiplier: saved.speedMultiplier });
+        assert.deepEqual(state, saved, "guard identity must survive every save boundary");
+      }
+    }
+    assert.equal(draws, 3);
+    assert.equal(state.score, 3);
+    assert.equal(state.seeds, 3);
+    assert.deepEqual(state.snake[0], { x: 9, y: 7 });
+    assert.deepEqual(state.directionQueue, []);
+    assert.equal(state.seedTurnQueueGuards, undefined);
+    assert.equal(events.some(e => e.type === "gameOver" || e.type === "shield"), false);
+    return { state, events };
+  }
+  assert.deepEqual(run(true), run(false));
+});
+
+test("respawn growth safety is deterministic for batched, sliced and saved session stepping", () => {
+  function run(kind) {
+    let draws = 0;
+    const rng = () => {
+      assert.ok(draws < respawnSafetyDraws.length);
+      return respawnSafetyDraws[draws++];
+    };
+    let game = gameAt({ foods: structuredClone(respawnSafetyFoods), body: respawnSafetyBody,
+      upgrades: { foodCountLevel: 1 }, rng });
+    turn(game, "up"); turn(game, "left"); turn(game, "up");
+    game.tick(170); turn(game, "right");
+    const events = [...game.tick(30).events];
+    if (kind === "saved") {
+      const saved = game.serialize();
+      assert.equal(validateSaveCandidate(saved).ok, true);
+      const before = game.snapshot();
+      game = createGameSession({ save: saved, now: saved.savedAt, rng });
+      assert.deepEqual(game.snapshot().active, before.active);
+    }
+    let remaining = 600;
+    while (remaining > 0) {
+      const slice = kind === "batched" ? remaining : Math.min(remaining, 10);
+      events.push(...game.tick(slice).events);
+      remaining -= slice;
+    }
+    assert.equal(game.snapshot().phase, "running");
+    assert.equal(game.snapshot().active.score, 3);
+    assert.equal(game.snapshot().seeds, 3);
+    assert.deepEqual(game.snapshot().active.snake[0], { x: 9, y: 7 });
+    assert.equal(events.filter(e => e.type === "eat").length, 3);
+    assert.equal(draws, 3);
+    const snapshot = structuredClone(game.snapshot());
+    const saved = game.serialize();
+    const committedTime = 200 + events.filter(e => e.type === "speedChanged").reduce((sum, e) => sum + e.tickMs, 0);
+    assert.ok(Math.abs(snapshot.modeAccumulatorMs - (800 - committedTime)) < 1e-9);
+    assert.ok(Math.abs(snapshot.elapsedMs - 800) < 1e-9);
+    // Existing fractional tick arithmetic differs at machine precision when
+    // sliced. Only clocks tolerate that; geometry, rewards, saves and events
+    // below must otherwise match exactly.
+    snapshot.elapsedMs = saved.session.elapsedMs = snapshot.hud.elapsedMs = 800;
+    snapshot.modeAccumulatorMs = saved.session.modeAccumulatorMs = Number(snapshot.modeAccumulatorMs.toFixed(9));
+    return { snapshot, saved, events };
+  }
+  assert.deepEqual(run("batched"), run("sliced"));
+  assert.deepEqual(run("saved"), run("sliced"));
+});
+
+test("multiple pending grace guards follow their own buffered turns and save boundaries", () => {
+  let state = snake.createSnakeMode({ columns: 20, rows: 20 }, {
+    direction: "right", snake: [{ x: 10, y: 10 }, { x: 9, y: 10 }, { x: 8, y: 10 }], rng: () => 0.5
+  });
+  state.foods = [{ x: 10, y: 9, kind: "seed" }, { x: 9, y: 9, kind: "seed" }];
+  state.directionQueue = ["up", "left"];
+  snake.deferSeedTurn(state, "up");
+  snake.stepSnake(state, { rng: () => 0 });
+  assert.deepEqual(state.directionQueue, ["left", "up"]);
+  assert.deepEqual(state.seedTurnQueueGuards, [1]);
+  snake.deferSeedTurn(state, "right");
+  snake.stepSnake(state, { rng: () => 0 });
+  assert.deepEqual(state.directionQueue, ["up", "right"]);
+  assert.deepEqual(state.seedTurnQueueGuards, [0, 1]);
+  const saved = JSON.parse(JSON.stringify(state));
+  state = snake.restoreSnakeMode(saved, { upgrades: saved.upgrades, seeds: saved.seeds,
+    best: saved.best, speedMultiplier: saved.speedMultiplier });
+  assert.deepEqual(state, saved);
+  snake.stepSnake(state, { rng: () => 0 });
+  assert.deepEqual(state.snake[0], { x: 9, y: 8 });
+  assert.deepEqual(state.seedTurnQueueGuards, [0]);
+  snake.stepSnake(state, { rng: () => 0 });
+  assert.deepEqual(state.snake[0], { x: 10, y: 8 });
+  assert.equal(state.seedTurnQueueGuards, undefined);
+});
+
+test("discarding an unsafe guarded turn revalidates later inputs against the retained heading", () => {
+  const state = snake.createSnakeMode({ columns: 20, rows: 20 }, {
+    direction: "up", snake: [{ x: 19, y: 10 }, { x: 19, y: 11 }, { x: 19, y: 12 }], rng: () => 0.5
+  });
+  state.foods = [];
+  state.directionQueue = ["right", "down", "left"];
+  state.seedTurnQueueGuards = [0, 2];
+  const step = snake.stepSnake(state, { rng: () => { assert.fail("no pickup, no RNG"); } });
+  assert.equal(step.alive, true);
+  assert.equal(state.direction, "up");
+  assert.deepEqual(state.snake[0], { x: 19, y: 9 });
+  assert.deepEqual(state.directionQueue, ["left"], "down became an illegal reversal after right was dropped");
+  assert.deepEqual(state.seedTurnQueueGuards, [0]);
+  snake.stepSnake(state);
+  assert.deepEqual(state.snake[0], { x: 18, y: 9 });
+  assert.equal(state.seedTurnQueueGuards, undefined);
 });

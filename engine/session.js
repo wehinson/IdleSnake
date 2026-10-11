@@ -481,13 +481,13 @@
     function correctRecentDirection(action) {
       const history = recentMovement;
       const inputAt = action.inputAt;
+      const protectedSeed = history?.seedGraceHeading && inputAt >= history.seedGraceStartAt;
       if (!history || state.mode !== "snake" || state.phase !== "running" || !Number.isFinite(inputAt)
-        || !history.eligible || inputAt <= history.lowerBound || inputAt >= history.deadline
+        || (!history.eligible && !protectedSeed) || inputAt <= history.lowerBound || inputAt >= history.deadline
         || simulationNow - history.deadline > config.snakeConfig.inputLateToleranceMs) return null;
       const trial = clone(state.active);
-      const protectedSeed = history.seedGraceHeading && inputAt >= history.seedGraceStartAt;
       if (protectedSeed) {
-        trial.direction = history.seedGraceHeading;
+        trial.direction = history.seedGraceQueuedFrom;
         trial.directionQueue = [];
       }
       if (!snake.queueDirection(trial, action.direction)) return protectedSeed
@@ -1236,6 +1236,7 @@
               recentMovement.seedGraceHeading = !state.migrationChallenge
                 ? snake.seedTurnGraceHeading(state.active, snake.nextMoveInterval(state.active)) : null;
               recentMovement.seedGraceStartAt = recentMovement.deadline - snake.nextMoveInterval(state.active) * 0.15;
+              recentMovement.seedGraceQueuedFrom = state.active.directionQueue.at(-1) || state.active.direction;
             }
             lastSnakeMovementAt = simulationNow - state.modeAccumulatorMs;
             moveSnake(events);

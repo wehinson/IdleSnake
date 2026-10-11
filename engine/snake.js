@@ -205,6 +205,7 @@
     state.direction = next;
     state.nextDirection = next;
     state.directionQueue = [];
+    delete state.seedTurnQueueGuards;
     return true;
   }
 
@@ -291,6 +292,10 @@
     state.tickMs = movementInterval(state);
     delete state.deferredSeedTurn;
     if (seedTurnGraceHeading(state, state.tickMs) && vectors[saved.deferredSeedTurn]) deferSeedTurn(state, saved.deferredSeedTurn);
+    delete state.seedTurnQueueGuards;
+    const guards = Array.isArray(saved.seedTurnQueueGuards) ? [...new Set(saved.seedTurnQueueGuards)]
+      .filter(index => Number.isInteger(index) && index >= 0 && index < state.directionQueue.length).sort((a, b) => a - b) : [];
+    if (guards.length) state.seedTurnQueueGuards = guards;
     return state;
   }
 
@@ -351,7 +356,24 @@
       state.shieldImpact = null;
       events.push({ type: "shieldRedirected", from: impact.incomingDirection, to: impact.redirectDirection });
     } else if (state.directionQueue.length > 0) {
-      state.direction = state.directionQueue.shift();
+      // A grace turn can wait behind earlier pickups. Their respawns may grow
+      // the body, so validate this turn against actual geometry when it is due.
+      const guards = new Set(state.seedTurnQueueGuards || []);
+      if (guards.has(0) && !canMoveDirection(state, state.directionQueue[0])) {
+        const remaining = state.directionQueue.slice(1);
+        state.directionQueue = [];
+        delete state.seedTurnQueueGuards;
+        remaining.forEach((direction, index) => {
+          if (queueDirection(state, direction) && guards.has(index + 1)) {
+            (state.seedTurnQueueGuards ||= []).push(state.directionQueue.length - 1);
+          }
+        });
+      } else {
+        state.direction = state.directionQueue.shift();
+        const remainingGuards = [...guards].filter(index => index > 0).map(index => index - 1);
+        if (remainingGuards.length) state.seedTurnQueueGuards = remainingGuards;
+        else delete state.seedTurnQueueGuards;
+      }
       state.nextDirection = state.directionQueue.length > 0
         ? state.directionQueue[state.directionQueue.length - 1]
         : state.direction;
@@ -368,6 +390,7 @@
         state.upgrades.shieldLevel -= 1;
         state.nextDirection = redirect.direction;
         state.directionQueue = [];
+        delete state.seedTurnQueueGuards;
         state.shieldImpact = {
           incomingDirection: state.direction,
           redirectDirection: redirect.direction,
@@ -381,6 +404,7 @@
         if (ctx.collisionGraceMs > 0) {
           state.collisionGraceRemainingMs = ctx.collisionGraceMs;
           state.directionQueue = [];
+          delete state.seedTurnQueueGuards;
           state.nextDirection = state.direction;
           events.push({ type: "collisionPending" });
           return { state, events, alive: true };
@@ -438,17 +462,12 @@
     }
 
     // Release only after the canonical pickup, without an extra movement or
-    // reward. Recheck the future body when an earlier buffered path exists.
+    // RNG draw. Buffered grace turns remain guarded until their own step.
     if (respawnSeed && deferredSeedTurn) {
-      const trial = { ...state, snake: state.snake.slice(), directionQueue: [] };
-      let safe = true;
-      for (const heading of [...state.directionQueue, deferredSeedTurn]) {
-        if (!canMoveDirection(trial, heading)) { safe = false; break; }
-        const vector = vectors[heading];
-        trial.snake = [{ x: trial.snake[0].x + vector.x, y: trial.snake[0].y + vector.y }, ...trial.snake];
-        if (!state.foods.some(food => food.x === trial.snake[0].x && food.y === trial.snake[0].y)) trial.snake.pop();
+      if ((state.directionQueue.length || canMoveDirection(state, deferredSeedTurn))
+        && queueDirection(state, deferredSeedTurn)) {
+        (state.seedTurnQueueGuards ||= []).push(state.directionQueue.length - 1);
       }
-      if (safe) queueDirection(state, deferredSeedTurn);
     }
 
     return { state, events, alive: true };
