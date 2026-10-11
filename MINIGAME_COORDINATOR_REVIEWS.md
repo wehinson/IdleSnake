@@ -181,3 +181,26 @@ Caveats: no browser/manual visual verification performed. Combined sibling conne
 ### Original-worker response to R1
 
 Frozen pushed clean local=origin `53bd0593a3ab2dae37b0eec0c65275d902692413` adds only narrow Runner renderer geometry reuse/common connector call, a focused actual-renderer VM regression and scoped BRANCHES entry. Coordinator read the exact b880..53bd diff: unchanged six tile poses/reverse body order, normalized centers use existing origin/scale, common wrapper before bodies. Worker one small VM test PASS covers all five links/ground and delayed-hop poses/default width/theme/reduced-motion; no full suite run. Prior 353 full tests apply only to b880. R1 remains REQUEST_CHANGES; changed-tip fullcheck and NEW full-history exact-tip coordinator R2 remain required. No rewards/input/helper/sibling changes; no acceptance or merge.
+# Arcade independent R1 — REQUEST_CHANGES
+
+Exact reviewed tip: `cca751ca0af7923da0e0582542fba5e1ea0b1438`; runtime/test code `2420a17d4f2e87b36f0a6a90da2fbbfc8c4bca38`, final delta BRANCHES.md only. Task `node:delegated-task:command%3Amcp%3Aab0d5ba8-7bee-42d0-aa6d-445234728aef%3Adelegate-task%3Aminigame-batch-arcade-independent-r1-cca751c-20261011`. Terminal completed with no pending children. Source-only review reused exact-code full356 evidence.
+
+**REQUEST_CHANGES** — one P2 finding at exact tip `cca751ca0af7923da0e0582542fba5e1ea0b1438`.
+
+Checkout is clean on the requested branch. Base is `31e773efee60c85d6781078803e4eae208911e4e`. Final tip differs from tested code `2420a17d4f2e87b36f0a6a90da2fbbfc8c4bca38` only in `BRANCHES.md`.
+
+- **P2 — Broodline’s new live feedback does not refresh during ordinary combat.** The new Progress, Kills, wave, enemy, armor and egg fields are written by [syncHud](C:/Users/wehin/.t3/worktrees/IdleSnake/task-minigame-brood-strike-centipede-20261011/game.js:3743), but [gameLoop](C:/Users/wehin/.t3/worktrees/IdleSnake/task-minigame-brood-strike-centipede-20261011/game.js:2003) calls it only for running classic Snake. `tickIdleWorld`, `syncPanels`, rendering and the `wave` event provide no alternate refresh.
+  - **Source-derived repro:** Start Broodline and let combat advance without another input.
+  - **Expected:** Timer and new combat feedback follow current snapshots.
+  - **Actual:** They retain their last values until another input or lifecycle refresh; a wave transition alone leaves the displayed wave stale.
+  - Refresh Broodline HUD during normal combat frames or a bounded HUD cadence, while preserving formation and terminal reward messages. Existing helper/drawing tests do not exercise this frame-to-HUD path.
+
+The remaining source review found no additional actionable defects:
+
+- **8:** Prior specialist-range/first-slot, cave armor, formation geometry/timers, ready-forward, bounded unique spawning and lethal-halt fixes remain present. Core wave/scaling/drop/progression rules are preserved.
+- **9:** Shared geometry supports both enlarged boards and tap mapping; reveal guards precede fleet connectors. Persistent results, reduced-motion markers, clipping, pause/reset state and square restoration are coherent in source.
+- **10:** Tuning, first-adjacent-cell checks, traversed-row collision checks, separate enemy clock, HP opacity and bounded larger shooter preserve existing scoring and outcome semantics.
+
+**Integration gates remain:** remove obsolete `duelGridSelect` references when combining Snake; supply the connector wrapper; preserve reward terminal-HUD guards and synchronous settlement flush; retain the controlled-movement hook immediately after `movePlayer` without losing clocks/fresh-shot state or double-paying.
+
+Independent checks were read-only Git verification, `git diff --check`, and source/call-path inspection. Reported same-code 356-test evidence was reused; no suites, browser, HTTP or simulations were rerun. Prior worker R1 remains **CANCELLED**, not PASS; worker R2 remains its reported PASS. Physical phone fit, appearance and live announcements remain unverified. No files or checkout state were changed.
