@@ -116,7 +116,7 @@ test("Forager and Rationer scale actual output; provision upkeep reduction remai
   const reducer = local([26], [leader("CONSUMPTION_REDUCTION", 0, 0.5)]);
   reducer.provisions = 1;
   economy.tickHabitats(reducer, 1000, 5);
-  near(reducer.provisions, economy.roundSeeds(1 - oldBase * 0.5 * 0.5));
+  near(reducer.provisions, 1 - oldBase * 0.5 * 0.5);
   near(reducer.notables.retained[0].totalConsumptionPrevented, oldBase * 0.5 * 0.5);
 });
 
@@ -297,4 +297,219 @@ test("Lake query reports the capped effective current reduction used to start re
   const unsupported = game([5, 330], { currencies: { seeds: 0, branches: 0, provisions: 0 },
     habitats: { counts: [5, 330], upgradeLevels: [0, 9] } });
   assert.equal(queries.habitatPanel(unsupported.snapshot()).habitats[1].eggHatchReduction, 30, "only active Lake snakes affect incubation");
+});
+
+test("bank-funded production does not change the authoritative recurring Lake egg-start reduction", () => {
+  for (const bank of [0, 1e6]) for (const [river, reduction] of [[0, 30], [1, 57], [25, 300]]) {
+    const counts = [5, 330, 5, river];
+    const session = game(counts, { currencies: { seeds: 0, branches: 0, provisions: bank },
+      habitats: { counts, upgradeLevels: [0, 9] }, nursery: { eggProgress: 500 } });
+    const before = session.snapshot(); const panel = queries.habitatPanel(before);
+    assert.equal(panel.habitats[1].eggHatchReduction, reduction);
+    assert.equal(economy.eggHatchReductionSeconds(before), reduction);
+    if (bank > 0) assert.equal(panel.activation.activeCounts[1], 330, "current funded production remains unchanged");
+    const after = session.tick(1).snapshot;
+    assert.equal(after.nursery.eggHatchDurationMs, nurseryConfig.eggHatchMs - reduction * 1000);
+    assert.equal(queries.habitatPanel(after).habitats[1].eggHatchReduction, reduction);
+  }
+});
+
+function fundedSave() {
+  const counts = [5, 5, 5, 300, 5, 5, 5, 6000];
+  return game(counts, { currencies: { seeds: 0, branches: 0, provisions: 1e6 },
+    habitats: { counts, upgradeLevels: counts.map(() => 2) }, nursery: { colonyCount: 0 } }).serialize();
+}
+
+test("funded egg-income thresholds use actual gross producer output before bank depletion", () => {
+  const saved = fundedSave();
+  const initial = createGameSession({ save: saved, now: saved.savedAt, rng: () => 0.99 });
+  const snapshot = initial.snapshot();
+  const full = economy.calculateHabitatActivation(snapshot.habitats.counts, 1, snapshot.notables, snapshot.habitats.upgradeLevels, { activateAllOverCapacity: true });
+  near(full.provisionsProducedPerSecond, 95.58);
+  const firstEggMs = 500 / full.provisionsProducedPerSecond * 1000;
+  initial.tick(firstEggMs);
+  assert.equal(initial.snapshot().nursery.eggsStarted, 1);
+  near(initial.snapshot().nursery.eggElapsedMs, 0);
+  const live = createGameSession({ save: saved, now: saved.savedAt, rng: () => 0.99 });
+  const offline = createGameSession({ save: saved, now: saved.savedAt + 200000, rng: () => 0.99 });
+  for (let i = 0; i < 200; i += 1) live.tick(1000);
+  offline.advanceOffline(saved.savedAt + 200000);
+  const a = productionState(live.snapshot()); const b = productionState(offline.snapshot());
+  for (const key of ["seeds", "branches", "provisions", "eggElapsedMs", "eggProgress"]) { near(a[key], b[key], 0.001); delete a[key]; delete b[key]; }
+  assert.deepEqual(a, b);
+  assert.ok(offline.snapshot().provisions > 0, "fixture is still bank-funded");
+});
+
+test("fractional production slices graduate at the exact consumed deadline and survive partial reload", () => {
+  const saved = game([5, 5, 5, 11], { currencies: { seeds: 0, branches: 0, provisions: 0 },
+    nursery: { colonyCount: 0, nestLevel: 2, nurseryLevel: 2,
+      hatchlings: [{ id: "original-a", progressMs: 0 }, { id: "original-b", progressMs: 0 }] } }).serialize();
+  const live = createGameSession({ save: saved, now: saved.savedAt, rng: () => 0.99 });
+  const offline = createGameSession({ save: saved, now: saved.savedAt + 900000, rng: () => 0.99 });
+  for (let i = 0; i < 900; i += 1) live.tick(1000);
+  offline.advanceOffline(saved.savedAt + 900000);
+  for (const session of [live, offline]) {
+    assert.equal(session.snapshot().nursery.colonyCount, 2);
+    assert.ok(session.snapshot().nursery.hatchlings.every((h) => !h.id.startsWith("original-")));
+    const complete = session.serialize();
+    const restored = createGameSession({ save: complete, now: complete.savedAt, rng: () => 0.99 });
+    assert.equal(restored.snapshot().nursery.colonyCount, 2);
+    restored.advanceOffline(complete.savedAt);
+    assert.equal(restored.snapshot().nursery.colonyCount, 2, "repeated saved target does not accrue again");
+  }
+  const partial = createGameSession({ save: saved, now: saved.savedAt + 899999, rng: () => 0.99 });
+  partial.advanceOffline(saved.savedAt + 899999);
+  assert.equal(partial.snapshot().nursery.colonyCount, 0, "a real millisecond before the deadline remains immature");
+  const checkpoint = partial.serialize();
+  const restored = createGameSession({ save: checkpoint, now: checkpoint.savedAt + 1, rng: () => 0.99 });
+  restored.advanceOffline(checkpoint.savedAt + 1);
+  assert.equal(restored.snapshot().nursery.colonyCount, 2);
+});
+function assertElapsedParity(actual, expected, slices) {
+  const a = productionState(actual); const b = productionState(expected);
+  // Existing Seed/Branch rounding costs at most half a 4dp unit per slice.
+  for (const key of ["seeds", "branches"]) { near(a[key], b[key], (slices + 100) * 0.00006); delete a[key]; delete b[key]; }
+  const compare = (x, y) => {
+    if (typeof x === "number") near(x, y, 1e-7);
+    else if (Array.isArray(x)) { assert.equal(x.length, y.length); x.forEach((v, i) => compare(v, y[i])); }
+    else if (x && typeof x === "object") { assert.deepEqual(Object.keys(x), Object.keys(y)); Object.keys(x).forEach((key) => compare(x[key], y[key])); }
+    else assert.equal(x, y);
+  };
+  compare(a, b);
+}
+
+function advanceFrames(session, total, frame) {
+  let elapsed = 0; let slices = 0;
+  while (elapsed < total) { const dt = Math.min(frame, total - elapsed); session.tick(dt); elapsed += dt; slices += 1; }
+  return slices;
+}
+
+test("funded depletion preserves gameplay for live frame sizes, offline and persisted elapsed slices", () => {
+  const saved = fundedSave(); const total = 1202000;
+  const offline = createGameSession({ save: saved, now: saved.savedAt + total, rng: () => 0.99 });
+  offline.advanceOffline(saved.savedAt + total);
+  const expected = offline.snapshot();
+  assert.equal(expected.nursery.colonyCount, 1); assert.equal(expected.nursery.eggsStarted, 4);
+  assert.equal(expected.provisions, 0, "continuous funding leaves no frame-sized reserve");
+  for (const frame of [1000, 250, 33]) {
+    let live = createGameSession({ save: saved, now: saved.savedAt, rng: () => 0.99 });
+    const split = 200123; // Save while the bank is positive, not at a scheduler boundary.
+    let slices = advanceFrames(live, split, frame);
+    const checkpoint = live.serialize(); assert.ok(live.snapshot().provisions > 0);
+    live = createGameSession({ save: checkpoint, now: checkpoint.savedAt, rng: () => 0.99 });
+    slices += advanceFrames(live, total - split, frame);
+    assertElapsedParity(live.snapshot(), expected, slices);
+    const ended = live.serialize();
+    const restored = createGameSession({ save: ended, now: ended.savedAt, rng: () => 0.99 });
+    restored.advanceOffline(ended.savedAt);
+    assertElapsedParity(restored.snapshot(), live.snapshot(), 0);
+  }
+  const sliced = createGameSession({ save: saved, now: saved.savedAt + 200123, rng: () => 0.99 });
+  sliced.advanceOffline(saved.savedAt + 200123);
+  const checkpoint = sliced.serialize();
+  const restored = createGameSession({ save: checkpoint, now: checkpoint.savedAt + total - 200123, rng: () => 0.99 });
+  restored.advanceOffline(saved.savedAt + total);
+  assertElapsedParity(restored.snapshot(), expected, 2);
+});
+
+test("small fractional frames cannot quantize a positive reserve into different egg deadlines", () => {
+  const counts = [5, 5, 5, 300, 5, 5, 5, 6000];
+  const initial = local(counts); initial.provisions = 10000; initial.habitats.upgradeLevels.fill(2);
+  const expected = clone(initial); economy.tickEconomy(expected, 100000, { rng: () => 0.99 });
+  for (const frame of [33, 17, 7.3]) {
+    const live = clone(initial); let elapsed = 0; let slices = 0;
+    while (elapsed < 100000) { const dt = Math.min(frame, 100000 - elapsed); economy.tickEconomy(live, dt, { rng: () => 0.99 }); elapsed += dt; slices += 1; }
+    assertElapsedParity(live, expected, slices);
+  }
+});
+
+test("effective production conserves depleted reserves and shares modifiers, queries, contributions and service", () => {
+  for (const power of [null, "FORAGER", "RATIONER", "PRODUCTION_INCREASE", "CONSUMPTION_REDUCTION"]) {
+    for (const bank of [0, 1]) {
+      const initial = local([1000, 5, 5, 1], power ? [leader(power, 0, 0.5)] : []); initial.provisions = bank;
+      const plan = economy.habitatProductionPlan(initial, 1);
+      const base = plan.baselineActivation; const full = plan.fullActivation;
+      const surplus = base.provisionsProducedPerSecond + base.foragerProducedPerSecond - base.provisionsConsumedPerSecond;
+      const deficit = full.provisionsConsumedPerSecond - full.provisionsProducedPerSecond - full.foragerProducedPerSecond;
+      if (surplus > 0 && deficit > 0) {
+        near(plan.depletedFullDuty, surplus / (surplus + deficit));
+        near(plan.depletedActivation.provisionsProducedPerSecond + plan.depletedActivation.foragerProducedPerSecond,
+          plan.depletedActivation.provisionsConsumedPerSecond);
+      }
+      assert.deepEqual(full.upkeepPerSnakeRates, base.upkeepPerSnakeRates);
+      const whole = clone(initial); economy.tickEconomy(whole, 60000, { rng: () => 0.99 });
+      const frames = clone(initial); for (let i = 0; i < 240; i += 1) economy.tickEconomy(frames, 250, { rng: () => 0.99 });
+      assertElapsedParity(frames, whole, 240);
+      if (deficit > 0) assert.equal(whole.provisions, 0);
+      const panel = queries.habitatPanel(whole);
+      const current = economy.habitatProductionPlan(whole, 1).currentActivation;
+      near(panel.seedIncomePerSecond, current.incomePerSecond);
+      near(queries.nurseryPanel(whole).provisionsPerSecond, current.provisionsProducedPerSecond);
+      const probe = clone(whole); const before = probe.seeds;
+      const output = economy.tickHabitats(probe, 1000, 1);
+      near(output.income, panel.seedIncomePerSecond);
+      near(probe.seeds - before, panel.seedIncomePerSecond, 0.000051);
+      near(output.provisionsIncome, panel.habitats.reduce((sum, h) => sum + h.provisionRate, 0));
+      near(output.foragedProvisions, panel.habitats.reduce((sum, h) => sum + h.foragerRate, 0));
+      if (power) {
+        near(whole.notables.retained[0].totalServiceTime, 60000);
+        near(frames.notables.retained[0].totalServiceTime, 60000);
+        near(probe.notables.retained[0].totalServiceTime, 61000);
+        for (const [field, rate] of Object.entries(panel.habitats[0].notableEffectRates)) {
+          near(probe.notables.retained[0][field] - whole.notables.retained[0][field], rate);
+          near(frames.notables.retained[0][field], whole.notables.retained[0][field], 1e-7);
+        }
+      }
+    }
+  }
+});
+
+test("funding boundaries handle zero surplus, self-funded full work and nonpositive deficits without division", () => {
+  const zero = local([26]); zero.provisions = 1;
+  const plan = economy.habitatProductionPlan(zero, 1);
+  assert.equal(plan.depletedFullDuty, 0);
+  economy.tickHabitats(zero, plan.bankedSeconds * 1000 - 1, 1);
+  assert.ok(zero.provisions > 0, "positive reserve persists until actual depletion");
+  economy.tickHabitats(zero, 1, 1);
+  near(zero.provisions, 0, 1e-12);
+  economy.tickHabitats(zero, 1000, 1); assert.equal(zero.provisions, 0);
+  near(economy.habitatProductionPlan(zero, 1).currentActivation.incomePerSecond,
+    plan.baselineActivation.incomePerSecond);
+  for (const counts of [[], [1], [26, 0, 0, 26]]) {
+    const state = local(counts); const funded = economy.habitatProductionPlan(state, 1);
+    assert.equal(funded.bankedSeconds, Infinity);
+    assert.equal(funded.currentActivation, funded.fullActivation);
+    assert.equal(funded.depletedFullDuty, 0);
+    const net = funded.fullActivation.provisionsProducedPerSecond + funded.fullActivation.foragerProducedPerSecond - funded.fullActivation.provisionsConsumedPerSecond;
+    assert.ok(net >= 0);
+    economy.tickHabitats(state, 1000, 1); near(state.provisions, net);
+  }
+});
+
+test("depletion just before, at and after incubation/graduation boundaries does not stall or repeat credits", () => {
+  for (const depletionMs of [999, 1000, 1001]) {
+    const initial = local([5, 330, 5, 1], [leader("RATIONER")]); initial.habitats.upgradeLevels[1] = 9;
+    const full = economy.habitatProductionPlan(initial, 1).fullActivation;
+    const deficit = full.provisionsConsumedPerSecond - full.provisionsProducedPerSecond - full.foragerProducedPerSecond;
+    initial.provisions = deficit * depletionMs / 1000;
+    initial.nursery = economy.createNursery({ colonyCount: 0, eggProgress: 500,
+      eggElapsedMs: 299000, eggHatchDurationMs: 300000,
+      hatchlings: [{ id: "a", progressMs: 899000 }, { id: "b", progressMs: 899000 }] }, 0);
+    const expected = clone(initial); economy.tickEconomy(expected, 2000, { rng: () => 0.99 });
+    const live = clone(initial); let elapsed = 0; let slices = 0;
+    while (elapsed < 2000) { const dt = Math.min(137, 2000 - elapsed); economy.tickEconomy(live, dt, { rng: () => 0.99 }); elapsed += dt; slices += 1; }
+    assertElapsedParity(live, expected, slices);
+    assert.equal(expected.nursery.colonyCount, 2);
+    assert.equal(expected.provisions, 0);
+    near(expected.notables.retained[0].totalServiceTime, 2000);
+    const unchanged = productionState(expected);
+    economy.tickEconomy(expected, 0, { rng: () => 0.99 });
+    assert.deepEqual(productionState(expected), unchanged, "zero elapsed time never repeats nursery credits");
+    assert.ok(Number.isFinite(live.provisions) && live.provisions >= 0);
+    assert.equal(economy.nestUpgradeCost(0), nurseryConfig.upgrades.nest.branchBaseCost);
+    const cost = economy.nurseryUpgradeCost(0);
+    assert.equal(cost.seeds, nurseryConfig.upgrades.nursery.seedBaseCost);
+    assert.equal(cost.branches, nurseryConfig.upgrades.nursery.branchBaseCost);
+    for (const habitat of habitatConfig.habitats) assert.equal(economy.habitatUpgradeCost(habitat, 0), habitat.upgradeCost);
+  }
 });

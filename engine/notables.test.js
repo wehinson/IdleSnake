@@ -118,7 +118,7 @@ test("production, Forager, and contribution tracking use final recurring output"
   state.notables.retained[0] = baseNotable({ status: "ASSIGNED", assignedHabitatId: 0, powerType: "FORAGER", powerMagnitude: 0.1 });
   state.seeds = 0; state.provisions = 0;
   economy.tickHabitats(state, 1000, 1);
-  assert.equal(state.seeds, 0.05); assert.equal(state.provisions, 0.005);
+  assert.equal(state.seeds, 0.05); assert.ok(Math.abs(state.provisions - 0.005) < 1e-12);
   assert.ok(Math.abs(state.notables.retained[0].totalProvisionsForaged - 0.005) < 1e-12);
 });
 
