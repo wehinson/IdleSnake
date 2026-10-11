@@ -485,7 +485,13 @@
         || !history.eligible || inputAt <= history.lowerBound || inputAt >= history.deadline
         || simulationNow - history.deadline > config.snakeConfig.inputLateToleranceMs) return null;
       const trial = clone(state.active);
-      if (!snake.queueDirection(trial, action.direction)) return null;
+      const protectedSeed = history.seedGraceHeading && inputAt >= history.seedGraceStartAt;
+      if (protectedSeed) {
+        trial.direction = history.seedGraceHeading;
+        trial.directionQueue = [];
+      }
+      if (!snake.queueDirection(trial, action.direction)) return protectedSeed
+        ? result(state, [event("actionRejected", { action: action.type, reason: "invalidDirection" })]) : null;
       const end = simulationNow;
       recentMovement = null;
       replayingInput = true;
@@ -501,7 +507,7 @@
           if (!submitted && inputAt <= tickEnd) {
             const prefix = Math.max(0, inputAt - simulationNow);
             if (prefix) replayEvents.push(...tickCore(prefix).events);
-            replayEvents.push(...dispatch({ type: "direction", direction: action.direction }).events);
+            replayEvents.push(...dispatch({ type: "direction", direction: action.direction, inputAt }).events);
             submitted = true;
             if (tickEnd > simulationNow) replayEvents.push(...tickCore(tickEnd - simulationNow).events);
           } else replayEvents.push(...tickCore(delta).events);
@@ -515,7 +521,9 @@
         if (index < 0) return true;
         oldEvents.splice(index, 1); return false;
       });
-      return result(state, [event("movementCorrected", { inputAt, deadline: history.deadline, processedAt: end }), ...changedEvents]);
+      const seedHeld = replayEvents.some(item => item.type === "directionQueued" && item.deferredUntilSeed);
+      if (seedHeld) recentMovement = history;
+      return result(state, [...(seedHeld ? [] : [event("movementCorrected", { inputAt, deadline: history.deadline, processedAt: end })]), ...changedEvents]);
     }
     const puzzleSelections = { snakebird: null, sokoban: 0 };
     // Settlement economies are mutated in place between cross-settlement
@@ -911,9 +919,17 @@
               break;
             }
             const ready = state.phase === "ready";
+            const inputElapsed = state.modeAccumulatorMs - (Number.isFinite(action.inputAt)
+              ? Math.max(0, simulationNow - action.inputAt) : 0);
+            if (!ready && !state.migrationChallenge && snake.seedTurnGraceHeading(state.active, inputElapsed)) {
+              if (!snake.deferSeedTurn(state.active, action.direction)) return reject("invalidDirection");
+              events.push(event("directionQueued", { direction: action.direction, deferredUntilSeed: true }));
+              break;
+            }
             const sameDirection = action.direction === (state.active.directionQueue.at(-1) || state.active.direction);
             if (!sameDirection && !snake.queueDirection(state.active, action.direction)) return reject("invalidDirection");
             if (sameDirection && !ready) break;
+            delete state.active.deferredSeedTurn;
             const moveNow = ready || (config.snakeConfig.turnTimingEnabled && state.active.lastTurn === 0) || state.modeAccumulatorMs >= snake.nextMoveInterval(state.active);
             if (moveNow) {
               state.phase = "running";
@@ -1217,6 +1233,9 @@
               recentMovement.deadline = simulationNow - state.modeAccumulatorMs;
               recentMovement.lowerBound = lastSnakeMovementAt;
               recentMovement.eligible = !state.active.directionQueue.length && !state.active.shieldImpact;
+              recentMovement.seedGraceHeading = !state.migrationChallenge
+                ? snake.seedTurnGraceHeading(state.active, snake.nextMoveInterval(state.active)) : null;
+              recentMovement.seedGraceStartAt = recentMovement.deadline - snake.nextMoveInterval(state.active) * 0.15;
             }
             lastSnakeMovementAt = simulationNow - state.modeAccumulatorMs;
             moveSnake(events);

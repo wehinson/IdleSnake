@@ -75,13 +75,13 @@ test("input after the deadline or beyond tolerance queues for the next move; rev
   assert.ok(session.dispatch({ type: "direction", direction: "down", inputAt: 1199 }).events.some((e) => e.type === "actionRejected"));
 });
 
-test("correction reverses food rewards, growth and respawn and handles a pending collision", () => {
+test("pre-grace correction reverses food rewards, growth and respawn and handles a pending collision", () => {
   const session = game();
   const saved = session.serialize(); saved.session.active.foods = [{ x: 10, y: 9, kind: "seed" }];
   const eating = createGameSession({ save: saved, now: 1000, rng: () => 0.5 });
   eating.dispatch({ type: "begin" }); eating.tick(210);
   assert.equal(eating.snapshot().active.score, 1);
-  const corrected = eating.dispatch({ type: "direction", direction: "right", inputAt: 1199 }).snapshot;
+  const corrected = eating.dispatch({ type: "direction", direction: "right", inputAt: 1169.8 }).snapshot;
   assert.equal(corrected.active.score, 0); assert.equal(corrected.seeds, 0);
   assert.equal(corrected.active.snake.length, 3); assert.equal(corrected.active.tickMs, 200);
   assert.deepEqual(corrected.active.foods, [{ x: 10, y: 9, kind: "seed" }]);

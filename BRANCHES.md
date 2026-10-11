@@ -1,5 +1,20 @@
 # Branch status
 
+## task/seed-turn-grace-20261011 — Classic Snake final 15% Seed turn grace
+
+- Agent: Codex, GPT 6.1 Sol, local Jimothy, T3-managed isolated task checkout; worktree claim is separate from the root claim.
+- Status: Ready With Caveat; implementation and individual acceptance checks pass, awaiting coordinator review/integration and William's visual acceptance.
+- Base: active local `working`, including the approved shorter tongue and animated Seed return. No archived tongue experiment restored.
+- Changes: authoritative direction dispatch defers new turns requested at/after 85% of the imminent Seed step; pre-85% turns remain normal. Protects the actual imminent `directionQueue[0]` heading, otherwise current direction. Keeps the latest legal grace request outside the presentation queue until the canonical pickup, then queues it only if safe. Earlier buffered turns retain precedence, including a full three-turn buffer. Invalid later inputs preserve the last legal grace request. Empty cells, eggs, Ready/paused runs, other modes and migration challenges keep prior behavior.
+- Timing/compatibility: uses current movement interval for all speed presets and acceleration, rescales with speed changes, persists optional deferred input in existing version-5 saves, freezes during pause. Timestamped pre-85% requests still correct within the existing 34 ms tolerance; at/after-85% replay retains the pickup without duplicate rewards or a tongue-reset correction event. No UI, economy, workflow, release-version or save-version changes.
+- Tests: dedicated engine acceptance cases cover 84.9/85/99%, Seed vs empty/egg/distant Seed, reversal/duplicate/invalid legality, latest legal queued input, unsafe wall/body turns, early buffers, presets/acceleration, pause/save/reload/speed change, delayed timestamp boundaries and repeated delivery, full buffers, deterministic sliced/batched stepping, core stepping and approved tongue effective heading/consumption. Existing reward-correction test retained with its input moved to 84.9% to exercise still-supported pre-grace correction.
+- Verification: `npm run check` passed syntax, authority and all 350 Node tests (15 new grace cases). Targeted movement/correction/speed/collision/tongue checks passed. Direct HTTP byte comparisons passed for `/test2/` HTML, game.js, engine/session.js, engine/snake.js, engine/tongue.js and scripts/tongue-draw.js. `git diff --check` passed.
+- Preview: coordinator-owned `http://localhost:4173/test2/` maps to this exact checkout on existing server PID 10940. This thread does not change routes or restart the server.
+- Caveat: browser/computer use is not authorized or performed; canvas appearance and perceived steering/tongue timing require William's visual acceptance.
+- Integration: commit/push this task branch only; coordinator thread `mcp:4179fc65-6476-4132-ab6c-582e4df713e3` owns review and integration into `task/colony-batch-20261011` for one PR targeting `working`. No individual PR, `working`/`main` merge or deployment.
+- Version impact: none. Unrelated root balance files remain untouched and excluded.
+- Last update: 2026-10-11.
+
 ## task/tongue-seed-return — Shorter tongue and smooth Seed placement experiment
 
 - Agent: Codex, GPT 6.1 Sol, medium effort, local Jimothy, T3-created checkout `C:/Users/wehin/.t3/worktrees/IdleSnake/task-tongue-seed-return`.

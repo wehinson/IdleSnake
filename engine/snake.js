@@ -175,6 +175,26 @@
     return true;
   }
 
+  // Earlier buffered turns own the imminent step. Late Seed turns live outside
+  // that queue so presentation continues to face the step that will consume it.
+  function seedTurnGraceHeading(state, elapsedMs) {
+    if (state.shieldImpact || state.collisionGraceRemainingMs !== null
+      || elapsedMs < nextMoveInterval(state) * 0.85) return null;
+    const heading = state.directionQueue[0] || state.direction;
+    const vector = vectors[heading];
+    const head = state.snake[0];
+    return state.foods.some(food => food.kind !== "egg"
+      && food.x === head.x + vector.x && food.y === head.y + vector.y) ? heading : null;
+  }
+
+  function deferSeedTurn(state, next) {
+    // Preserve the existing early buffer; replace only the latest grace input.
+    const trial = { ...state, direction: state.directionQueue.at(-1) || state.direction, directionQueue: [] };
+    if (!queueDirection(trial, next)) return false;
+    state.deferredSeedTurn = next;
+    return true;
+  }
+
   // Immediate session turns validate against the last completed move.
   // A second perpendicular input can therefore complete a quick U-turn.
   function turnDirection(state, next) {
@@ -269,6 +289,8 @@
       && saved.shieldImpact.ticksRemaining >= 1 && saved.shieldImpact.ticksRemaining <= 3
       ? state.shieldImpact : null;
     state.tickMs = movementInterval(state);
+    delete state.deferredSeedTurn;
+    if (seedTurnGraceHeading(state, state.tickMs) && vectors[saved.deferredSeedTurn]) deferSeedTurn(state, saved.deferredSeedTurn);
     return state;
   }
 
@@ -313,6 +335,8 @@
     ctx = ctx || {};
     const rng = ctx.rng || Math.random;
     const events = [];
+    const deferredSeedTurn = state.deferredSeedTurn;
+    delete state.deferredSeedTurn;
 
     if (state.shieldImpact) {
       const impact = state.shieldImpact;
@@ -413,6 +437,20 @@
       }
     }
 
+    // Release only after the canonical pickup, without an extra movement or
+    // reward. Recheck the future body when an earlier buffered path exists.
+    if (respawnSeed && deferredSeedTurn) {
+      const trial = { ...state, snake: state.snake.slice(), directionQueue: [] };
+      let safe = true;
+      for (const heading of [...state.directionQueue, deferredSeedTurn]) {
+        if (!canMoveDirection(trial, heading)) { safe = false; break; }
+        const vector = vectors[heading];
+        trial.snake = [{ x: trial.snake[0].x + vector.x, y: trial.snake[0].y + vector.y }, ...trial.snake];
+        if (!state.foods.some(food => food.x === trial.snake[0].x && food.y === trial.snake[0].y)) trial.snake.pop();
+      }
+      if (safe) queueDirection(state, deferredSeedTurn);
+    }
+
     return { state, events, alive: true };
   }
 
@@ -434,6 +472,8 @@
     findShieldRedirect,
     queueDirection,
     queueDirectionAfterShield,
+    seedTurnGraceHeading,
+    deferSeedTurn,
     turnDirection,
     createSnakeMode,
     restoreSnakeMode,
