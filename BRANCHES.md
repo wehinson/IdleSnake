@@ -3,7 +3,7 @@
 ## task/minigame-batch-20261011 — Minigame PR2 coordination
 
 - Agent: local Jimothy, GPT 6.1 Sol high effort, T3 coordinator `mcp:618042fc-9354-4fc9-906a-1b3ca5c689e4`.
-- Status: Active. Six existing implementation workers; Snake exact53bd059, Brick/Crossing exact0f6aafc, Snakebird exact715ac20 and Sokoban exactc664c56 individually accepted; Arcade R1 REQUEST_CHANGES (live Broodline HUD stale), original worker fixing; Rewards independent R1 source/small running. No implementation merge yet. Exactly one minigame PR will target `working`, separately from Colony PR1. No automatic merge or deployment.
+- Status: Active. Six existing implementation workers; Snake exact53bd059, Brick/Crossing exact0f6aafc, Snakebird exact715ac20 and Sokoban exactc664c56 individually accepted; Rewards707e51f now independently accepted; Arcade087fea5 liveHUD fix passes exact357 full check, new focused R2 pending. No implementation merge yet. Exactly one minigame PR will target `working`, separately from Colony PR1. No automatic merge or deployment.
 - Base: `31e773efee60c85d6781078803e4eae208911e4e`. Approved tongue behavior retained; root uncommitted balance files excluded.
 - Scope: requests 1–6 and 8–13 (numbering skips 7): duel/Nibbler/switching/shared connectors; Brick Breaker/Snakeger; 15 Snake Bird and 15 Sokoban puzzles; Broodline/strike/Centipede polish; authoritative calibrated Seed rewards.
 - Evidence and resume state: `MINIGAME_REVIEW.md`; full original brief: `MINIGAME_BRIEF.md`. Each final exact worker tip requires coordinator inspection/checks and independent T3 read-only review before integration.

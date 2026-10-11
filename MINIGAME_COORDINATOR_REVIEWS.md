@@ -1,5 +1,32 @@
 # Minigame coordinator independent reviews
 
+## Rewards coordinator independent R1 — ACCEPT
+
+Exact final707e51f475aa47ed434f4ab0c112014cc78f60a8, identical runtime/tests to eaef9a593c4c75eb3e7fe91ebfe4436eff1d7033 (two final docs). Task `node:delegated-task:command%3Amcp%3Aab0d5ba8-7bee-42d0-aa6d-445234728aef%3Adelegate-task%3Aminigame-batch-rewards-independent-r1-707e51f-20261011`, terminalcompleted/nochildren. Individualgate ACCEPT, combinedintegration unverified.
+
+**ACCEPT** for coordinator integration of request11. No P0/P1/P2 defect found in this independent R1 review.
+
+Verified checkout: `task/minigame-rewards-20261011`, clean, local = origin at **`707e51f475aa47ed434f4ab0c112014cc78f60a8`**. Its parent is **`eaef9a593c4c75eb3e7fe91ebfe4436eff1d7033`**; the final delta contains only `BRANCHES.md` and `MINIGAME_REWARDS.md`. The base-to-final diff contains the reported 16 scoped files and six commits, with no merges.
+
+Source inspection covered all ten payout modes and their actual engine/session settlement paths. Income comes from the authoritative active-settlement habitat query; history tracks paid Seeds, never scores. The bounded formula is monotonic at fixed factors, assigns the 3× bonus only to genuine wins, and uses persisted ±3% randomness. Terminal settlement owns wallet/history/receipt changes; reload discards unfinished boards, and offline advancement cannot settle them. Formula units, calibration and worked examples are consistent with the implementation.
+
+**P3 material balance risk:** [minigame-rewards.js:64](C:/Users/wehin/.t3/worktrees/IdleSnake/task-minigame-rewards-20261011/engine/minigame-rewards.js:64) retains a substantial base award and a 25% repeat floor once minimal progress qualifies. Reading the existing `f802947` artifact gives approximately **783 Seeds/min for Broodline**, **438 Runner**, **189 Breakout**, and **86 Centipede** in its seed1 weak-controller traces. These are reused traces, not new simulation or representative player measurements. Higher scores and wins earn more per run as requested; efficient farming can favor quick failures. The disclosure in [MINIGAME_REWARDS.md:76](C:/Users/wehin/.t3/worktrees/IdleSnake/task-minigame-rewards-20261011/MINIGAME_REWARDS.md:76) is honest. Carry this into combined balance testing and William’s acceptance; this review does not authorize retuning games or adding time gates.
+
+Independent verification, serial with a 96 MB Node heap limit:
+
+- **6 selected tests passed:** applied arcade movement; pre-award RNG/counter recovery; immediate canonical persistence; unapplied directional commands; terminal presentation/HUD hints; cancelled Nibbler queues.
+- **1 separate bounded actual-session probe passed:** controlled Breakout clear paid `126.7399`; the same clear after neutral input paid `0`. Reload/offline preserved the ledger; a later run retained history and received `114.5631`. Adding wallet Seeds did not change income.
+- Commit mapping, complete scoped-diff inspection and `git diff --check` passed; checkout remained clean.
+
+Three review-command errors—a stale protocol path, a read-command argument typo and an artifact-reader syntax typo—were corrected. No product-check failures, hangs or dependent skips remain.
+
+Prior findings are resolved in source and the selected checks: R1 neutral/cleared arcade controls, R2 cancelled Maze queues, R3 delayed terminal persistence, and R4 terminal-hint overwrite. Prior R1–R3 remain failed historical reviews; R4/R5 do not constitute this acceptance.
+
+Reused evidence remains explicitly separate: exact-`eaef` **356 tests, 122 syntax checks and 11-mode authority/canonical checks**, plus the unchanged-`f802947` **21 traces**. I verified reward math, session, arcade engines and simulation code are unchanged from `f802947`; I did not independently rerun those suites or traces.
+
+Combined integration remains unverified. Preserve the specified Brick `stepSlice`/clock contract, Centipede event placement, Snake’s separate applied-heading baseline, puzzle progression metadata and Brood lifecycle. The sibling live-HUD refresh fix must retain the reward terminal guards at [game.js:639](C:/Users/wehin/.t3/worktrees/IdleSnake/task-minigame-rewards-20261011/game.js:639) and [game.js:3694](C:/Users/wehin/.t3/worktrees/IdleSnake/task-minigame-rewards-20261011/game.js:3694). Visual layout and human balance acceptance remain open. No files, saves, claims, routes, servers or child tasks were mutated.
+
+
 ## Arcade R1 fix handoff — acceptance pending
 
 Original Arcade worker narrow R1 fix handoff: frozen clean pushed087fea5174137dfef42ce71b1358a96daaa5454e, one own commit after rejectedcca751ca. Only game.js/scripts/minigame-feedback.test.js/BRANCHES.md,64insertions4deletions. Actual gameLoop now invokes existing syncHud after ticks/events only running Broodline combat plus existingClassic. Formation/paused/gameover excluded. Brood syncHud gameover hintguard and change-only goals suppress repeatedpoliteannouncements. No engine/render/camera/formation/reducedmotion/rewardmath/control/flush/Centiclock/connector changes. Tiny actual extracted gameLoop+syncHud+interpreterVM noinput scripted snapshots PASS1(~70ms): progress2->9/kills1->2/wave1->2/enemies2->5/armor2->1/eggtimer3->2s/timer220->440, no alternate waveeventHUD trigger; formation/pausehint retained; terminal+37Seeds and synthetic centralrewardterminalhint retained afterlaterframe/explsyncHud; unchangedgoallivewrites suppressed. gitdiffcheckPASS. Prior full356/52focused ONLYpre-deltacca751ca; changedtipfull/combined evidence stillpending freshlease OIKOSpriority. WorkeropenuntilWilliamaccepts; no selfreview/full/server/browser/deploy/imports. CoordinatorR1 remainsREQUEST_CHANGES; new exacttipR2 gate required. Integration removeobsolete duelGridSelect, supplyhelper, preserve centralrewardhooks/flush/terminalguards/Centiclocks controlledMove asbefore.
