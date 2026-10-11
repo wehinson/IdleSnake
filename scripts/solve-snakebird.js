@@ -25,11 +25,12 @@ function replay(map, witness) {
   return { state, trace, complete: engine.isComplete(state) };
 }
 
-function solve(map, { maxStates = 200000, maxDepth = 100 } = {}) {
-  const start = engine.parseLevel(map);
+function solve(map, { maxStates = 200000, maxDepth = 100, firstFruit = null, initialState = null } = {}) {
+  const start = initialState || engine.parseLevel(map);
   const nodes = [{ state: start, parent: -1, symbol: "", depth: 0 }];
   const seen = new Set([stateKey(start)]);
   let falls = 0;
+  let depthLimited = false;
   for (let cursor = 0; cursor < nodes.length; cursor += 1) {
     const node = nodes[cursor];
     if (engine.isComplete(node.state)) {
@@ -37,19 +38,20 @@ function solve(map, { maxStates = 200000, maxDepth = 100 } = {}) {
       for (let i = cursor; nodes[i].parent >= 0; i = nodes[i].parent) witness = nodes[i].symbol + witness;
       return { status: "solved", witness, moves: witness.length, explored: cursor + 1, discovered: nodes.length, falls };
     }
-    if (node.depth >= maxDepth) continue;
     for (const [symbol, direction] of Object.entries(directions)) {
       const result = engine.applyMove(node.state, direction);
       if (!result.accepted) continue;
       if (result.fell) { falls += 1; continue; }
+      if (firstFruit && node.state.fruits.size === start.fruits.size && result.ateFruit && node.state.fruits.has(firstFruit) && result.state.fruits.has(firstFruit)) continue;
       const key = stateKey(result.state);
       if (seen.has(key)) continue;
+      if (node.depth >= maxDepth) { depthLimited = true; continue; }
       if (nodes.length >= maxStates) return { status: "limit", discovered: nodes.length, falls };
       seen.add(key);
       nodes.push({ state: result.state, parent: cursor, symbol, depth: node.depth + 1 });
     }
   }
-  return { status: "unsolved", discovered: nodes.length, falls };
+  return { status: depthLimited ? "depth-limit" : "unsolved", discovered: nodes.length, falls };
 }
 
 module.exports = { solve, replay, directions };

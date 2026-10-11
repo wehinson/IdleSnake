@@ -1,0 +1,444 @@
+{
+  "campaignVersion": 2,
+  "notation": "U/D/L/R = accepted up/down/left/right inputs; gravity resolves after every input.",
+  "levels": [
+    {
+      "level": 1,
+      "name": "Anchored Reach",
+      "difficulty": "Introductory",
+      "lesson": "Anchored reach",
+      "rationale": "Climb for elevated fruit while lower segments hold the starting ledge; growth and a controlled sag carry the body to the exit.",
+      "witness": "UURRRRR",
+      "optimalMoves": 7,
+      "explored": 150,
+      "discovered": 192,
+      "lethalTransitionsRejected": 11,
+      "fruitOrder": [
+        "2,2"
+      ],
+      "gravityDrops": [
+        {
+          "move": 4,
+          "cells": 1
+        },
+        {
+          "move": 5,
+          "cells": 1
+        }
+      ]
+    },
+    {
+      "level": 2,
+      "name": "Raised Landing",
+      "difficulty": "Introductory",
+      "lesson": "Raised support transfer",
+      "rationale": "A solid destination column prevents a flat crossing. A shaping up-move sags back down, then the body catches the raised landing for a supported exit.",
+      "witness": "UURURRRU",
+      "optimalMoves": 8,
+      "explored": 163,
+      "discovered": 186,
+      "lethalTransitionsRejected": 10,
+      "fruitOrder": [
+        "2,2"
+      ],
+      "gravityDrops": [
+        {
+          "move": 4,
+          "cells": 1
+        },
+        {
+          "move": 5,
+          "cells": 1
+        }
+      ]
+    },
+    {
+      "level": 3,
+      "name": "Drop to Feed",
+      "difficulty": "Early",
+      "lesson": "Controlled descent",
+      "rationale": "Leave an upper island, drop beside a lower fruit, then approach around the blocked column and climb to the exit.",
+      "witness": "URRRDDRUR",
+      "optimalMoves": 9,
+      "explored": 74,
+      "discovered": 94,
+      "lethalTransitionsRejected": 14,
+      "fruitOrder": [
+        "5,5"
+      ],
+      "gravityDrops": [
+        {
+          "move": 3,
+          "cells": 1
+        },
+        {
+          "move": 6,
+          "cells": 1
+        }
+      ]
+    },
+    {
+      "level": 4,
+      "name": "Two Fruit Bridge",
+      "difficulty": "Early",
+      "lesson": "Growth as a length budget",
+      "rationale": "Both fruits are required for their added length, not just collection: without either, exhaustive search cannot bridge the four-column gap.",
+      "witness": "UURURRRRRRUR",
+      "optimalMoves": 12,
+      "explored": 229,
+      "discovered": 248,
+      "lethalTransitionsRejected": 72,
+      "fruitOrder": [
+        "2,2",
+        "6,3"
+      ],
+      "gravityDrops": [
+        {
+          "move": 4,
+          "cells": 1
+        },
+        {
+          "move": 5,
+          "cells": 1
+        },
+        {
+          "move": 8,
+          "cells": 1
+        }
+      ]
+    },
+    {
+      "level": 5,
+      "name": "Fold and Climb",
+      "difficulty": "Early / intermediate",
+      "lesson": "Vacating-tail fold",
+      "rationale": "After a three-cell drop, approach the fruit from the right, grow into a four-cell loop, enter the vacating tail twice, and unfold to climb.",
+      "witness": "URRRRULDRUUUR",
+      "optimalMoves": 13,
+      "explored": 128,
+      "discovered": 133,
+      "lethalTransitionsRejected": 29,
+      "fruitOrder": [
+        "4,5"
+      ],
+      "gravityDrops": [
+        {
+          "move": 3,
+          "cells": 1
+        },
+        {
+          "move": 6,
+          "cells": 3
+        }
+      ]
+    },
+    {
+      "level": 6,
+      "name": "Lower Landing",
+      "difficulty": "Intermediate",
+      "lesson": "Landing below the departure",
+      "rationale": "Collect fruit over both islands, retain tail support during the crossing, then bend around the destination edge to the lower exit.",
+      "witness": "URRUURRRURRDDL",
+      "optimalMoves": 14,
+      "explored": 438,
+      "discovered": 557,
+      "lethalTransitionsRejected": 65,
+      "fruitOrder": [
+        "4,2",
+        "7,3"
+      ],
+      "gravityDrops": [
+        {
+          "move": 3,
+          "cells": 1
+        },
+        {
+          "move": 7,
+          "cells": 1
+        },
+        {
+          "move": 8,
+          "cells": 1
+        },
+        {
+          "move": 13,
+          "cells": 1
+        }
+      ]
+    },
+    {
+      "level": 7,
+      "name": "High Shelf",
+      "difficulty": "Intermediate",
+      "lesson": "Required fruit ordering",
+      "rationale": "The shelf fruit must come first. Its height requires an anchored reach; crossing toward the second fruit ends in a planned four-cell drop.",
+      "witness": "URRUUURRRUURRRDD",
+      "optimalMoves": 16,
+      "explored": 719,
+      "discovered": 874,
+      "lethalTransitionsRejected": 37,
+      "fruitOrder": [
+        "4,2",
+        "9,4"
+      ],
+      "gravityDrops": [
+        {
+          "move": 4,
+          "cells": 1
+        },
+        {
+          "move": 13,
+          "cells": 4
+        }
+      ]
+    },
+    {
+      "level": 8,
+      "name": "Twin Posts",
+      "difficulty": "Intermediate",
+      "lesson": "Posts as temporary anchors",
+      "rationale": "Isolated posts support the upper sweep. Bend around the far post and reverse under the islands to reach the lower left exit. The shortest route maintains support throughout.",
+      "witness": "UURRRRRRRDDLLDDLLLLL",
+      "optimalMoves": 20,
+      "explored": 1615,
+      "discovered": 1945,
+      "lethalTransitionsRejected": 376,
+      "fruitOrder": [
+        "5,2",
+        "7,4"
+      ],
+      "gravityDrops": []
+    },
+    {
+      "level": 9,
+      "name": "Across and Back",
+      "difficulty": "Intermediate / advanced",
+      "lesson": "Rebuild the return route",
+      "rationale": "The central fruit must precede the right fruit. Drop to the far island, turn upward to regain the shelf, then return left and descend beside the start.",
+      "witness": "URRUURRRUURRUULLLLLLLLDDR",
+      "optimalMoves": 25,
+      "explored": 932,
+      "discovered": 981,
+      "lethalTransitionsRejected": 92,
+      "fruitOrder": [
+        "4,2",
+        "8,4"
+      ],
+      "gravityDrops": [
+        {
+          "move": 3,
+          "cells": 1
+        },
+        {
+          "move": 11,
+          "cells": 4
+        },
+        {
+          "move": 23,
+          "cells": 2
+        }
+      ]
+    },
+    {
+      "level": 10,
+      "name": "Bent Descent",
+      "difficulty": "Advanced",
+      "lesson": "Bend around a central obstacle",
+      "rationale": "Two high shelves and a hanging center block constrain the descent toward the low fruit. The right high fruit cannot come first; either other fruit can start a legal route.",
+      "witness": "URUUURRRRUURRDLDDDLDDLLLLL",
+      "optimalMoves": 26,
+      "explored": 11241,
+      "discovered": 12597,
+      "lethalTransitionsRejected": 856,
+      "fruitOrder": [
+        "3,2",
+        "8,2",
+        "7,5"
+      ],
+      "gravityDrops": [
+        {
+          "move": 4,
+          "cells": 1
+        },
+        {
+          "move": 12,
+          "cells": 1
+        }
+      ]
+    },
+    {
+      "level": 11,
+      "name": "Pillar Ladder",
+      "difficulty": "Advanced",
+      "lesson": "Plan vertical reach across four harvests",
+      "rationale": "The top fruit cannot come first. Lower fruit funds the climb around the thin pillar; the last low fruit forces descent and a long supported return.",
+      "witness": "URRRRRRRULUULLUURRDLDDLLLLL",
+      "optimalMoves": 27,
+      "explored": 11835,
+      "discovered": 14268,
+      "lethalTransitionsRejected": 2083,
+      "fruitOrder": [
+        "8,5",
+        "7,3",
+        "5,1",
+        "6,7"
+      ],
+      "gravityDrops": [
+        {
+          "move": 4,
+          "cells": 1
+        },
+        {
+          "move": 14,
+          "cells": 1
+        },
+        {
+          "move": 17,
+          "cells": 1
+        },
+        {
+          "move": 18,
+          "cells": 1
+        },
+        {
+          "move": 19,
+          "cells": 1
+        }
+      ]
+    },
+    {
+      "level": 12,
+      "name": "Canopy Circuit",
+      "difficulty": "Advanced",
+      "lesson": "Go under, over, and down the canopy",
+      "rationale": "Start below a wide roof; harvest both lower sides, climb around its right edge, sweep back over it for the last fruit, reshape and release support for a four-cell drop to the low exit.",
+      "witness": "URURRRRRRUUUULLLLURRRRUURDD",
+      "optimalMoves": 27,
+      "explored": 3007,
+      "discovered": 3331,
+      "lethalTransitionsRejected": 152,
+      "fruitOrder": [
+        "3,4",
+        "9,4",
+        "5,2"
+      ],
+      "gravityDrops": [
+        {
+          "move": 4,
+          "cells": 1
+        },
+        {
+          "move": 11,
+          "cells": 1
+        },
+        {
+          "move": 23,
+          "cells": 1
+        },
+        {
+          "move": 27,
+          "cells": 4
+        }
+      ]
+    },
+    {
+      "level": 13,
+      "name": "Switchback Orchard",
+      "difficulty": "Advanced",
+      "lesson": "Alternating heights and approach sides",
+      "rationale": "Grow low, climb the center step, double back to the isolated upper-left fruit, then descend and rebuild support below the upper-right exit; taking the high fruit is not the finish.",
+      "witness": "URURURUULLLLUURRRRRRUULUURRR",
+      "optimalMoves": 28,
+      "explored": 3593,
+      "discovered": 4021,
+      "lethalTransitionsRejected": 189,
+      "fruitOrder": [
+        "2,5",
+        "1,2",
+        "7,4"
+      ],
+      "gravityDrops": [
+        {
+          "move": 4,
+          "cells": 1
+        },
+        {
+          "move": 15,
+          "cells": 4
+        },
+        {
+          "move": 16,
+          "cells": 2
+        }
+      ]
+    },
+    {
+      "level": 14,
+      "name": "Summit Return",
+      "difficulty": "Expert",
+      "lesson": "Four-fruit summit return",
+      "rationale": "Two lower fruits fund a climb to the upper-right summit; cross back for the last upper-left fruit, then reshape the long body for the multi-cell descent to the original right island.",
+      "witness": "UURUURRRRUUURRULLLLLLLURRRRRDDRRR",
+      "optimalMoves": 33,
+      "explored": 11148,
+      "discovered": 12677,
+      "lethalTransitionsRejected": 543,
+      "fruitOrder": [
+        "2,5",
+        "7,5",
+        "9,2",
+        "2,2"
+      ],
+      "gravityDrops": [
+        {
+          "move": 4,
+          "cells": 1
+        },
+        {
+          "move": 5,
+          "cells": 1
+        },
+        {
+          "move": 20,
+          "cells": 1
+        },
+        {
+          "move": 29,
+          "cells": 1
+        },
+        {
+          "move": 31,
+          "cells": 3
+        }
+      ]
+    },
+    {
+      "level": 15,
+      "name": "Hanging Harvest",
+      "difficulty": "Expert / finale",
+      "lesson": "Harvest over the abyss",
+      "rationale": "Combine shelf transfers, four-fruit growth, a vacating-tail turn and a bottom-row fruit with no solid below it. Preserve other support while eating, then reshape for the return; bottom fruit cannot come first.",
+      "witness": "URUUURRRRRRURRDLLLDDDRRDDLDLLULLLLL",
+      "optimalMoves": 35,
+      "explored": 27778,
+      "discovered": 28110,
+      "lethalTransitionsRejected": 1007,
+      "fruitOrder": [
+        "4,1",
+        "9,3",
+        "7,6",
+        "6,9"
+      ],
+      "gravityDrops": [
+        {
+          "move": 4,
+          "cells": 1
+        },
+        {
+          "move": 13,
+          "cells": 2
+        }
+      ]
+    }
+  ]
+}
