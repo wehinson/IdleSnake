@@ -10,6 +10,7 @@
     config: req ? req("./config.js") : root.IdleSnakeConfig,
     notables: req ? req("./notables.js") : root.IdleSnakeNotables,
     economy: req ? req("./economy.js") : root.IdleSnakeEconomy,
+    rewards: req ? req("./minigame-rewards.js") : root.IdleSnakeMinigameRewards,
     migration: req ? req("./migration.js") : root.IdleSnakeMigration,
     tradeRoutes: req ? req("./trade-routes.js") : root.IdleSnakeTradeRoutes,
     resupply: req ? req("./resupply.js") : root.IdleSnakeResupply,
@@ -29,7 +30,7 @@
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   if (typeof window !== "undefined") window.IdleSnakeSession = api;
   else root.IdleSnakeSession = api;
-})(typeof window !== "undefined" ? window : globalThis, ({ puzzleLevels, config, notables, economy, migration, tradeRoutes, resupply, snake, duel, crossing, breakout, runner, battleship, centipede, broodline, maze, sokoban, snakebird }) => {
+})(typeof window !== "undefined" ? window : globalThis, ({ puzzleLevels, config, notables, economy, rewards, migration, tradeRoutes, resupply, snake, duel, crossing, breakout, runner, battleship, centipede, broodline, maze, sokoban, snakebird }) => {
   const SAVE_VERSION = 5;
   const MAX_LIVE_DT = 100;
   const CROSSING_STAGE_CLEAR_MS = 500;
@@ -142,6 +143,8 @@
         branches: Number(legacy.currencies?.branches ?? legacy.branches) || 0,
         best: Number(legacy.records?.best ?? legacy.best) || 0,
         records: clone(legacy.records || save.records || {}),
+        minigameRewards: clone(legacy.minigameRewards || save.minigameRewards),
+        minigameEarnings: clone(legacy.minigameEarnings || save.minigameEarnings),
         upgrades: normalUpgrades(legacy.upgrades),
         selectedBoardLevel: Number(legacy.board?.selectedBoardLevel) || 0,
         selectedDuelGridSize: normalDuelGridSize(legacy.selectedDuelGridSize ?? legacy.board?.selectedDuelGridSize ?? legacy.settings?.selectedDuelGridSize ?? legacy.settings?.duelGridSize),
@@ -192,6 +195,7 @@
       fullscreenMode: raw.fullscreenMode === true,
       mobileControls: normalMobileControls(raw.mobileControls ?? raw.settings?.mobileControls, mobileControlsDefault),
       cosmetics: raw.cosmetics && typeof raw.cosmetics === "object" ? clone(raw.cosmetics) : { body: null, head: null },
+      minigameRewards: rewards.createLedger(raw.minigameRewards, raw.minigameEarnings), rewardRun: null,
       snakebirdProgress: raw.snakebirdProgress && typeof raw.snakebirdProgress === "object" ? clone(raw.snakebirdProgress) : { unlockedLevel: 1, clearedLevels: [], bestMoves: [], lastSelectedLevel: 1 },
       nursery: economy.createNursery(raw.nursery, now), habitats: economy.createHabitats(raw.habitats),
       notables: notables.createState(raw.notables),
@@ -278,6 +282,7 @@
     setup = setup || {};
     state.mode = mode; state.phase = "ready"; state.modeAccumulatorMs = 0; state.elapsedMs = 0;
     if (mode === "snake") return startSnake(state, setup);
+    state.rewardRun = rewards.beginRun(state.minigameRewards, mode);
     if (mode === "duel") {
       const grid = setup.grid || { columns: state.selectedDuelGridSize, rows: state.selectedDuelGridSize };
       const px = Math.floor(grid.columns / 2) - 1; const ox = Math.floor(grid.columns / 2);
@@ -353,6 +358,7 @@
       economy.habitatMaxCapacity(habitat, state.habitats.upgradeLevels[index], notables.assignedTo(state.notables, index)));
     const snapshot = {
       saveVersion: SAVE_VERSION, mode: state.mode, phase: state.phase, elapsedMs: state.elapsedMs, modeAccumulatorMs: state.modeAccumulatorMs,
+      minigameRewards: clone(state.minigameRewards),
       seeds: state.seeds, provisions: state.provisions, branches: state.branches, best: state.best, records: memoizedFrozenClone(state.snapshotCache.records, state.records), upgrades: memoizedFrozenClone(state.snapshotCache.upgrades, state.upgrades), selectedBoardLevel: state.selectedBoardLevel,
       selectedDuelGridSize: state.selectedDuelGridSize, snakeSpeed: state.snakeSpeed, reducedMotion: state.reducedMotion, fullscreenMode: state.fullscreenMode, mobileControls: memoizedFrozenClone(state.snapshotCache.mobileControls, state.mobileControls),
       cosmetics: memoizedFrozenClone(state.snapshotCache.cosmetics, state.cosmetics), snakebirdProgress: memoizedFrozenClone(state.snapshotCache.snakebirdProgress, state.snakebirdProgress), nursery: clone(state.nursery), habitats: clone(state.habitats), notables: clone(state.notables), eggBoardCountdown: state.eggBoardCountdown, active,
@@ -379,6 +385,7 @@
     if (state.active && state.mode === "maze") active.open = [...state.active.open];
     return freeze({
       mode: state.mode, phase: state.phase, elapsedMs: state.elapsedMs, modeAccumulatorMs: state.modeAccumulatorMs,
+      minigameRewards: clone(state.minigameRewards),
       seeds: state.seeds, provisions: state.provisions, branches: state.branches, best: state.best, records: memoizedFrozenClone(state.snapshotCache.records, state.records), selectedDuelGridSize: state.selectedDuelGridSize, snakeSpeed: state.snakeSpeed, reducedMotion: state.reducedMotion, fullscreenMode: state.fullscreenMode, mobileControls: memoizedFrozenClone(state.snapshotCache.mobileControls, state.mobileControls), active,
       hud: { score: active && Number(active.score) || 0, best: bestForMode(state), seeds: state.seeds, provisions: state.provisions, branches: state.branches, elapsedMs: state.elapsedMs, lengthBonus: economy.lengthBonus(state) },
       prompt: state.phase === "ready" ? "Ready" : state.phase === "paused" ? "Paused" : state.phase === "gameover" ? "Game Over" : ""
@@ -415,17 +422,23 @@
     active.placement.y = Math.max(0, Math.min(active.placement.y, maxY));
   }
   function endBattleship(state, won, events) {
-    const reward = won ? 300 : 0;
     state.active.phase = "over"; state.active.result = won ? "won" : "lost"; state.active.aiDelayRemainingMs = null;
     state.phase = "gameover";
-    if (won) { state.seeds += reward; state.records.battleshipBest += 1; }
-    events.push(event("runEnded", { mode: "battleship", won, reward }));
+    if (won) state.records.battleshipBest += 1;
+    endMinigame(state, { won }, events);
   }
   function endBroodline(state, reason, events) {
-    const reward = state.active.rewardCollected ? 0 : Math.max(0, Number(state.active.pendingSeeds) || 0);
+    const banked = state.active.phase === "formation";
     state.active.rewardCollected = true; state.active.phase = "ended"; state.active.endReason = reason;
-    state.active.queue = []; state.phase = "gameover"; state.modeAccumulatorMs = 0; state.seeds += reward;
-    events.push(event("runEnded", { mode: "broodline", reason, reward }));
+    state.active.queue = []; state.phase = "gameover"; state.modeAccumulatorMs = 0;
+    endMinigame(state, { reason, banked }, events);
+  }
+  function endMinigame(state, detail, events) {
+    const settled = rewards.settle(state.minigameRewards, state.rewardRun, state.active, detail,
+      rewards.otherIncomePerSecond(state), () => state.rng());
+    if (!settled) return;
+    state.seeds = economy.roundSeeds(state.seeds + settled.reward);
+    events.push(event("runEnded", { mode: state.mode, ...detail, ...settled }));
   }
   function createGameSession(options) {
     options = options || {};
@@ -874,6 +887,7 @@
           state.active.target = { x, y };
           const outcome = battleship.fireAt(state.active.enemy, x, y);
           if (outcome.result === "repeat") return reject("repeatTarget");
+          if (state.rewardRun) state.rewardRun.engaged = true;
           state.active.lastPlayerShot = { x, y, result: outcome.result }; state.active.score = battleship.sunkCount(state.active.enemy);
           events.push(event("battleshipShot", { actor: "player", x, y, result: outcome.result, ship: outcome.ship?.name }));
           if (battleship.allSunk(state.active.enemy)) endBattleship(state, true, events);
@@ -930,6 +944,7 @@
           let immediateMove = null;
           if (state.mode === "snakebird") { immediateMove = snakebird.applyMove(state.active, action.direction); if (!immediateMove.accepted) return reject("blocked"); }
           if (state.mode === "sokoban") { immediateMove = sokoban.applyMove(state.active, action.direction); if (!immediateMove.accepted) return reject("blocked"); }
+          if (state.rewardRun && state.rewardRun.mode === state.mode) state.rewardRun.engaged = true;
           if (state.phase === "ready") { state.phase = "running"; events.push(event("runStarted", { mode: state.mode })); }
           if (state.mode === "breakout") state.active.paddle.input = action.direction === "left" ? -1 : action.direction === "right" ? 1 : 0;
           if (state.mode === "centipede") {
@@ -938,12 +953,12 @@
           }
           if (state.mode === "snakebird") {
             const moved = immediateMove; state.active = moved.state;
-            if (moved.fell) { state.phase = "gameover"; events.push(event("runEnded", { mode: "snakebird", reason: "fell" })); }
-            else if (snakebird.isComplete(state.active)) { const completion = snakebird.recordCompletion(state.snakebirdProgress, state.active.levelIndex, state.active.moves, state.active.levelCount, state.active.definition.firstClearReward, state.active.definition.replayReward); state.snakebirdProgress = completion.progress; state.seeds += completion.reward; state.phase = "gameover"; events.push(event("runEnded", { mode: "snakebird", reward: completion.reward, won: true })); }
+            if (moved.fell) { state.phase = "gameover"; endMinigame(state, { reason: "fell", won: false }, events); }
+            else if (snakebird.isComplete(state.active)) { const completion = snakebird.recordCompletion(state.snakebirdProgress, state.active.levelIndex, state.active.moves, state.active.levelCount, state.active.definition.firstClearReward, state.active.definition.replayReward); state.snakebirdProgress = completion.progress; state.phase = "gameover"; endMinigame(state, { won: true }, events); }
           }
           if (state.mode === "sokoban") {
             const moved = immediateMove;
-            if (moved.won) { state.phase = "gameover"; state.seeds += state.active.definition.reward; state.records.sokobanBest = Math.max(state.records.sokobanBest, state.active.score); events.push(event("runEnded", { mode: "sokoban", reward: state.active.definition.reward, score: state.active.score, stageIndex: state.active.stageIndex, won: true })); }
+            if (moved.won) { state.phase = "gameover"; state.records.sokobanBest = Math.max(state.records.sokobanBest, state.active.score); endMinigame(state, { score: state.active.score, stageIndex: state.active.stageIndex, won: true }, events); }
           }
           events.push(event("directionQueued", { direction: action.direction })); break;
         case "buyUpgrade": {
@@ -1126,6 +1141,7 @@
             state.active.paddle.input = action.value;
           } else if (action.axis === "x") state.active.player.inputX = action.value;
           else state.active.player.inputY = action.value;
+          if (action.value !== 0 && state.phase !== "paused" && state.rewardRun) state.rewardRun.engaged = true;
           events.push(event("inputAxisSet", { axis: action.axis, value: action.value })); break;
         }
         case "setCosmetics":
@@ -1236,15 +1252,14 @@
         state.modeAccumulatorMs += dt;
         while (state.modeAccumulatorMs >= state.active.tickMs && state.phase === "running") {
           const stepped = duel.stepVsSnake(state.active, { rng: () => state.rng() }); state.modeAccumulatorMs -= state.active.tickMs; events.push(...stepped.events);
-          if (!stepped.alive) { state.phase = "gameover"; const reward = stepped.winner === "player" ? Math.max(5, state.best * 5) : 0; state.seeds += reward; events.push(event("runEnded", { mode: "duel", winner: stepped.winner, reward })); }
+          if (!stepped.alive) { state.phase = "gameover"; endMinigame(state, { winner: stepped.winner }, events); }
         }
       }
       if (state.phase === "running" && state.active && state.mode === "maze") {
         state.modeAccumulatorMs += dt;
         while (state.modeAccumulatorMs >= state.active.tickMs && state.phase === "running") {
           const stepped = maze.stepMaze(state.active, { rng: () => state.rng() }); state.modeAccumulatorMs -= state.active.tickMs; events.push(...stepped.events);
-          const levelUp = stepped.events.find((item) => item.type === "levelUp"); if (levelUp) { state.seeds += levelUp.reward; events.push(event("reward", { amount: levelUp.reward })); }
-          if (!stepped.alive) { state.phase = "gameover"; const reward = Math.floor(state.active.score / 4); state.seeds += reward; state.records.mazeBest = Math.max(state.records.mazeBest, state.active.score); events.push(event("runEnded", { mode: "maze", reward })); }
+          if (!stepped.alive) { state.phase = "gameover"; state.records.mazeBest = Math.max(state.records.mazeBest, state.active.score); endMinigame(state, {}, events); }
         }
       }
       if (state.phase === "running" && state.active && state.mode === "crossing") {
@@ -1260,12 +1275,11 @@
           state.modeAccumulatorMs += dt;
           while (state.modeAccumulatorMs >= state.active.tickMs && state.phase === "running" && state.active.subphase === "playing") {
             const stepped = crossing.stepCrossing(state.active); state.modeAccumulatorMs -= state.active.tickMs; events.push(...stepped.events);
-            if (!stepped.alive) { state.phase = "gameover"; state.records.crossingBest = Math.max(state.records.crossingBest, state.active.score); events.push(event("runEnded", { mode: "crossing" })); }
+            if (!stepped.alive) { state.phase = "gameover"; state.records.crossingBest = Math.max(state.records.crossingBest, state.active.score); endMinigame(state, {}, events); }
             const cleared = stepped.events.find((item) => item.type === "stageClear");
             if (cleared) {
-              state.seeds += cleared.reward; state.records.crossingBest = Math.max(state.records.crossingBest, state.active.score);
+              state.records.crossingBest = Math.max(state.records.crossingBest, state.active.score);
               state.active.subphase = "clearing"; state.active.transitionRemainingMs = CROSSING_STAGE_CLEAR_MS; state.modeAccumulatorMs = 0;
-              events.push(event("reward", { amount: cleared.reward }));
             }
           }
         }
@@ -1274,11 +1288,11 @@
         const stepped = breakout.step(state.active, { deltaMs: dt, boardWidth: state.active.board.width, boardHeight: state.active.board.height, elapsedMs: state.elapsedMs, rng: () => state.rng() }); events.push(...stepped.events);
         const ballLost = stepped.events.find((item) => item.type === "ballLost");
         if (ballLost) { state.phase = "ready"; state.modeAccumulatorMs = 0; events.push(event("runReady", { mode: "breakout", reason: "ballLost", lives: ballLost.lives })); }
-        else if (!stepped.alive || stepped.events.some((item) => item.type === "win")) { state.phase = "gameover"; const won = stepped.events.some((item) => item.type === "win"); const reward = won ? 500 : 0; state.seeds += reward; state.records.breakoutBest = Math.max(state.records.breakoutBest, state.active.score); events.push(event("runEnded", { mode: "breakout", reward })); }
+        else if (!stepped.alive || stepped.events.some((item) => item.type === "win")) { state.phase = "gameover"; const won = stepped.events.some((item) => item.type === "win"); state.records.breakoutBest = Math.max(state.records.breakoutBest, state.active.score); endMinigame(state, { won }, events); }
       }
       if (state.phase === "running" && state.active && state.mode === "runner") {
         const stepped = runner.step(state.active, { deltaMs: dt, rng: () => state.rng() }); events.push(...stepped.events);
-        if (!stepped.alive) { state.phase = "gameover"; state.records.runnerBest = Math.max(state.records.runnerBest, state.active.score); state.seeds += state.active.score; events.push(event("runEnded", { mode: "runner", reward: state.active.score })); }
+        if (!stepped.alive) { state.phase = "gameover"; state.records.runnerBest = Math.max(state.records.runnerBest, state.active.score); endMinigame(state, {}, events); }
       }
       if (state.phase === "running" && state.active && state.mode === "battleship" && state.active.phase === "playing" && state.active.turn === "ai") {
         state.active.aiDelayRemainingMs = Math.max(0, state.active.aiDelayRemainingMs - rawDt);
@@ -1304,7 +1318,7 @@
         state.modeAccumulatorMs += dt;
         while (state.modeAccumulatorMs >= state.active.tickMs && state.phase === "running") {
           const stepped = centipede.step(state.active, { rng: () => state.rng() }); state.modeAccumulatorMs -= state.active.tickMs; events.push(...stepped.events);
-          if (!stepped.alive) { state.phase = "gameover"; state.records.centipedeBest = Math.max(state.records.centipedeBest, state.active.score); const reward = 40 * state.active.wavesCleared + Math.floor(state.active.score / 20); state.seeds += reward; events.push(event("runEnded", { mode: "centipede", reward })); }
+          if (!stepped.alive) { state.phase = "gameover"; state.records.centipedeBest = Math.max(state.records.centipedeBest, state.active.score); endMinigame(state, {}, events); }
           else if (stepped.events.some((item) => item.type === "playerHit")) { state.phase = "ready"; state.modeAccumulatorMs = 0; events.push(event("runReady", { mode: "centipede", reason: "playerHit" })); }
         }
       }
@@ -1358,7 +1372,7 @@
       return result(state, events);
     }
     return { snapshot: () => makeSnapshot(state), dispatch, tick, advanceOffline,
-      serialize: () => { migration.creditActiveSettlement(state); migration.storeActiveSettlement(state); return { saveVersion: SAVE_VERSION, savedAt: simulationNow, session: clone({ ...state, active: state.mode === "snake" && !state.migrationChallenge ? state.active : null, migrationChallenge: null }) }; } };
+      serialize: () => { migration.creditActiveSettlement(state); migration.storeActiveSettlement(state); return { saveVersion: SAVE_VERSION, savedAt: simulationNow, session: clone({ ...state, active: state.mode === "snake" && !state.migrationChallenge ? state.active : null, rewardRun: null, migrationChallenge: null }) }; } };
   }
   return { SAVE_VERSION, MAX_LIVE_DT, migrateLegacy, createGameSession };
 });

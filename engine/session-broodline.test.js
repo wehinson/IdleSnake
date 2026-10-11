@@ -10,7 +10,7 @@ function lcg(seed) {
 
 function enterFormation(game, pendingSeeds = 27) {
   game.dispatch({ type: "selectMode", mode: "broodline" });
-  game.dispatch({ type: "begin" });
+  game.dispatch({ type: "direction", direction: "up" });
   const originalStep = broodline.step;
   broodline.step = (state) => {
     state.phase = "formation";
@@ -80,20 +80,22 @@ test("Broodline formation commands validate, reorder canonically, and preserve p
   assert.equal(restarted.snapshot.active.rewardCollected, false);
 });
 
-test("Broodline explicit end collects the canonical pending reward exactly once", () => {
+test("Broodline explicit end settles canonical progression exactly once", () => {
   const game = createGameSession({ now: 0, rng: lcg(44), save: { seeds: 5 } });
   enterFormation(game, 27);
   const ended = game.dispatch({ type: "broodlineEnd" });
   assert.equal(ended.snapshot.phase, "gameover");
   assert.equal(ended.snapshot.active.phase, "ended");
   assert.equal(ended.snapshot.active.rewardCollected, true);
-  assert.equal(ended.snapshot.seeds, 32);
-  assert.deepEqual(ended.events, [{ type: "runEnded", mode: "broodline", reason: "Run ended", reward: 27 }]);
+  const payout = ended.events.find(item => item.type === "runEnded");
+  assert.equal(payout.outcome, "banked");
+  assert.equal(payout.rewardDetails.normalizedScore, 27 / 63);
+  assert.equal(ended.snapshot.seeds, 5 + payout.reward);
 
   const repeated = game.dispatch({ type: "broodlineEnd" });
   assert.ok(repeated.events.some((item) => item.type === "actionRejected"));
-  assert.equal(repeated.snapshot.seeds, 32);
+  assert.equal(repeated.snapshot.seeds, ended.snapshot.seeds);
   const restarted = game.dispatch({ type: "restart" });
-  assert.equal(restarted.snapshot.seeds, 32);
+  assert.equal(restarted.snapshot.seeds, ended.snapshot.seeds);
   assert.equal(restarted.snapshot.active.pendingSeeds, 0);
 });

@@ -1,5 +1,19 @@
 # Branch status
 
+## task/minigame-rewards-20261011 — MINIGAME PR2 request11
+
+- Agent: Codex, GPT 6.1 Sol, local Jimothy; T3 thread `mcp:f8d8c6c9-6d22-4054-af48-c6768be37465`.
+- Status: Active; central reward implementation and targeted checks pass, independent read-only review pending.
+- Base: local `working` commit `31e773efee60c85d6781078803e4eae208911e4e`. No Colony task/integration commits, working/main merge, deployment, or individual PR.
+- Scope: all nine catalog games plus hidden Runner; one normalized-score/win/passive-income/historical-Seed-earnings formula, saved ±3% reward RNG, once-only run receipts, consolidated terminal payouts and consistent result explanations. Mode rules and raw scores unchanged.
+- Migration: additive version1 reward ledger inside save version5; absent old earnings start at zero because high-score records cannot reconstruct actual payouts. Known earnings maps are sanitized and retained. Active minigames remain unsaved; pending contexts are discarded without reward on hydration.
+- Verification so far: `node --test engine/minigame-rewards.test.js` passed10 reward tests; `npm run check` passed syntax, authority and345 Node tests. Existing lifecycle tests retained with scoped fixed-payout assertions updated. Reward simulations use `scripts/minigame-reward-sim.js`, independent of root balance work.
+- Preview: coordinator owns stable `http://localhost:4173/test11/`; coordinator reported exact HTTP verification. No server route/process mutation or browser/computer automation performed.
+- Integration: coordinator `mcp:618042fc-9354-4fc9-906a-1b3ca5c689e4`, branch `task/minigame-batch-20261011`; sibling score/outcome interfaces coordinated. Preserve their narrow session changes on integration.
+- Caveats: calibration is an initial balance choice, not measured player percentiles; visual layout unverified; saved-game rollback/tampering is outside a local engine's exactly-once guarantee.
+- Version impact: none to release version or save envelope; no Colony edits.
+- Last update: 2026-10-11.
+
 ## task/tongue-seed-return — Shorter tongue and smooth Seed placement experiment
 
 - Agent: Codex, GPT 6.1 Sol, medium effort, local Jimothy, T3-created checkout `C:/Users/wehin/.t3/worktrees/IdleSnake/task-tongue-seed-return`.
