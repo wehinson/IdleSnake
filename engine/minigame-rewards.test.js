@@ -227,7 +227,8 @@ test("natural endless failures pay once; Start-only automatic progress pays noth
   for (const mode of ["duel", "maze", "crossing", "broodline", "centipede", "runner"]) {
     for (const engaged of [true, false]) {
       const game = createGameSession({ now: 0, rng: () => .4 });
-      game.dispatch({ type: "selectMode", mode });
+      // One-life Centipede bounds this terminal probe after the slower enemy tuning.
+      game.dispatch({ type: "selectMode", mode, setup: mode === "centipede" ? { lives: 1 } : undefined });
       game.dispatch(engaged ? { type: "direction", direction: mode === "runner" ? "up" : mode === "duel" ? "left" : mode === "maze" ? "right" : "up" } : { type: "begin" });
       const result = runHeadless(game, { steps: 1400, stepMs: 100, controller: s => s.phase === "ready" ? { type: "begin" } : null });
       if (mode === "crossing" && !engaged) {
@@ -249,7 +250,7 @@ test("neutral directions and axes cleared before simulation cannot enable autopl
   for (const mode of ["breakout", "centipede"]) {
     const traces = [false, true].map(bypass => {
       const game = createGameSession({ now: 0, rng: () => .4 });
-      game.dispatch({ type: "selectMode", mode });
+      game.dispatch({ type: "selectMode", mode, setup: mode === "centipede" ? { lives: 1 } : undefined });
       if (bypass && mode === "breakout") game.dispatch({ type: "direction", direction: "up" });
       else {
         if (bypass) {
@@ -297,7 +298,8 @@ test("cancelled Nibbler directions match Start-only scoring traces and never ena
     } else game.dispatch({ type: "begin" });
     const trace = [];
     for (let step = 0; step < 4; step++) {
-      const result = game.tick(100);
+      // Ready now displays the requested heading immediately; compare applied steps.
+      const result = game.tick(game.snapshot().active.tickMs);
       const { directionQueue, ...world } = result.snapshot.active;
       trace.push({ active: world, events: result.events });
     }

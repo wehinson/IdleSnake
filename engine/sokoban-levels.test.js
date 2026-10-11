@@ -212,7 +212,7 @@ test("all fifteen session replays preserve restart, reward receipts, records, sa
     assert.equal(endings[0].stageIndex, index);
     assert.equal(endings[0].score, won.active.score);
     assert.equal(won.phase, "gameover");
-    assert.equal(won.seeds - initialSeeds, endings[0].reward, "exactly one engine-authorized payout");
+    assert.equal(require("./economy.js").roundSeeds(won.seeds - initialSeeds), endings[0].reward, "exactly one engine-authorized payout at currency precision");
     assert.ok(won.records.sokobanBest >= won.active.score);
     assert.equal(game.dispatch({ type: "direction", direction: "right" }).snapshot.seeds, won.seeds, "won board cannot pay twice");
     const restored = createGameSession({ now: 0, save: game.serialize() }).snapshot();
