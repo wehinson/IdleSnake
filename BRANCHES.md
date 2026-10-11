@@ -3,7 +3,7 @@
 ## task/colony-batch-20261011 — Nine-change integration and independent review
 
 - Agent: Codex, GPT 6.1 Sol, high effort, local Jimothy; T3 integration thread `mcp:4179fc65-6476-4132-ab6c-582e4df713e3`.
-- Status: Active; awaiting the three existing implementation branches before individual checks and independent T3 reviews. No feature merge or PR yet.
+- Status: Active; Seed grace returned candidate commit `e4032fe0677dd8b3401ac541255449c0c7049979` (clean/pushed; worker reports 350 passing tests). Awaiting UI and economy completion before individual checks and independent T3 reviews. No feature merge or PR yet.
 - Base: local active working `31e773efee60c85d6781078803e4eae208911e4e`. Work only in this integration checkout; final delivery is one PR into working, with no working/main merge or deployment.
 - Scope and evidence: [BATCH_REVIEW.md](BATCH_REVIEW.md) records all nine acceptance conditions, worker threads/branches, interfaces, review steps and eventual reviewed commit/task IDs.
 - Verification: baseline `npm run check` passed syntax, authority and all 335 Node tests. Direct HTTP comparison verified ten assets each on `/test1/`–`/test5/` and preserved primary game.js.

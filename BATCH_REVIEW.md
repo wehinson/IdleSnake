@@ -16,7 +16,7 @@ Updated: 2026-10-11. Coordinator: GPT 6.1 Sol, high effort, local Jimothy.
 | --- | --- | --- | --- | --- |
 | 1, 6, 7, 9 UI | task/colony-ui-20261011 | mcp:4ee92de7-753a-47f6-84bd-7027e32edf3e | Implementing | Pending |
 | 3, 4, 5, 8 economy | task/colony-economy-20261011 | mcp:fd026147-88dc-4aae-8b42-576f1e265fa6 | Implementing | Pending |
-| 2 Seed grace | task/seed-turn-grace-20261011 | mcp:57410d23-3950-46db-933b-7d760f1a72ce | Implementing | Pending |
+| 2 Seed grace | task/seed-turn-grace-20261011 | mcp:57410d23-3950-46db-933b-7d760f1a72ce | Complete; awaiting all workers, then review | Candidate e4032fe0677dd8b3401ac541255449c0c7049979; review pending |
 
 Each checkout is a sibling under `C:/Users/wehin/.t3/worktrees/IdleSnake/`. Workers send completion here with stable request IDs `colony-ui-20261011-complete`, `colony-economy-20261011-complete`, `seed-turn-grace-20261011-complete`.
 
@@ -44,6 +44,8 @@ Each checkout is a sibling under `C:/Users/wehin/.t3/worktrees/IdleSnake/`. Work
 ## Worker evidence received (not yet independently accepted)
 
 - UI reports direct Node VM checks of actual renderer plus engine: pending transitions 7→6→5→4→3→0, exactly one visible card, capacity-rejected Keep preserves candidate, Reject, Dismiss preserves queue, Unassign, served replacement archives leader, badge/count and hidden zero state. Service refresh retains control DOM identity and updates Retire label. Reports 35 targeted engine tests passed and baseline npm run check passed 335 tests. Exact committed tip and independent review remain pending.
+- Seed completed/pushed tip `e4032fe0677dd8b3401ac541255449c0c7049979`; coordinator confirmed branch identity and clean task worktree. Worker reports syntax/authority plus 350 Node tests passing, including 15 new Seed acceptance cases; diff whitespace and six `/test2/` HTTP asset comparisons passed. Scope: session.js, snake.js, seed-turn-grace.test.js, timestamp adjustment in retained snake-batch correction test, BRANCHES.md. No browser use. Full acceptance includes 84.9/85/99%, imminent buffered heading, latest legal request surviving invalid follow-ups, full buffer precedence, post-pickup safe release, pause/save/reload/speed changes, timestamp correction and deterministic slices, approved tongue compatibility. These are worker claims until coordinator checks and independent review.
+- Seed buffering caveat to review explicitly: existing earlier legal turns retain precedence; unsafe deferred request is discarded at canonical pickup. Grace request is separate from tongue presentation queue. Pre85% delayed input retains 34ms correction; at/after85% replay preserves consumption/rewards and omits movementCorrected tongue-reset event. Branch must not drift without requested review fixes.
 
 ## Review and integration sequence
 
