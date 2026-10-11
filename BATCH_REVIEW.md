@@ -38,6 +38,12 @@ Each checkout is a sibling under `C:/Users/wehin/.t3/worktrees/IdleSnake/`. Work
 - Keep activation.perSnakeRates as scaled production; add activation.upkeepPerSnakeRates for unchanged adult costs and habitatProvisionOutputs for producer labels. habitatPanel exposes per-habitat seedRate/branchRate/provisionRate/foragerRate and base/current effect fields; eggHatchReduction is not scaled.
 - Proposed save compatibility: occupied legacy higher habitats keep their populations and production, are displayed explicitly as legacy/blocked, and cannot accept placement/upgrades until preceding five-snake chain restored. Empty locked habitats remain hidden. This needs independent review evidence.
 - Service accrual continues with passive economy during pause/offline, consistent with existing mechanics; assigned populated habitat eligibility independent of effect totals.
+- Economy confirms habitatPanel.seedRate includes length bonus and owns the overview totalIncome one-line update. Preserve it alongside UI byline changes when resolving shared renderHabitats.
+- Existing browser scenarios must follow intentional UI changes without losing coverage: UI owns notable-candidates.spec.js sequential Keep/Reject updates; economy owns feeding-control expectation updates in fullscreen-mode.spec.js and snake-batch.spec.js. These run in existing GitHub CI only; no local browser permission.
+
+## Worker evidence received (not yet independently accepted)
+
+- UI reports direct Node VM checks of actual renderer plus engine: pending transitions 7→6→5→4→3→0, exactly one visible card, capacity-rejected Keep preserves candidate, Reject, Dismiss preserves queue, Unassign, served replacement archives leader, badge/count and hidden zero state. Service refresh retains control DOM identity and updates Retire label. Reports 35 targeted engine tests passed and baseline npm run check passed 335 tests. Exact committed tip and independent review remain pending.
 
 ## Review and integration sequence
 
