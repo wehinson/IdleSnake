@@ -17,7 +17,9 @@ Updated: 2026-10-11. Status: implementation in progress; no implementation accep
 
 ## Ownership and completion gates
 
-All current worker tips equal baseline; final tips pending. Independent review task IDs pending.
+Final tips pending; WIP checkpoints are not acceptance. Coordinator-owned independent review task IDs pending.
+
+- Brick/Crossing pushed WIP `b1950ef` (not completion). Worker reports full check344 tests + syntax/authority and9 engine acceptance tests passed. Five actual scoped renderer/input VM tests were added after checkpoint and pass (circle/square palette, fractures, tail alpha, clipped rails, Start pointer/Enter-repeat). Research complete; worker-owned high-effort review round1 active. Guarded connector calls await sibling wrapper/helper integration. Crossing win lock1000ms, then ready/awaitingStart; queue flushed on win; payout lines untouched. Require final committed VM tests, exact reviewed final tip, and integration helper verification before acceptance.
 
 | Owner / requests | Branch | Thread | Reserved preview | Completion gate |
 |---|---|---|---|---|
@@ -43,7 +45,8 @@ All current worker tips equal baseline; final tips pending. Independent review t
 
 | Owner | Research request key / task ID | State |
 |---|---|---|
-| Brick/crossing | brick-crossing-research-20261011 / node:delegated-task:command%3Amcp%3Afcb04b09-0c64-4e54-b229-5ca419397a16%3Adelegate-task%3Abrick-crossing-research-20261011 | running |
+| Brick/crossing research | brick-crossing-research-20261011 / node:delegated-task:command%3Amcp%3Afcb04b09-0c64-4e54-b229-5ca419397a16%3Adelegate-task%3Abrick-crossing-research-20261011 | completed, findings/report pending final worker evidence |
+| Brick/crossing worker review | brick-crossing-review-round1-20261011 / node:delegated-task:command%3Amcp%3Afcb04b09-0c64-4e54-b229-5ca419397a16%3Adelegate-task%3Abrick-crossing-review-round1-20261011 | active, GPT6.1Sol high; worker-owned, not coordinator final acceptance |
 | Arcade | minigame-8910-research-20261011 / node:delegated-task:command%3Amcp%3A93dc784f-daa8-41f9-bb77-f0df835d0be8%3Adelegate-task%3Aminigame-8910-research-20261011 | running |
 | Rewards | minigame-rewards-research-r1-20261011 / actual task ID requested | running, high effort |
 | Snake Bird layout | snakebird-layout-design-20261011 / node:delegated-task:command%3Amcp%3Ad06fc682-c68b-4a36-9dd7-4457cda6bf62%3Adelegate-task%3Asnakebird-layout-design-20261011 | completed, medium; eight original legal maps, optimal9–35 moves, shelves/posts/returns/low hanging fruit; parent replays verified |
