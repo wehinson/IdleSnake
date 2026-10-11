@@ -2,6 +2,30 @@
 
 Only an independently passed exact implementation tip may enter the integration branch. Terminal completion is not acceptance. Cancelled/interrupted reviews remain classified as such. Each further round uses a new T3 delegate_task with the full original brief, prior findings/responses and unresolved objections.
 
+## Snake UI R2 — ACCEPT review; changed-tip full gate pending
+
+- Task: `node:delegated-task:command%3Amcp%3Aab0d5ba8-7bee-42d0-aa6d-445234728aef%3Adelegate-task%3Aminigame-batch-snake-independent-r2-53bd059-20261011`
+- Backing thread: `thread:delegated-task:command%3Amcp%3Aab0d5ba8-7bee-42d0-aa6d-445234728aef%3Adelegate-task%3Aminigame-batch-snake-independent-r2-53bd059-20261011`
+- Local Codex/GPT6.1Sol high chosen at creation. Completed/result_available, no pending children. Exact53bd0593a3ab2dae37b0eec0c65275d902692413/base31e773e/incrementalb880..53bd.
+- Source/small independent review passes; full changed-tip npm check still queued behind OIKOS priority and fresh grant. No merge/full individual acceptance yet. R1 REQUEST_CHANGES remains old-tip classification.
+- Agent-created terminal child settles immediately after this complete durable record; history retained.
+
+### Complete published result
+
+**ACCEPT** exact tip `53bd0593a3ab2dae37b0eec0c65275d902692413`, reviewed against base `31e773efee60c85d6781078803e4eae208911e4e` and incremental `b8806ba…53bd059`. No unresolved findings in requests 1/2/12/13.
+
+The prior P2 Runner omission is fixed in [game.js:2196](C:/Users/wehin/.t3/worktrees/IdleSnake/task-minigame-snake-ui-20261011/game.js:2196). Duel → key 9 → Up now draws five shared connectors beneath the six delayed-jump tiles.
+
+Independent evidence goes beyond the sampled regression:
+
+- Across **all jump ages**, normalized center separation is bounded by **0.881439 cells** for the first neck and **0.797265** for subsequent links—below the helper’s stricter **1.001-cell** cutoff.
+- Separate VM comparisons against `b8806ba` at jump extrema and two canvas geometries confirmed transformed center alignment, draw order, default width/palette, no added clipping, and unchanged tiles, eyes, highlights and shadows.
+- Duel wrap/AI/collision/migration behavior, Nibbler naming/four Ready headings/nonwrapping walls, one-click switching/guards/no payout replay, seam links and the 1.18-cell shield neck remain intact. Approved tongue engine/draw files remain unchanged.
+
+**47 independent checks passed:** 45 repository tests run serially with `--test-concurrency=1`, plus two independent analytic/VM tests executed from stdin without writing files. Exact-base `git diff --check` passed. HEAD remained unchanged and the checkout stayed clean.
+
+Limits: no browser or manual visual verification. Changed-tip full `npm run check` remains pending; the reported **353-test pass applies only to old `b8806ba`**. Combined sibling connectors, centralized rewards, and removal of Arcade’s obsolete `duelGridSelect` reference remain coordinator integration gates. R1 retains **REQUEST_CHANGES** for its old tip.
+
 ## Brick/Crossing R1 — ACCEPT
 
 - Task: `node:delegated-task:command%3Amcp%3Aab0d5ba8-7bee-42d0-aa6d-445234728aef%3Adelegate-task%3Aminigame-batch-brick-independent-r1-20261011`
