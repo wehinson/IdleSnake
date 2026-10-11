@@ -13,6 +13,7 @@
 - Release coordination: baseline-only1.0.4 release completed on main `618abc8c5968306488096aaca7cdd46819f256eb`, CI/Pages success; `working` remains31e773e. Only release metadata differs from baseline; no pending batch entered main. This batch stays based on31e773e, unapproved, without importing release/batch commits or bumping its version.
 - Version impact: no release bump for this PR; save migrations documented by owners and reviewed on integration.
 - Last update: 2026-10-11.
+- PR3 CI repair: head7977875 browser89/87PASS/2FAIL old Strike copy and Broodline round-only label expectations. Narrow two-browser-test successor aligns exact actor/coordinate/outcome + round/wave, strengthens persistent feedback/reset/pause checks, retains gameplay lifecycle and errors. Three direct VM groups/syntax/diff PASS; runtime/Node475 evidence unchanged. New-head browser CI pending Operations watch; no local browser or workflow change.
 
 ## task/minigame-snake-ui-20261011 - Minigames requests 1, 2, 12, 13
 

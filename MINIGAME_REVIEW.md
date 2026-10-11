@@ -4,6 +4,8 @@ Updated2026-10-11. All six independently passed tips are merged ONLY into this i
 
 ## Current state
 
+- PR3 https://github.com/wehinson/IdleSnake/pull/3 targets working separately from ColonyPR2. Original head7977875 CI failed two stale browser presentation assertions (89 total/87PASS); narrow test-only repair retains and strengthens full Strike/Broodline scenarios. Three direct VM groups/syntax/diff PASS; approved runtime/Node475 unchanged. New-head CI, owned by Operations watch, still required; no local browser or acceptance waiver.
+
 - Integration: `task/minigame-batch-20261011`, coordinator `mcp:618042fc-9354-4fc9-906a-1b3ca5c689e4`; base `31e773efee60c85d6781078803e4eae208911e4e`. Six gameplay merge commits: `9b58aee`, `f31336d`, `fb2224d`, `410c429`, `6fac4c0`, `ca4e08e`; review checkpoint before merges `81f0ea6`.
 - All six individually ACCEPTED: Snake53bd059, Brick0f6aafc, Bird715ac20, Sokc664c56, Arcade087fea5(R2 fixes R1HUD finding), Rewards707e51f(docsonlyaftereaef). Six explicit merges ONLY integration:9b58aee/f31336d/fb2224d/410c429/6fac4c0/ca4e08e. Combined code/test tipe30f7c9 passes475 tests; no working/main/Colony/release import, final combined R1 ACCEPT recorded; PR creation follows this docs-only handoff.
 - Heavy lock released after combined three-pass fix-loop lease: final exacte30f7c9 npm475/syntax139/authority11canonical/diff PASS; two earlier passes retained failed fixture expectations. No repeated full suite needed for docs-only successors. OIKOS nextREADY priority; its server4318/PID17032 styledassets proofPASS/manualvisualhydration pending; sharedSnake4173/PID14548 preserved. Current owner in own Git MINIGAME_HEAVY_LOCK.json.

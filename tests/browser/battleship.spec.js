@@ -18,16 +18,13 @@ function battleshipSave() {
 async function clickBattleshipCell(page, board, x, y) {
   const canvas = page.locator("#game");
   const box = await canvas.boundingBox();
-  const dimensions = await canvas.evaluate((element) => ({ width: element.width, height: element.height }));
-  const labelH = 16; const gap = 18;
-  const usableH = dimensions.height - labelH * 2 - gap - 14;
-  const size = Math.max(8, Math.floor(Math.min((dimensions.width - 24) / 10, usableH / 20)));
-  const offsetX = Math.floor((dimensions.width - size * 10) / 2);
-  const enemyY = labelH + 6;
-  const playerY = enemyY + size * 10 + labelH + gap;
-  const px = offsetX + (x + 0.5) * size;
-  const py = (board === "enemy" ? enemyY : playerY) + (y + 0.5) * size;
-  await canvas.click({ position: { x: px * box.width / dimensions.width, y: py * box.height / dimensions.height } });
+  const { width, height, layout } = await canvas.evaluate((element) => ({
+    width: element.width, height: element.height,
+    layout: window.IdleSnakeMinigameFeedback.strikeLayout(element.width, element.height)
+  }));
+  const px = layout[`${board}X`] + (x + 0.5) * layout.size;
+  const py = layout[`${board}Y`] + (y + 0.5) * layout.size;
+  await canvas.click({ position: { x: px * box.width / width, y: py * box.height / height } });
 }
 
 test("Battleship pointer placement, lifecycle, delayed AI, and reset are session-owned", async ({ browser }) => {
@@ -60,12 +57,16 @@ test("Battleship pointer placement, lifecycle, delayed AI, and reset are session
   await page.getByRole("button", { name: "Pause", exact: true }).click();
 
   await clickBattleshipCell(page, "enemy", 9, 9);
-  await expect(page.locator("#screenHint")).toContainText(/venom/i);
+  await expect(page.locator("#screenHint")).toHaveText(/^Your strike J10: (?:HIT|MISS|SUNK .+)$/);
+  await expect(page.locator("#battleshipFeedback")).toContainText(/^Your strike J10: (?:HIT|MISS|SUNK[^\n]+)(?:\n|$)/);
   await page.waitForTimeout(750);
-  await expect(page.locator("#screenHint")).toContainText(/Enemy venom/i);
+  await expect(page.locator("#screenHint")).toHaveText(/^Enemy strike [A-J](?:10|[1-9]): (?:HIT|MISS|SUNK .+)$/);
+  // The delayed enemy response changes the hint, while the status retains both shots.
+  await expect(page.locator("#battleshipFeedback")).toHaveText(/^Your strike J10: (?:HIT|MISS|SUNK[^\n]+)\nEnemy strike [A-J](?:10|[1-9]): (?:HIT|MISS|SUNK[^\n]+)$/);
 
   await page.getByRole("button", { name: "Reset", exact: true }).click();
   await expect(page.locator("#screenHint")).toContainText("Place the Titanoboa");
+  await expect(page.locator("#battleshipFeedback")).toHaveText("");
   await expect(page.locator("#score")).toHaveText("000");
   await expect(page.locator("#best")).toHaveText("004");
   expect(pageErrors).toEqual([]);
