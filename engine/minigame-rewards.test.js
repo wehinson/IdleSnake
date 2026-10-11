@@ -2,7 +2,7 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const rewards = require("./minigame-rewards.js");
 const config = require("./config.js");
-const { createGameSession } = require("./session.js");
+const { createGameSession, MAX_LIVE_DT } = require("./session.js");
 const { runHeadless } = require("./simulate.js");
 
 const performances = {
@@ -297,9 +297,12 @@ test("cancelled Nibbler directions match Start-only scoring traces and never ena
       game.dispatch({ type: "direction", direction: "up" });
     } else game.dispatch({ type: "begin" });
     const trace = [];
+    // The Ready display heading may differ before any movement. Accumulate the
+    // remainder once, then capture a first applied step within the live-frame cap.
+    const stepMs = Math.min(MAX_LIVE_DT, game.snapshot().active.tickMs);
+    game.tick(game.snapshot().active.tickMs - stepMs);
     for (let step = 0; step < 4; step++) {
-      // Ready now displays the requested heading immediately; compare applied steps.
-      const result = game.tick(game.snapshot().active.tickMs);
+      const result = game.tick(stepMs);
       const { directionQueue, ...world } = result.snapshot.active;
       trace.push({ active: world, events: result.events });
     }
