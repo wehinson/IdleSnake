@@ -2,6 +2,29 @@
 
 Only an independently passed exact implementation tip may enter the integration branch. Terminal completion is not acceptance. Cancelled/interrupted reviews remain classified as such. Each further round uses a new T3 delegate_task with the full original brief, prior findings/responses and unresolved objections.
 
+## Brick/Crossing R1 — ACCEPT
+
+- Task: `node:delegated-task:command%3Amcp%3Aab0d5ba8-7bee-42d0-aa6d-445234728aef%3Adelegate-task%3Aminigame-batch-brick-independent-r1-20261011`
+- Backing thread: `thread:delegated-task:command%3Amcp%3Aab0d5ba8-7bee-42d0-aa6d-445234728aef%3Adelegate-task%3Aminigame-batch-brick-independent-r1-20261011`
+- Provider/model: local Codex, GPT6.1Sol high selected at creation.
+- Completed/result_available, no pending children. Exact reviewed tip `0f6aafc43caf3125d21f26d02df1f65c8b2a23f1`, base31e773e. Parent exact-tip npm full356PASS was already independently verified; source inspection plus independent review now passes individual acceptance gate.
+- No merge yet. Combined connectors/central rewards/manual UI remain integration gates. Inventory createdBy=agent/completed; settle immediately after recording result, preserve history.
+
+### Complete published result
+
+**ACCEPT** — exact tip `0f6aafc43caf3125d21f26d02df1f65c8b2a23f1`.
+
+HEAD and branch matched; worktree was clean before and after review. No material findings or unresolved prior objections.
+
+- **Brick Breaker:** four rows/40 bricks, HP 3/2/1/1, progressive colors/fractures; height doubled 16→32 while width 65.6 and gap 4 remain unchanged. Circle ball/pickup, palette growth square, grid exclusion, tail index 0 warning cadence/reduced-motion/pause behavior, 1.5× velocities and collision microsteps are consistent. Sources: `engine/breakout.js:14–115`, `game.js:2164`, `game.js:2314`.
+- **Prior R1 fixes:** death reset retains explicit-start requirement; Breakout propagates terminal remainder and subtracts it from elapsed time; crossing events refresh length. Sources: `engine/session.js:733`, `engine/session.js:1271`, `game.js:1912`.
+- **Prior R2/R3 fixes:** stale pointer presses reject by eligibility, epoch, pointer ID, cancellation and captured phase. Fresh post-lock Pause/center resumes clearing without becoming next-stage Start. Sources: `game.js:1955`, `game.js:4643`.
+- **Crossing:** independent tier speeds, overtaking and wrapped lethal collisions remain coherent; queues clear and later stages await explicit Start. Arrow/W repeats also cannot start the next or replacement run, including when advancing input time causes the terminal event. Sources: `engine/crossing.js:14–69`, `engine/session.js:1246–1265`, `game.js:2010`.
+
+Independent validation: **19 targeted tests passed**, plus **6 small assertion probes**: four actual keyboard/input-timing variants and two actual renderer/shared-connector geometry checks at different scales. Diff whitespace check passed. No edits, full check, build, browser, stress work or delegation performed.
+
+Remaining limits: perceived visuals and browser-native input behavior need manual UI verification. Shared connectors and central rewards still require integration verification. Preserve the reward hook immediately after the actual paddle clamp inside `stepSlice`, outer event propagation, and `unconsumedMs` correction; this review does **not** establish combined payout correctness.
+
 ## Snake UI R1 — REQUEST_CHANGES
 
 - Task: `node:delegated-task:command%3Amcp%3Acd84c8d0-8920-4013-953f-6e47f3bb766f%3Adelegate-task%3Aminigame-batch-snake-independent-r1-20261011`

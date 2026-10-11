@@ -3,7 +3,7 @@
 ## task/minigame-batch-20261011 — Minigame PR2 coordination
 
 - Agent: local Jimothy, GPT 6.1 Sol high effort, T3 coordinator `mcp:618042fc-9354-4fc9-906a-1b3ca5c689e4`.
-- Status: Active. Six existing implementation workers; no accepted implementation or merge yet. Exactly one minigame PR will target `working`, separately from Colony PR1. No automatic merge or deployment.
+- Status: Active. Six existing implementation workers; Brick/Crossing exact0f6aafc individually accepted by coordinator independent R1, remaining exact-tip gates pending; no implementation merge yet. Exactly one minigame PR will target `working`, separately from Colony PR1. No automatic merge or deployment.
 - Base: `31e773efee60c85d6781078803e4eae208911e4e`. Approved tongue behavior retained; root uncommitted balance files excluded.
 - Scope: requests 1–6 and 8–13 (numbering skips 7): duel/Nibbler/switching/shared connectors; Brick Breaker/Snakeger; 15 Snake Bird and 15 Sokoban puzzles; Broodline/strike/Centipede polish; authoritative calibrated Seed rewards.
 - Evidence and resume state: `MINIGAME_REVIEW.md`; full original brief: `MINIGAME_BRIEF.md`. Each final exact worker tip requires coordinator inspection/checks and independent T3 read-only review before integration.

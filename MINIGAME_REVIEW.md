@@ -1,22 +1,25 @@
 # Minigame PR2 integration and review record
 
-Updated: 2026-10-11. Status: implementation in progress; no implementation accepted or merged; no PR yet.
+Updated: 2026-10-11. Status: independent reviews in progress; Brick/Crossing individually accepted exact0f6aafc; no implementation merged; no PR yet.
 
 ## Frozen implementations returned; coordinator acceptance pending
 
 | Owner | Final branch tip | Reviewed/tested code relationship | Coordinator gate |
 |---|---|---|---|
 | Snake UI | 53bd0593a3ab2dae37b0eec0c65275d902692413 | narrowRunnerfixafterb880;1focusedactualVM PASS; changed-tipfullqueued | R1 REQUEST_CHANGES retained; new exact-tip R2 pending after current Brick review |
-| Brick/Crossing | 0f6aafc43caf3125d21f26d02df1f65c8b2a23f1 | samecode,workerR4ACCEPT,parentfull356PASS | independentreviewpending |
+| Brick/Crossing | 0f6aafc43caf3125d21f26d02df1f65c8b2a23f1 | samecode,workerR4ACCEPT,parentfull356PASS | coordinator R1 ACCEPT:19targeted+6actual probes; unmerged/integration gates pending |
 | Snakebird | 715ac205c0dc00e9fdf4e351723d0aea2ee1f840 | samecode,parentfull359/all15BFSreplaysPASS | independentreviewpending |
 | Sokoban | c664c56f63a55ace76b8ff6e17f036c1bcac0e83 | samecode,workerexactreviewPASS,parentfull363PASS | independentreviewpending |
 | Arcade | cca751ca0af7923da0e0582542fba5e1ea0b1438 | finalonlyBRANCHESdocafter2420a17code,parentfull356PASS | independentreviewpending |
 | Rewards | 707e51f475aa47ed434f4ab0c112014cc78f60a8 | finalonlyBRANCHES+REWARDSdocsaftereaef9a5R5PASS/full356,parentfull355f802+2eaefVMactualpipelinePASS | independentreviewpending |
 
-AllsixfullhandoffsretainedinMINIGAME_WORKER_REPORTS.md. Passingworkerreviews/tests do not equalcoordinatoracceptance; noimplementationmergeyet.
+AllsixfullhandoffsretainedinMINIGAME_WORKER_REPORTS.md. Passingworkerreviews/tests do not equalcoordinatoracceptance; onlyBrick/Crossinghaspassedthatindividualgate, noimplementationmergeyet.
 
 ### Current gate snapshot (supersedes historical checkpoints below)
 
+- OIKOS R5 IMMEDIATE RELEASE07:52:48UTC, START07:52:24/deadline07:55:24:engineall93PASS,typecheckFAIL3TS2737BigIntliterals preservedlib/simplefin.ts530target<ES2020;lintNOTRUN/noactivecommandserverretry, exact786ce0bbacked. Originalworker source-light targetalignmentforalreadyrequiredNode22/modernbrowser; nextREADYpriorityOIKOS. NoSnakeheavygrant; runtime/build unchanged by fixturefix/no overallacceptance.
+- NEW coordinator Snake R2 RUNNING source-smallserialONLYexact53bd059, task node:delegated-task:command%3Amcp%3Aab0d5ba8-7bee-42d0-aa6d-445234728aef%3Adelegate-task%3Aminigame-batch-snake-independent-r2-53bd059-20261011, fulloriginal+workerR1R2/priorcoordinatorR1REQUEST_CHANGES+fixresponse/unresolved supplied. ChangedtipfullcheckQUEUEDnotclaimedb880353valid53bd; no acceptanceuntilnewreview+fullgate. Brickpriorchildsettledaftercompleteverdictrecord, serialreviews/no duplication.
+- Brick/Crossing coordinator R1 completed ACCEPT EXACT0f6aafc, no materialfindings/priorobjections;19targetedtests+6actualkeyboard/timing/renderergeometryprobesPASS, cleanHEADunchanged/noedits/full/browser/stress. Parentfull356alreadyPASS; individualacceptance satisfied, UNMERGED untilallbranchespass. Completepublishedresult MINIGAME_COORDINATOR_REVIEWS.md. CombinedcontrolledMove-insidestepSlice/events/unconsumedMs/rewardonce/connectors/manualUIstillrequired. Agent-createdterminalchildsettleafterrecord; noactivechildrenbefore nextnewreviewround.
 - CURRENT SOLE HEAVY OWNER: OIKOS R5 explicitlyGRANTED key oikos-priority-r5-786ce0b-finite-grant-20261011, cleanbacked786ce0b2d821064303af6ce7f8ba139b54aa2815. R4sourcecause fixturehardcoded2026-09-01 correctlyexcludedbytodayOct11calendarcutoffSept11; TESTONLYfix independentrelative7dayresolved+missing/beforecutoffexcludedrecords retainsallassertions, no productionchange. ONCEall93engine->typecheck->lint/no buildinstallguardrepeat,2GB/Rayon2/concurrency1,30-90sec/HARDSTOP3minfromSTART/firstfailurestress RELEASE. ActualSTART/results pending;R1-R4FAILretained. NoSnakeheavygrant, no serverproofyet; OIKOSprioritycontinues.
 - OIKOS R4 IMMEDIATE RELEASE~07:50:55UTC: START07:50:39/deadline07:53:39; staticguardPASS,engine93tests92PASS1FAIL Gemini retrospectiveundefinedintake_status fixture merchant-resolution.test.mjs475. RealSQLite/offlineworkbook persistence/rendered/providerfixturesPASS; externalauthorityworking. Typecheck/lintNOTRUN/no command/server/retry, exactbacked339a20c. R4FAIL retained, no overallacceptance. Originalworker source-lightdiagnosis/newR5plan requested; OIKOS NEXT READY priority, slotfree/noautoSnakehandoff. Brick coordinator R1 oneboundedstatusread stillRUNNING source-small/noacceptance.
 - OIKOS R4 actualSTART2026-10-11 07:50:39UTC, hardSTOP07:53:39UTC, exact339a20c; soleguard->engine->typecheck->lint sequential, no server/repeats. Results pending; allSnakeheavyheld, no acceptance inferred from startup.
