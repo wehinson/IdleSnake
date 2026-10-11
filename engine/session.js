@@ -282,7 +282,7 @@
     setup = setup || {};
     state.mode = mode; state.phase = "ready"; state.modeAccumulatorMs = 0; state.elapsedMs = 0;
     if (mode === "snake") return startSnake(state, setup);
-    state.rewardRun = rewards.beginRun(state.minigameRewards, mode);
+    state.rewardRun = rewards.beginRun(state.minigameRewards, mode, () => state.rng());
     if (mode === "duel") {
       const grid = setup.grid || { columns: state.selectedDuelGridSize, rows: state.selectedDuelGridSize };
       const px = Math.floor(grid.columns / 2) - 1; const ox = Math.floor(grid.columns / 2);
@@ -944,7 +944,7 @@
           let immediateMove = null;
           if (state.mode === "snakebird") { immediateMove = snakebird.applyMove(state.active, action.direction); if (!immediateMove.accepted) return reject("blocked"); }
           if (state.mode === "sokoban") { immediateMove = sokoban.applyMove(state.active, action.direction); if (!immediateMove.accepted) return reject("blocked"); }
-          if (state.rewardRun && state.rewardRun.mode === state.mode) state.rewardRun.engaged = true;
+          if (state.rewardRun && state.rewardRun.mode === state.mode && !["breakout", "centipede"].includes(state.mode)) state.rewardRun.engaged = true;
           if (state.phase === "ready") { state.phase = "running"; events.push(event("runStarted", { mode: state.mode })); }
           if (state.mode === "breakout") state.active.paddle.input = action.direction === "left" ? -1 : action.direction === "right" ? 1 : 0;
           if (state.mode === "centipede") {
@@ -1141,7 +1141,6 @@
             state.active.paddle.input = action.value;
           } else if (action.axis === "x") state.active.player.inputX = action.value;
           else state.active.player.inputY = action.value;
-          if (action.value !== 0 && state.phase !== "paused" && state.rewardRun) state.rewardRun.engaged = true;
           events.push(event("inputAxisSet", { axis: action.axis, value: action.value })); break;
         }
         case "setCosmetics":
@@ -1286,6 +1285,7 @@
       }
       if (state.phase === "running" && state.active && state.mode === "breakout") {
         const stepped = breakout.step(state.active, { deltaMs: dt, boardWidth: state.active.board.width, boardHeight: state.active.board.height, elapsedMs: state.elapsedMs, rng: () => state.rng() }); events.push(...stepped.events);
+        if (state.rewardRun && stepped.events.some(item => item.type === "controlledMove")) state.rewardRun.engaged = true;
         const ballLost = stepped.events.find((item) => item.type === "ballLost");
         if (ballLost) { state.phase = "ready"; state.modeAccumulatorMs = 0; events.push(event("runReady", { mode: "breakout", reason: "ballLost", lives: ballLost.lives })); }
         else if (!stepped.alive || stepped.events.some((item) => item.type === "win")) { state.phase = "gameover"; const won = stepped.events.some((item) => item.type === "win"); state.records.breakoutBest = Math.max(state.records.breakoutBest, state.active.score); endMinigame(state, { won }, events); }
@@ -1318,6 +1318,7 @@
         state.modeAccumulatorMs += dt;
         while (state.modeAccumulatorMs >= state.active.tickMs && state.phase === "running") {
           const stepped = centipede.step(state.active, { rng: () => state.rng() }); state.modeAccumulatorMs -= state.active.tickMs; events.push(...stepped.events);
+          if (state.rewardRun && stepped.events.some(item => item.type === "controlledMove")) state.rewardRun.engaged = true;
           if (!stepped.alive) { state.phase = "gameover"; state.records.centipedeBest = Math.max(state.records.centipedeBest, state.active.score); endMinigame(state, {}, events); }
           else if (stepped.events.some((item) => item.type === "playerHit")) { state.phase = "ready"; state.modeAccumulatorMs = 0; events.push(event("runReady", { mode: "centipede", reason: "playerHit" })); }
         }

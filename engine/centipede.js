@@ -185,7 +185,9 @@
     const rng = (ctx && ctx.rng) || Math.random;
     const events = [];
 
+    const previousPlayer = { x: state.player.x, y: state.player.y };
     movePlayer(state);
+    if (state.player.x !== previousPlayer.x || state.player.y !== previousPlayer.y) events.push({ type: "controlledMove" });
     stepBullet(state, events);
 
     if (state.segments.length === 0) {

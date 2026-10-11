@@ -89,8 +89,9 @@ test("progress and engagement gates reject idle, reset, placement and failed puz
   for (const [mode, [active, detail]] of Object.entries(performances)) {
     const ledger = rewards.createLedger();
     const run = rewards.beginRun(ledger, mode);
+    const seed = ledger.rngState;
     assert.equal(rewards.settle(ledger, run, active, detail, 100, () => { throw Error("idle RNG"); }).reward, 0, mode);
-    assert.equal(ledger.rngState, null);
+    assert.equal(ledger.rngState, seed);
   }
   for (const mode of rewards.modes) {
     const measured = rewards.performance(mode, { score: 0, moves: 10, pendingSeeds: 0, wave: 1, round: 1, crates: [{}], totalPellets: 2, enemy: { shots: {} } }, {});
@@ -167,6 +168,47 @@ test("legacy and current saves migrate known earnings without inventing them fro
   }
 });
 
+test("pre-award saves retain the first jitter seed; inconsistent receipt counters recover safely", () => {
+  const game = createGameSession({ now: 0, rng: () => .123 });
+  game.dispatch({ type: "selectMode", mode: "snakebird", setup: { definition: { map: ["....", "HG..", "####"] } } });
+  const save = game.serialize();
+  assert.ok(Number.isInteger(save.session.minigameRewards.rngState));
+  const restored = createGameSession({ now: 0, save, rng: () => { throw Error("first reward cannot reseed"); } });
+  const paid = solve(game); const reloaded = solve(restored);
+  assert.equal(paid.events.find(e => e.type === "runEnded").reward, reloaded.events.find(e => e.type === "runEnded").reward);
+  const ledger = rewards.createLedger({ nextRunId: 1, lastReceipt: { mode: "duel", runId: 10, amount: 100 } });
+  const fresh = rewards.beginRun(ledger, "duel"); fresh.engaged = true;
+  assert.equal(fresh.runId, 11);
+  assert.ok(rewards.settle(ledger, fresh, ...performances.duel, 0, () => .5).reward > 0);
+});
+
+test("future Colony production scaling is consumed through the existing income query", () => {
+  const snapshot = createGameSession({ now: 0, save: { habitats: { counts: [2] } } }).snapshot();
+  const before = rewards.otherIncomePerSecond(snapshot);
+  const production = config.habitatConfig.income.basePerSecond;
+  try {
+    config.habitatConfig.income.basePerSecond = production * 10;
+    const after = rewards.otherIncomePerSecond(snapshot);
+    assert.ok(Math.abs(after - before * 10) < 1e-10);
+    const oldReward = rewards.calculate({ normalizedScore: 1, incomePerSecond: before }).amount;
+    const scaled = rewards.calculate({ normalizedScore: 1, incomePerSecond: after }).amount;
+    assert.ok(scaled > oldReward && scaled / oldReward < Math.sqrt(10));
+  } finally { config.habitatConfig.income.basePerSecond = production; }
+});
+
+test("natural Snakebird fall and unsolved Sokoban cannot pay progress or time", () => {
+  const game = createGameSession({ now: 0, rng: () => .5 });
+  game.dispatch({ type: "selectMode", mode: "snakebird", setup: { definition: { map: ["....", "H...", "...."] } } });
+  const fell = game.dispatch({ type: "direction", direction: "right" });
+  assert.equal(fell.snapshot.phase, "gameover");
+  assert.equal(fell.events.find(e => e.type === "runEnded").reward, 0);
+  assert.equal(fell.events.find(e => e.type === "runEnded").outcome, "loss");
+  game.dispatch({ type: "selectMode", mode: "sokoban" });
+  game.dispatch({ type: "direction", direction: "up" });
+  game.tick(10000); game.dispatch({ type: "restart" });
+  assert.equal(game.snapshot().seeds, 0, "Sokoban has no terminal loss; abort pays nothing");
+});
+
 test("unfinished games, mode changes, restart and offline hydration never produce free payouts", () => {
   const game = createGameSession({ now: 0, rng: () => .4 });
   for (const mode of rewards.modes) {
@@ -178,7 +220,7 @@ test("unfinished games, mode changes, restart and offline hydration never produc
   const hydrated = createGameSession({ now: 0, save: game.serialize(), rng: () => .4 });
   hydrated.advanceOffline(1e6);
   assert.equal(hydrated.snapshot().seeds, 0);
-  assert.equal(hydrated.snapshot().minigameRewards.rngState, null);
+  assert.equal(hydrated.snapshot().minigameRewards.rngState, game.snapshot().minigameRewards.rngState);
 });
 
 test("natural endless failures pay once; Start-only automatic progress pays nothing", () => {
@@ -196,8 +238,47 @@ test("natural endless failures pay once; Start-only automatic progress pays noth
       const ended = result.events.filter(e => e.type === "runEnded");
       assert.equal(ended.length, 1, mode);
       if (!engaged) assert.equal(ended[0].reward, 0, `${mode}: autoplay`);
+      if (engaged && ["broodline", "centipede", "runner"].includes(mode)) assert.ok(ended[0].reward > 0, `${mode}: applied play with earned progress`);
       assert.equal(game.tick(1000).events.some(e => e.type === "runEnded"), false, mode);
       assert.equal(game.snapshot().minigameRewards.earnings[mode], ended[0].reward, mode);
     }
   }
+});
+
+test("neutral directions and axes cleared before simulation cannot enable autoplay rewards", () => {
+  for (const mode of ["breakout", "centipede"]) {
+    const traces = [false, true].map(bypass => {
+      const game = createGameSession({ now: 0, rng: () => .4 });
+      game.dispatch({ type: "selectMode", mode });
+      if (bypass && mode === "breakout") game.dispatch({ type: "direction", direction: "up" });
+      else {
+        if (bypass) {
+          game.dispatch({ type: "setInputAxis", axis: "x", value: 1 });
+          game.dispatch({ type: "setInputAxis", axis: "x", value: 0 });
+        }
+        game.dispatch({ type: "begin" });
+      }
+      const result = runHeadless(game, { steps: 2500, stepMs: 100, controller: s => s.phase === "ready" ? { type: "begin" } : null });
+      assert.equal(result.ended, true, mode);
+      assert.equal(result.snapshot.seeds, 0, mode);
+      assert.equal(result.snapshot.minigameRewards.earnings[mode], 0, mode);
+      assert.equal(result.events.some(e => e.type === "controlledMove"), false, mode);
+      return { score: result.snapshot.active.score, steps: result.steps };
+    });
+    assert.deepEqual(traces[0], traces[1], `${mode}: input never reached simulation`);
+  }
+});
+
+test("applied movement is recorded before automatic growth or respawn, and rejected motion is not", () => {
+  const breakout = require("./breakout.js");
+  const centipede = require("./centipede.js");
+  const bricks = breakout.createState(); bricks.paddle.input = 1;
+  assert.ok(breakout.step(bricks, { deltaMs: 1, boardWidth: 720, boardHeight: 720, elapsedMs: 1, rng: () => .4 }).events.some(e => e.type === "controlledMove"));
+  bricks.paddle.x = 720 - breakout.paddleWidth(bricks);
+  assert.equal(breakout.step(bricks, { deltaMs: 1, boardWidth: 720, boardHeight: 720, elapsedMs: 2, rng: () => .4 }).events.some(e => e.type === "controlledMove"), false);
+  const shooter = centipede.createState({ rng: () => .4 });
+  shooter.player.inputX = -1;
+  assert.ok(centipede.step(shooter, { rng: () => .4 }).events.some(e => e.type === "controlledMove"));
+  shooter.player.x = 0;
+  assert.equal(centipede.step(shooter, { rng: () => .4 }).events.some(e => e.type === "controlledMove"), false);
 });

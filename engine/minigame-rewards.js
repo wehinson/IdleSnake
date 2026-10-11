@@ -16,12 +16,13 @@
 
   function createLedger(raw, legacyEarnings) {
     const earnings = raw?.earnings || legacyEarnings || {};
+    const lastReceipt = raw?.lastReceipt && modes.includes(raw.lastReceipt.mode) && Number.isSafeInteger(raw.lastReceipt.runId) && raw.lastReceipt.runId > 0
+      ? { mode: raw.lastReceipt.mode, runId: raw.lastReceipt.runId, amount: bounded(raw.lastReceipt.amount, MAX_REWARD) } : null;
     return { version: VERSION,
       earnings: Object.fromEntries(modes.map(mode => [mode, bounded(earnings[mode])])),
       rngState: Number.isInteger(raw?.rngState) && raw.rngState >= 0 && raw.rngState <= 0xffffffff ? raw.rngState : null,
-      nextRunId: Math.max(1, Math.floor(bounded(raw?.nextRunId, Number.MAX_SAFE_INTEGER - 1))),
-      lastReceipt: raw?.lastReceipt && modes.includes(raw.lastReceipt.mode) && Number.isSafeInteger(raw.lastReceipt.runId)
-        ? { mode: raw.lastReceipt.mode, runId: raw.lastReceipt.runId, amount: bounded(raw.lastReceipt.amount, MAX_REWARD) } : null };
+      nextRunId: Math.max(1, Math.floor(bounded(raw?.nextRunId, Number.MAX_SAFE_INTEGER - 1)), (lastReceipt?.runId || 0) + 1),
+      lastReceipt };
   }
   // Shares the public income query used by the HUD. No currency deltas, score,
   // minigame income, Length Bonus from an inactive Snake, or award feedback.
@@ -68,10 +69,13 @@
     return { amount, normalizedScore: q, incomePerSecond: income, historicalEarnings: history,
       incomeFactor, scoreFactor, winFactor, diversityFactor, randomFactor };
   }
-  function beginRun(ledger, mode) {
+  function beginRun(ledger, mode, rng = () => 0.5) {
     if (!modes.includes(mode)) return null;
     const runId = ledger.nextRunId;
     if (runId >= Number.MAX_SAFE_INTEGER - 1) return null;
+    // Establish and save the stream before any completion, so reloading a
+    // pre-payout save cannot reroll the first award with a different host RNG.
+    if (ledger.rngState === null) ledger.rngState = Math.floor(bounded(rng(), 1) * 0xffffffff) >>> 0;
     ledger.nextRunId += 1;
     return { mode, runId, engaged: false, paid: false };
   }
@@ -80,8 +84,7 @@
     run.paid = true;
     const measured = performance(run.mode, active, detail);
     const eligible = run.engaged && measured.meaningful;
-    // Rejections/zero progress never draw randomness. Seed once from the engine
-    // RNG, then persist this independent stream across reloads and mode changes.
+    // Rejections/zero progress never advance the saved reward stream.
     let random = 0.5;
     if (eligible) {
       if (ledger.rngState === null) ledger.rngState = Math.floor(bounded(rng(), 1) * 0xffffffff) >>> 0;
