@@ -487,6 +487,11 @@
       const interval = snake.nextMoveInterval(state.active);
       const segment = { at: simulationNow, progress: state.modeAccumulatorMs / interval,
         interval, running: state.phase === "running" };
+      const previous = snakeInputTiming.at(-1);
+      if (previous && previous.running === segment.running && (!segment.running || previous.interval === interval)) {
+        const expected = previous.progress + (previous.running ? (simulationNow - previous.at) / interval : 0);
+        if (Math.abs(segment.progress - expected) <= snakeInputProgressTolerance(simulationNow, previous.at, interval)) return;
+      }
       if (snakeInputTiming.at(-1)?.at === simulationNow) snakeInputTiming.pop();
       snakeInputTiming.push(segment);
     }
@@ -496,11 +501,19 @@
     }
     function snakeInputProgressAt(inputAt, timing = currentSnakeInputTiming()) {
       const at = Number.isFinite(inputAt) ? Math.min(inputAt, simulationNow) : simulationNow;
+      if (timing === snakeInputTiming && at === simulationNow) {
+        const progress = state.modeAccumulatorMs / snake.nextMoveInterval(state.active);
+        return Math.abs(progress - 0.85) <= Number.EPSILON * 16 ? 0.85 : progress;
+      }
       const segment = timing.findLast(item => item.at <= at) || timing[0];
       const progress = segment.progress + (segment.running ? (at - segment.at) / segment.interval : 0);
-      // Fractional intervals can put an exact boundary a few ULPs below 85%.
-      return Math.abs(progress - 0.85) <= Number.EPSILON * 16 ? 0.85 : progress;
+      // Epoch timestamps round fractional milliseconds before subtraction.
+      return Math.abs(progress - 0.85) <= snakeInputProgressTolerance(at, segment.at, segment.interval) ? 0.85 : progress;
     }
+    function snakeInputProgressTolerance(at, anchor, interval) {
+      return Math.max(Number.EPSILON * 16, Number.EPSILON * Math.max(Math.abs(at), Math.abs(anchor)) * 2 / interval);
+    }
+    recordSnakeInputTiming(true);
     function restoreCheckpoint(checkpoint) {
       const rng = state.rng; const observer = state.snapshotObserver;
       for (const key of Object.keys(state)) delete state[key];
@@ -960,10 +973,12 @@
               events.push(event("directionQueued", { direction: action.direction, deferredUntilSeed: true }));
               break;
             }
+            currentSnakeInputTiming();
             const sameDirection = action.direction === (state.active.directionQueue.at(-1) || state.active.direction);
             if (!sameDirection && !snake.queueDirection(state.active, action.direction)) return reject("invalidDirection");
             if (sameDirection && !ready) break;
             delete state.active.deferredSeedTurn;
+            recordSnakeInputTiming();
             const moveNow = ready || (config.snakeConfig.turnTimingEnabled && state.active.lastTurn === 0) || state.modeAccumulatorMs >= snake.nextMoveInterval(state.active);
             if (moveNow) {
               state.phase = "running";

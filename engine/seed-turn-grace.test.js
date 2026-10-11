@@ -6,8 +6,8 @@ const { snakeConfig } = require("./config.js");
 const { validateSaveCandidate } = require("./save-guard.js");
 
 function gameAt({ foods = [{ x: 11, y: 10, kind: "seed" }], body, speed = "snake", score = 0,
-  upgrades = {}, rng = () => 0.5 } = {}) {
-  const initial = createGameSession({ now: 1000, rng: () => 0.5 });
+  upgrades = {}, rng = () => 0.5, now = 1000 } = {}) {
+  const initial = createGameSession({ now, rng: () => 0.5 });
   initial.dispatch({ type: "selectMode", mode: "snake", setup: {
     grid: { columns: 20, rows: 20 }, tickMs: 200, direction: "right",
     snake: body || [{ x: 10, y: 10 }, { x: 9, y: 10 }, { x: 8, y: 10 }]
@@ -17,7 +17,7 @@ function gameAt({ foods = [{ x: 11, y: 10, kind: "seed" }], body, speed = "snake
   saved.session.active.score = score;
   saved.session.snakeSpeed = speed;
   Object.assign(saved.session.upgrades, upgrades);
-  const game = createGameSession({ save: saved, now: 1000, rng });
+  const game = createGameSession({ save: saved, now, rng });
   game.dispatch({ type: "begin" });
   return game;
 }
@@ -427,14 +427,20 @@ function assertTimingResultsEqual(actual, expected) {
     const key = path.at(-1);
     const actualParent = path.slice(0, -1).reduce((value, item) => value[item], copy);
     const expectedParent = path.slice(0, -1).reduce((value, item) => value[item], expected);
-    assert.ok(Math.abs(actualParent[key] - expectedParent[key]) < 1e-9, `${path.join(".")} clock parity`);
+    const tolerance = key === "savedAt" ? Math.max(1e-9, Number.EPSILON * Math.abs(expectedParent[key]) * 2) : 1e-9;
+    assert.ok(Math.abs(actualParent[key] - expectedParent[key]) < tolerance, `${path.join(".")} clock parity`);
     actualParent[key] = expectedParent[key];
   }
   assert.deepEqual(copy, expected);
 }
 
-function transformedInputRun({ progress, initialSpeed = "snake", nextSpeed, pauseMs, lateMs, delayed }) {
-  const game = gameAt({ speed: initialSpeed });
+function transformedInputRun({ progress, initialSpeed = "snake", nextSpeed, pauseMs, lateMs, delayed, hydrated = false }) {
+  let game = gameAt({ speed: initialSpeed });
+  if (hydrated) {
+    const saved = game.serialize();
+    game = createGameSession({ save: saved, now: saved.savedAt, rng: () => 0.5 });
+    assert.equal(game.snapshot().phase, "running");
+  }
   const interval = game.snapshot().active.tickMs;
   const requestDelta = interval * progress;
   const inputAt = 1000 + requestDelta;
@@ -534,4 +540,151 @@ test("multiple rate and pause segments preserve delayed latest input behind the 
     return { snapshot: game.snapshot(), saved: game.serialize() };
   }
   assertTimingResultsEqual(run(true), run(false));
+});
+
+test("hydrated running sessions preserve pre-85 and grace requests across their first pause", () => {
+  for (const initialSpeed of Object.keys(snakeConfig.speedPresets)) {
+    for (const progress of [0.849, 0.85, 0.855]) {
+      for (const pauseMs of [10, 1000]) {
+        for (const lateMs of [undefined, 16]) {
+          const options = { hydrated: true, initialSpeed, progress, pauseMs, lateMs };
+          assertTimingResultsEqual(transformedInputRun({ ...options, delayed: true }),
+            transformedInputRun({ ...options, delayed: false }));
+        }
+      }
+    }
+  }
+});
+
+test("epoch timestamps match precise untimestamped 84.9/85/99% requests before and after the step", () => {
+  for (const now of [1791741600000, 2000000000000]) {
+    for (const { speed, score } of Object.keys(snakeConfig.speedPresets).flatMap(speed => [0, 250].map(score => ({ speed, score })))) {
+      for (const progress of [0.849, 0.85, 0.99]) {
+        for (const delivery of ["sameFrame", "nextFrame", "afterStep"]) {
+          function run(timestamped) {
+            const game = gameAt({ now, speed, score });
+            const interval = game.snapshot().active.tickMs;
+            game.tick(interval * progress);
+            const inputAt = game.serialize().savedAt;
+            const delay = delivery === "sameFrame" ? 0 : delivery === "nextFrame"
+              ? interval * (1 - progress) / 2 : interval - game.snapshot().modeAccumulatorMs + 16;
+            let result;
+            if (!timestamped) result = turn(game);
+            game.tick(delay);
+            if (timestamped) result = turn(game, "up", inputAt);
+            assert.equal(deferred(result), progress >= 0.85, `${speed}, ${now}, ${progress}, ${delivery}`);
+            if (delivery !== "afterStep") {
+              const before = game.snapshot();
+              game.tick(interval - before.modeAccumulatorMs);
+            }
+            assert.deepEqual(game.snapshot().active.snake[0], progress >= 0.85 ? { x: 11, y: 10 } : { x: 10, y: 9 });
+            assert.equal(game.snapshot().active.score, score + (progress >= 0.85 ? 1 : 0));
+            assert.equal(game.snapshot().seeds, progress >= 0.85 ? 1 : 0);
+            const saved = game.serialize();
+            assert.equal(validateSaveCandidate(saved).ok, true);
+            const restored = createGameSession({ save: saved, now: saved.savedAt, rng: () => 0.5 });
+            assert.deepEqual(restored.snapshot().active, game.snapshot().active);
+            return { snapshot: game.snapshot(), saved };
+          }
+          assertTimingResultsEqual(run(true), run(false));
+        }
+      }
+    }
+  }
+});
+
+test("redundant paused clock segments coalesce across 10000 unchanged-speed dispatches", () => {
+  const fs = require("node:fs");
+  const vm = require("node:vm");
+  const source = fs.readFileSync(require.resolve("./session.js"), "utf8");
+  const marker = "return { snapshot: () => makeSnapshot(state), dispatch, tick, advanceOffline,";
+  assert.equal(source.split(marker).length, 2);
+  const testModule = { exports: {} };
+  // Read the private history from the real session closure without adding a
+  // production API or persisting instrumentation in gameplay/save state.
+  vm.runInNewContext(source.replace(marker, "return { timingForTest: () => clone(snakeInputTiming), snapshot: () => makeSnapshot(state), dispatch, tick, advanceOffline,"),
+    { module: testModule, require });
+  const saved = gameAt().serialize();
+  const game = testModule.exports.createGameSession({ save: saved, now: saved.savedAt, rng: () => 0.5 });
+  game.tick(175); game.dispatch({ type: "pause" });
+  assert.equal(game.timingForTest().length, 2);
+  for (let index = 0; index < 10000; index++) {
+    game.tick(1, { snapshot: "frame" });
+    game.dispatch({ type: "setSnakeSpeed", snakeSpeed: "snake" });
+  }
+  assert.equal(game.timingForTest().length, 2);
+  assert.ok(JSON.stringify(game.timingForTest()).length < 300);
+  for (let index = 0; index < 1000; index++) {
+    game.tick(1, { snapshot: "frame" });
+    game.dispatch({ type: "setSnakeSpeed", snakeSpeed: index % 2 ? "turtle" : "rabbit" });
+  }
+  assert.equal(game.timingForTest().length, 2, "paused rate changes have the same frozen progress");
+  game.dispatch({ type: "resume" });
+  assert.equal(game.timingForTest().length, 3);
+  assert.equal(deferred(turn(game, "up", 1169.8)), false, "coalescing retains original running progress");
+  assert.deepEqual(Array.from(game.snapshot().active.directionQueue), ["up"]);
+  const before = game.snapshot();
+  game.tick(before.active.tickMs - before.modeAccumulatorMs);
+  assert.equal(game.timingForTest().length, 1, "a committed move starts a fresh timeline");
+});
+
+test("optional matching-turn intervals refresh request timing when the queue changes", () => {
+  const previous = snakeConfig.turnTimingEnabled;
+  snakeConfig.turnTimingEnabled = true;
+  try {
+    for (const progress of [0.849, 0.85, 0.99]) {
+      for (const delayed of [false, true]) {
+        const initial = gameAt({ foods: [{ x: 10, y: 9, kind: "seed" }] });
+        const saved = initial.serialize();
+        saved.session.active.lastTurn = -1;
+        const game = createGameSession({ save: saved, now: saved.savedAt, rng: () => 0.5 });
+        game.tick(20); turn(game, "up");
+        assert.equal(snake.nextMoveInterval(game.snapshot().active), 100);
+        game.tick(100 * progress - 20);
+        if (delayed) game.tick(0.5);
+        const result = turn(game, "left", 1000 + 100 * progress);
+        assert.equal(deferred(result), progress >= 0.85);
+        if (progress >= 0.85) {
+          assert.equal(deferred(turn(game, "right", 1000 + 100 * progress)), true);
+          assert.equal(rejected(turn(game, "down", 1000 + 100 * progress)), true);
+          assert.deepEqual(game.snapshot().active.directionQueue, ["up"]);
+          assert.equal(game.snapshot().active.deferredSeedTurn, "right");
+        }
+        game.tick(100 - game.snapshot().modeAccumulatorMs);
+        assert.deepEqual(game.snapshot().active.snake[0], { x: 10, y: 9 });
+        assert.equal(game.snapshot().active.score, 1);
+        assert.deepEqual(game.snapshot().active.directionQueue, progress >= 0.85 ? ["right"] : ["left"]);
+      }
+    }
+  } finally {
+    snakeConfig.turnTimingEnabled = previous;
+  }
+});
+
+test("optional shortened cadence replays latest grace input behind the buffered turn", () => {
+  const previous = snakeConfig.turnTimingEnabled;
+  snakeConfig.turnTimingEnabled = true;
+  try {
+    function run(delayed) {
+      const saved = gameAt({ foods: [{ x: 10, y: 9, kind: "seed" }] }).serialize();
+      saved.session.active.lastTurn = -1;
+      const game = createGameSession({ save: saved, now: saved.savedAt, rng: () => 0.5 });
+      game.tick(20); turn(game, "up");
+      if (delayed) game.tick(85);
+      else game.tick(65);
+      assert.equal(deferred(turn(game, "left", 1085)), true);
+      if (!delayed) game.tick(1);
+      assert.equal(deferred(turn(game, "right", 1086)), true);
+      assert.equal(rejected(turn(game, "down", 1087)), true);
+      if (!delayed) game.tick(19);
+      assert.deepEqual(game.snapshot().active.snake[0], { x: 10, y: 9 });
+      assert.equal(game.snapshot().active.score, 1);
+      assert.deepEqual(game.snapshot().active.directionQueue, ["right"]);
+      assert.deepEqual(game.snapshot().active.seedTurnQueueGuards, [0]);
+      return { snapshot: game.snapshot(), saved: game.serialize() };
+    }
+    assertTimingResultsEqual(run(true), run(false));
+  } finally {
+    snakeConfig.turnTimingEnabled = previous;
+  }
 });
