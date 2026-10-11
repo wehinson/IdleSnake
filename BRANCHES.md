@@ -1,5 +1,17 @@
 # Branch status
 
+## task/colony-batch-20261011 — Nine-change integration and independent review
+
+- Agent: Codex, GPT 6.1 Sol, high effort, local Jimothy; T3 integration thread `mcp:4179fc65-6476-4132-ab6c-582e4df713e3`.
+- Status: Active; awaiting the three existing implementation branches before individual checks and independent T3 reviews. No feature merge or PR yet.
+- Base: local active working `31e773efee60c85d6781078803e4eae208911e4e`. Work only in this integration checkout; final delivery is one PR into working, with no working/main merge or deployment.
+- Scope and evidence: [BATCH_REVIEW.md](BATCH_REVIEW.md) records all nine acceptance conditions, worker threads/branches, interfaces, review steps and eventual reviewed commit/task IDs.
+- Verification: baseline `npm run check` passed syntax, authority and all 335 Node tests. Direct HTTP comparison verified ten assets each on `/test1/`–`/test5/` and preserved primary game.js.
+- Preview: shared Jimothy port 4173, unchanged server PID 10940. `/test2/` Seed grace; `/test3/` UI; `/test4/` economy; `/test5/` this integration checkout (currently baseline). Coordinator owns route changes; `/test1/` and `/` preserved.
+- Caveat: no browser automation/computer use authorized or performed; visual smoothness, narrow layouts and theme appearance await William's test. Root unrelated balance files remain excluded; local hash record preserves their baseline.
+- Version impact: none. Home thread owns PR babysitting and review-ready notification after final handoff.
+- Last update: 2026-10-11.
+
 ## task/tongue-seed-return — Shorter tongue and smooth Seed placement experiment
 
 - Agent: Codex, GPT 6.1 Sol, medium effort, local Jimothy, T3-created checkout `C:/Users/wehin/.t3/worktrees/IdleSnake/task-tongue-seed-return`.
