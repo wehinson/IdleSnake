@@ -766,7 +766,7 @@
           if (state.phase !== "running") return reject("notRunning");
           state.phase = "paused"; events.push(event("paused")); break;
         case "toggleFeeding":
-          state.nursery.feedingPaused = !state.nursery.feedingPaused;
+          state.nursery.feedingPaused = false; // Legacy action is a harmless compatibility no-op.
           migration.storeActiveSettlement(state);
           events.push(event("feedingToggled", { paused: state.nursery.feedingPaused })); break;
         case "resume":
@@ -969,7 +969,7 @@
           const index = Math.floor(Number(action.index));
           const habitat = config.habitatConfig.habitats[index];
           const count = Math.max(1, Math.floor(Number(action.count) || 1));
-          if (!habitat || state.nursery.colonyCount < count || state.best < habitat.unlockScore) return reject("habitatUnavailable");
+          if (!habitat || state.nursery.colonyCount < count || !economy.habitatUnlocked(state.habitats.counts, index)) return reject("habitatUnavailable");
           const leader = notables.assignedTo(state.notables, index);
           if (state.habitats.counts[index] + count > economy.habitatMaxCapacity(habitat, state.habitats.upgradeLevels[index], leader)) return reject("habitatOverCapacity");
           state.nursery.colonyCount -= count; state.habitats.counts[index] += count; events.push(event("habitatPlaced", { index, count }));
@@ -987,7 +987,7 @@
           if (isFounding()) return reject("featureUnavailableWhileFounding");
           const index = Math.floor(Number(action.index));
           const habitat = config.habitatConfig.habitats[index];
-          if (!habitat || state.best < habitat.unlockScore) return reject("habitatUnavailable");
+          if (!habitat || !economy.habitatUnlocked(state.habitats.counts, index)) return reject("habitatUnavailable");
           const level = state.habitats.upgradeLevels[index];
           const cost = economy.habitatUpgradeCost(habitat, level);
           if (state.branches < cost) return reject("insufficientBranches");

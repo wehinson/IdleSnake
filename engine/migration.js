@@ -1,10 +1,13 @@
 // Permanent multi-settlement migration domain. Pure, deterministic, and DOM-free.
 (function attachMigration(root, factory) {
-  const api = factory(typeof require === "function" ? require("./config.js") : root.IdleSnakeConfig);
+  const api = factory(
+    typeof require === "function" ? require("./config.js") : root.IdleSnakeConfig,
+    typeof require === "function" ? require("./economy.js") : root.IdleSnakeEconomy
+  );
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   if (typeof window !== "undefined") window.IdleSnakeMigration = api;
   else root.IdleSnakeMigration = api;
-})(typeof window !== "undefined" ? window : globalThis, (config) => {
+})(typeof window !== "undefined" ? window : globalThis, (config, economy) => {
   const cfg = config.migrationConfig;
   const clone = (value) => JSON.parse(JSON.stringify(value));
   const nonnegative = (value) => Math.max(0, Number(value) || 0);
@@ -120,7 +123,7 @@
       maxSnakeScore: localMaxScore,
       totalAdultsProduced: Math.max(nonnegative(previous.totalAdultsProduced), adultsNow),
       totalNotablesRecruited: Math.max(nonnegative(previous.totalNotablesRecruited), recruited),
-      habitatsUnlocked: Math.max(nonnegative(previous.habitatsUnlocked), config.habitatConfig.habitats.filter((item) => localMaxScore >= item.unlockScore).length),
+      habitatsUnlocked: Math.max(nonnegative(previous.habitatsUnlocked), config.habitatConfig.habitats.filter((_, index) => economy.habitatUnlocked(state.habitats?.counts, index)).length),
       adultSnakesPlaced: Math.max(nonnegative(previous.adultSnakesPlaced), placed),
       boardMasteries: Math.max(nonnegative(previous.boardMasteries), Object.values(state.notables?.masteryRewardsClaimed || {}).filter(Boolean).length),
       nestSlotsReached: Math.max(nonnegative(previous.nestSlotsReached), 1 + integer(state.nursery?.nestLevel)),

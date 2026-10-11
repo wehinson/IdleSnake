@@ -112,14 +112,14 @@ test("production, Forager, and contribution tracking use final recurring output"
   const leader = baseNotable({ status: "ASSIGNED", assignedHabitatId: 0, powerType: "PRODUCTION_INCREASE", powerMagnitude: 0.5 });
   const state = { seeds: 0, provisions: 0, upgrades: { foodTypeLevel: 0 }, nursery: economy.createNursery({}, 0), habitats: economy.createHabitats({ counts: [1] }), notables: notableState([leader]) };
   economy.tickHabitats(state, 1000, 1);
-  assert.equal(state.seeds, 0.0075);
-  assert.equal(state.notables.retained[0].totalProductionAdded, 0.0025);
+  assert.equal(state.seeds, 0.075);
+  assert.equal(state.notables.retained[0].totalProductionAdded, 0.025);
   assert.equal(state.notables.retained[0].hasServed, true);
   state.notables.retained[0] = baseNotable({ status: "ASSIGNED", assignedHabitatId: 0, powerType: "FORAGER", powerMagnitude: 0.1 });
   state.seeds = 0; state.provisions = 0;
   economy.tickHabitats(state, 1000, 1);
-  assert.equal(state.seeds, 0.005); assert.equal(state.provisions, 0.0005);
-  assert.equal(state.notables.retained[0].totalProvisionsForaged, 0.0005);
+  assert.equal(state.seeds, 0.05); assert.equal(state.provisions, 0.005);
+  assert.ok(Math.abs(state.notables.retained[0].totalProvisionsForaged - 0.005) < 1e-12);
 });
 
 test("Rationer preserves unsupported output without creating provisions", () => {

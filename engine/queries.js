@@ -16,28 +16,37 @@
     return snapshot.migration?.settlements.find((item) => item.id === snapshot.migration.activeSettlementId)?.status === "founding";
   }
   function habitatPanel(snapshot) {
-    const { habitats, nursery, best, provisions, branches } = snapshot;
+    const { habitats, nursery, provisions, branches } = snapshot;
     const foodValue = economy.foodValueFromUpgrades(snapshot.upgrades);
     const activation = economy.calculateHabitatActivation(habitats.counts, foodValue, snapshot.notables, habitats.upgradeLevels, { activateAllOverCapacity: provisions > 0 });
     const fullActivation = economy.calculateHabitatActivation(habitats.counts, foodValue, snapshot.notables, habitats.upgradeLevels, { activateAllOverCapacity: true });
+    const seedIncomeMultiplier = economy.lengthBonus(snapshot).multiplier;
     return {
       activation, fullActivation,
+      seedIncomeMultiplier, seedIncomePerSecond: activation.incomePerSecond * seedIncomeMultiplier,
+      nextHabitat: (() => {
+        const index = config.habitatConfig.habitats.findIndex((_, i) => !economy.habitatUnlocked(habitats.counts, i));
+        return index < 0 ? null : { index, previousIndex: index - 1, snakesNeeded: Math.max(0, config.habitatConfig.unlockPreviousSnakes - habitats.counts[index - 1]) };
+      })(),
       availableSnakes: Math.floor(nursery.colonyCount), placedSnakes: habitats.counts.reduce((a, b) => a + b, 0),
       habitats: config.habitatConfig.habitats.map((habitat, index) => {
-        const count = habitats.counts[index]; const unlocked = best >= habitat.unlockScore;
-        const workingSnakes = activation.activeCounts[index]; const perSnakeRate = activation.perSnakeRates[index];
+        const count = habitats.counts[index]; const unlocked = economy.habitatUnlocked(habitats.counts, index);
+        const workingSnakes = activation.activeCounts[index];
+        const notable = activation.leaders[index];
         const upgradeCost = economy.habitatUpgradeCost(habitat, habitats.upgradeLevels[index]);
         const hardCapacity = activation.hardCapacities[index];
         return {
-          count, unlocked, hardCapacity, upgradeCost,
+          count, unlocked, visible: unlocked || count > 0, legacyOccupied: !unlocked && count > 0, hardCapacity, upgradeCost,
           multiplier: economy.habitatMultiplier(habitat, count),
           nextMilestone: habitat.milestones.find((item) => count < item.score),
           overCapacity: Math.max(0, count - habitat.naturalCapacity), idleSnakes: activation.idleCounts[index],
           eggHatchReduction: workingSnakes * (habitat.eggHatchReductionSeconds || 0),
-          seedRate: activation.habitatSeedOutputs[index], branchRate: activation.habitatBranchOutputs[index],
-          provisionRate: habitat.producesProvisions ? workingSnakes * perSnakeRate * activation.productionMultipliers[index] : 0,
-          provisionsUse: activation.activeOverCapacityCounts[index] * perSnakeRate * config.habitatConfig.income.overCapacityProvisionCost * activation.consumptionMultipliers[index],
-          notable: notables.assignedTo(snapshot.notables, index),
+          seedRate: activation.habitatSeedOutputs[index] * seedIncomeMultiplier, branchRate: activation.habitatBranchOutputs[index],
+          provisionRate: activation.habitatProvisionOutputs[index],
+          foragerRate: notable?.powerType === "FORAGER" && notables.isForagerEligible(habitat) ? activation.habitatSeedOutputs[index] * notable.powerMagnitude : 0,
+          notableEffectRates: economy.notableContributionRates(activation, index, habitats.upgradeLevels, habitats.counts, seedIncomeMultiplier),
+          provisionsUse: activation.activeOverCapacityCounts[index] * activation.upkeepPerSnakeRates[index] * config.habitatConfig.income.overCapacityProvisionCost * activation.consumptionMultipliers[index],
+          notable,
           canAssign: !isFounding(snapshot) && unlocked && nursery.colonyCount >= 1 && count < hardCapacity,
           canUpgrade: !isFounding(snapshot) && unlocked && branches >= upgradeCost
         };
@@ -62,8 +71,8 @@
       extraEggs, eggHeld, primaryHatching, hatching, nestMaxed,
       canUpgradeNest: !isFounding(snapshot) && !nestMaxed && snapshot.branches >= nestCost,
       canUpgradeNursery: !isFounding(snapshot) && snapshot.branches >= cost.branches && snapshot.seeds >= cost.seeds,
-      feedingPaused: n.feedingPaused,
-      growthPaused: n.feedingPaused || snapshot.seeds < activeCount,
+      feedingPaused: false,
+      growthPaused: false,
       provisionsPerSecond: economy.calculateHabitatActivation(snapshot.habitats.counts, economy.foodValueFromUpgrades(snapshot.upgrades), snapshot.notables, snapshot.habitats.upgradeLevels).provisionsProducedPerSecond
     };
   }

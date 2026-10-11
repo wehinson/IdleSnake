@@ -110,39 +110,37 @@ test("a turn pressed before the last pre-deadline frame still corrects the movem
   assert.equal(result.snapshot.modeAccumulatorMs, 5);
 });
 
-test("each hatchling costs exactly 1000 Seeds over 15 minutes with blocks at 5 and 10 minutes", () => {
+test("each hatchling takes 15 minutes without spending Seeds, with blocks at 5 and 10 minutes", () => {
   const nursery = economy.createNursery({}, 0);
   nursery.hatchlings = [{ id: "a", x: 2, y: 4, direction: "right", progressMs: 0 }];
   let seeds = 1000;
   const advance = (dt) => { ({ seeds } = economy.advanceNursery(nursery, seeds, dt, () => 0.5)); };
   advance(899); assert.equal(seeds, 1000);
-  advance(1); assert.equal(seeds, 999);
+  advance(1); assert.equal(seeds, 1000);
   advance(300000 - 901); assert.equal(economy.hatchlingLength(nursery.hatchlings[0].progressMs), 1);
   advance(1); assert.equal(economy.hatchlingLength(nursery.hatchlings[0].progressMs), 2);
   advance(299999); assert.equal(economy.hatchlingLength(nursery.hatchlings[0].progressMs), 2);
   advance(1); assert.equal(economy.hatchlingLength(nursery.hatchlings[0].progressMs), 3);
   advance(299999); assert.equal(nursery.colonyCount, 0);
-  advance(1); assert.equal(nursery.colonyCount, 1); assert.equal(seeds, 0);
+  advance(1); assert.equal(nursery.colonyCount, 1); assert.equal(seeds, 1000);
   assert.equal(nursery.hatchlings.length, 0);
 });
 
-test("feeding stops without Seeds and the saved pause stops live and offline growth without spending Seeds", () => {
+test("zero Seeds and obsolete feeding toggles preserve live and offline time growth", () => {
   const session = game(); session.dispatch({ type: "addDevelopmentHatchling" });
-  const nursery = session.snapshot().nursery;
-  assert.equal(nursery.hatchlings.length, 1);
-  session.tick(5000); assert.equal(session.snapshot().nursery.hatchlings[0].progressMs, 0);
-  session.dispatch({ type: "addSeeds", amount: 1000 }); session.tick(450);
+  session.tick(5000);
+  assert.equal(session.snapshot().nursery.hatchlings[0].progressMs, 5000);
   session.dispatch({ type: "toggleFeeding" });
-  const before = session.snapshot(); const saved = session.serialize();
-  const paused = createGameSession({ save: saved, now: saved.savedAt + 600000 });
-  paused.advanceOffline(saved.savedAt + 600000);
-  assert.equal(paused.snapshot().nursery.feedingPaused, true);
-  assert.equal(paused.snapshot().seeds, before.seeds);
-  assert.equal(paused.snapshot().nursery.hatchlings[0].progressMs, 450);
-  paused.dispatch({ type: "toggleFeeding" }); paused.tick(450);
-  assert.equal(paused.snapshot().seeds, before.seeds - 1);
-  assert.equal(paused.snapshot().nursery.hatchlings[0].progressMs, 900);
-  assert.equal(nurseryConfig.growthMs / nurseryConfig.seedIntervalMs, 1000);
+  const saved = session.serialize();
+  saved.session.nursery.feedingPaused = true;
+  saved.session.migration.settlements[0].economy.nursery.feedingPaused = true;
+  const restored = createGameSession({ save: saved, now: saved.savedAt + 600000 });
+  restored.advanceOffline(saved.savedAt + 600000);
+  assert.equal(restored.snapshot().nursery.feedingPaused, false);
+  assert.equal(restored.snapshot().seeds, 0);
+  assert.equal(restored.snapshot().nursery.hatchlings[0].progressMs, 605000);
+  restored.dispatch({ type: "toggleFeeding" }); restored.tick(450);
+  assert.equal(restored.snapshot().nursery.hatchlings[0].progressMs, 605450);
 });
 
 test("extra nest eggs start their 15-minute growth clock only when they hatch", () => {
@@ -151,7 +149,7 @@ test("extra nest eggs start their 15-minute growth clock only when they hatch", 
   assert.equal(hatched.seeds, 1000);
   assert.equal(nursery.hatchlings[0].progressMs, 0);
   const grown = economy.tickNursery(nursery, hatched.seeds, 900000, () => 0.5);
-  assert.equal(grown.seeds, 0); assert.equal(nursery.colonyCount, 1);
+  assert.equal(grown.seeds, 1000); assert.equal(nursery.colonyCount, 1);
 });
 
 test("a corrected move restores a shield consumed by the original collision", () => {
