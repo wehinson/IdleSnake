@@ -2,6 +2,74 @@
 
 Only an independently passed exact implementation tip may enter the integration branch. Terminal completion is not acceptance. Cancelled/interrupted reviews remain classified as such. Each further round uses a new T3 delegate_task with the full original brief, prior findings/responses and unresolved objections.
 
+## Sokoban R1 — ACCEPT
+
+- Task: `node:delegated-task:command%3Amcp%3Aab0d5ba8-7bee-42d0-aa6d-445234728aef%3Adelegate-task%3Aminigame-batch-sokoban-independent-r1-c664c56-20261011`
+- Backing thread: `thread:delegated-task:command%3Amcp%3Aab0d5ba8-7bee-42d0-aa6d-445234728aef%3Adelegate-task%3Aminigame-batch-sokoban-independent-r1-c664c56-20261011`
+- Local Codex/GPT6.1Sol high at creation; completed/result_available, no pending children. Exactc664c56f63a55ace76b8ff6e17f036c1bcac0e83/base31e773e.
+- Parent exactfull363 already passed; independent15witnesses/363moves/39heavywall+lengthcontrols/sixplateprobes/nineselectedtests/sourceaudit now pass individualgate. No searchrerun, no combinedpayout/connector proof. Human difficulty not proven by witnesslength.
+- Agent-created terminal child settles immediately after complete durable result; cancellation/workerpriorresult classifications retained.
+
+### Complete published result
+
+**ACCEPT** request 6 at exact tip `c664c56f63a55ace76b8ff6e17f036c1bcac0e83`, against base `31e773efee60c85d6781078803e4eae208911e4e`. No blocking defects found.
+
+Verified before inspection and again afterward: clean checkout, correct branch, HEAD matching the local upstream ref, and exactly two task commits: `6e78f3780cd21eaea565ea351f2753b9b238f3a5` and `c664c56f63a55ace76b8ff6e17f036c1bcac0e83`. No files, refs, claims, servers, routes or worktrees changed.
+
+Independent validation completed:
+
+- **15/15 engine witnesses**, totaling **363 moves**. Every move was accepted; bodies remained connected and unique; crates remained unique; no body/crate/wall overlaps occurred; first completion occurred on the final move.
+- **39 heavy pushes** required at least two previously eaten pellets and a real wall behind the pre-move tail. All **39 supporting-wall removals** and **39 length-four controls** rejected unchanged.
+- **Six plate-disabled gate-entry probes** rejected unchanged.
+- **Nine selected tests passed**, covering authored starts, Rebrace, Anchorworks, all 15 session replays, selection bounds, old saves, both retained-tail regressions and pre-move gates.
+- `git diff --check` passed. Committed-blob comparison confirmed the Snakebird array, shared suffix and wrapper prefix are unchanged.
+
+The campaign has meaningful mechanical progression. Inspection of the [actual layouts](C:/Users/wehin/.t3/worktrees/IdleSnake/task-minigame-sokoban-levels-20261011/engine/puzzle-levels.js:30) supports these distinctions:
+
+1. **First Push:** constrained introduction to two growth pickups and one braced heavy shove.
+2. **Around the Heel:** shaft growth followed by a bent wall brace.
+3. **Harvest Loop:** separated pickups around an island, then a supported return.
+4. **Ceiling Press:** upward delivery requires floor support behind the tail.
+5. **Dogleg Delivery:** delivery changes push direction and brace geometry.
+6. **Light Work First:** the light crate obstructs the initial corridor’s exit to growth.
+7. **Living Bridge:** body-held plate and heavy delivery through a gate.
+8. **Rebrace:** the first shove loses its interior anchor; immediate continuation rejects unchanged.
+9. **Crossed Cargo:** perpendicular heavy deliveries share turning space.
+10. **Opposed Loads:** opposing deliveries interfere with straight body alignment and require cargo repositioning.
+11. **Gatehouse:** light-crate parking shares the gated heavy delivery workspace.
+12. **Two Keys:** two plate/gate deliveries, escape space and mandatory sixth segment.
+13. **Three Bearings:** three loads compete for anchors; temporary displacement resolves delivery-lane interference.
+14. **Long Lever:** mandatory seventh segment connects plate occupancy to the final gated push.
+15. **Anchorworks:** three loads combine gate delivery with a goal that also serves as the final tail anchor.
+
+These are more than resized reskins. The first two are deliberately constrained tutorials; later stages combine direction changes, obstructing cargo, plate spans and goal ordering. Witness lengths do **not** establish optimality or human difficulty.
+
+For **Anchorworks**, the forced constraint is structural: the enclosed right goal requires a rightward final push. With the maximum five-segment body, the only reachable supporting-tail position is the left goal. That goal therefore must be empty at that push. A crate parked there must be cleared. The witness demonstrates park/clear/restore; I do not claim every solution must first choose that parking sequence. Every gated goal likewise has walls above, below and right, leaving the gate as its sole crate entrance.
+
+The [engine correction](C:/Users/wehin/.t3/worktrees/IdleSnake/task-minigame-sokoban-levels-20261011/engine/sokoban.js:83) is minimal and correct. Growth is determined before validation, so a retained tail blocks both head entry and crate placement. Mutation begins only after all checks pass.
+
+The prior legality defect is resolved: the reachable prefix `RURRDDLLU` followed by `R` previously placed a crate onto the retained tail at `(4,2)`. Expected rejection now matches actual rejection with the complete state unchanged. Removing the remaining pellet allows the nongrowing control because the tail vacates. Pre-move plate checks, closed-gate entry rejection and departure of an existing snake occupant remain intact.
+
+I inspected the [search utility](C:/Users/wehin/.t3/worktrees/IdleSnake/task-minigame-sokoban-levels-20261011/scripts/sokoban-search.js:9) without running searches. Its identity retains ordered body, crate positions and remaining pellet identities. Crate kinds and walls/plates/gates are immutable per search; plate activity derives from the body. Omitted move counts, scores and animation history do not affect legality. Copies isolate all mutated collections. Capacity termination returns `exhausted: false`; only an empty pending queue returns `true`. The negative tests explicitly require exhaustion.
+
+Prior evidence remains classified as **reported evidence, source-audited here**, not independently rerun:
+
+- Worker: **53 targeted tests**, full **363-test check**, and 15 positive searches with maximum **27,057 visited states**.
+- All zero/single-pellet variants reportedly exhausted without solutions.
+- Two Keys individual omissions: **20,758 / 21,093 / 21,069** exhausted states.
+- Long Lever individual omissions: **3,585 / 3,726 / 2,954 / 3,014** exhausted states.
+- The capped Anchorworks disabled-plate search remains inconclusive; enclosed-goal geometry supplies the necessity proof instead.
+
+Scope is preserved: no session implementation, renderer, save-version, CI, release or Colony changes. Existing fixture adjustments are limited to `RRR`, dynamic final-stage indexing and Sokoban’s initial direction. Old Seeds/high records survived the selected tests; active boards and selection history remain session-only. First-five static rewards remain `20/35/45/60/85`; score and terminal outcome fields remain available for central reward integration. **This review does not prove combined payouts or connector integration.**
+
+Prior task classifications retained:
+
+- **Completed mechanics/design:** `node:delegated-task:command%3Amcp%3A9ab00bca-b4f9-40a9-87f8-8e067814f7f5%3Adelegate-task%3Asokoban-mechanics-design-1` — identified mechanics and the retained-tail defect.
+- **Cancelled by reboot, not PASS:** `node:delegated-task:command%3Amcp%3A9ab00bca-b4f9-40a9-87f8-8e067814f7f5%3Adelegate-task%3Asokoban-late-stage-design-2` — recovered candidates were subsequently validated; the earlier Two Keys trap was addressed.
+- **Prior worker-owned frozen review, reported PASS/17 checks:** `node:delegated-task:command%3Amcp%3Af4158bb8-9700-42e5-ac9c-4151aec616a4%3Adelegate-task%3Asokoban-frozen-c664c56-review-1` — separate from this independent review.
+
+Human difficulty progression, manual appearance and browser behavior remain unverified. No full suite, search, simulation, HTTP, browser automation or nested delegation ran during this review.
+
 ## Snakebird R1 — ACCEPT
 
 - Task: `node:delegated-task:command%3Amcp%3Aab0d5ba8-7bee-42d0-aa6d-445234728aef%3Adelegate-task%3Aminigame-batch-snakebird-independent-r1-715ac20-20261011`
