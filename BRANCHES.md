@@ -479,3 +479,11 @@ The entries below record prior checks and decisions. All intended work is includ
 - Preview: http://localhost:4173/test3/ serves this exact checkout through the coordinator-owned shared server. Page, game.js, and styles.css return HTTP 200; routes/server left untouched.
 - Visual gaps: no browser/computer use authorized; small-layout geometry, card squareness with long content, contrast across themes, focus/accessibility interaction, and browser scenarios need user/approved review. Combined economy/progression/current-rate acceptance belongs to integration review.
 - Version impact: none; no save schema or release bump. Last update: 2026-10-11.
+
+
+### UI review correction - aggregate contribution wording (2026-10-11)
+
+- Independent economy review P2: production and shortage historical totals now sum resources, so Seed-only labels overstated Seed contributions (e.g. 0.05 Seed + 0.05 Branch displayed as 0.1 Seeds).
+- Changed only the two contribution labels to "bonus resources" and "resources during shortages"; saved totals, engine effects, and mechanics unchanged.
+- Extended node scripts/check-colony-ui.js to assert the actual UI contribution and service strings for both power types and preserve numeric totals. Direct VM acceptance and npm run check (335 tests, syntax/authority) passed; no browser executed.
+- Status: correction ready for independent review; UI round 1 and integration acceptance remain coordinator-owned.

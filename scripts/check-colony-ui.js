@@ -32,6 +32,16 @@ vm.runInContext(source.slice(source.indexOf('const numberFormatCache'), source.i
 vm.runInContext(source.slice(source.indexOf('function formatDuration('), source.indexOf('function togglePause()')), ctx);
 vm.runInContext(source.slice(source.indexOf('function notablePowerText('), source.indexOf('function commitNotableAction(')), ctx);
 vm.runInContext(source.slice(source.indexOf('const NOTABLE_HOLD_CONFIRM_MS'),source.indexOf('function showNotablesMenu()')),ctx);
+// Historical contribution totals aggregate resources; do not relabel them Seeds.
+const productionHistory = { powerType: 'PRODUCTION_INCREASE', totalProductionAdded: 0.1, totalServiceTime: 1000, habitatsServed: [2] };
+const shortageHistory = { powerType: 'RATIONER', totalShortageOutputPreserved: 0.1, totalServiceTime: 1000, habitatsServed: [2] };
+assert.equal(ctx.notableContributionText(productionHistory), 'Generated 0.1 bonus resources');
+assert.equal(ctx.notableContributionText(shortageHistory), 'Preserved 0.1 resources during shortages');
+assert.match(ctx.notableServiceText(productionHistory), /Generated 0\.1 bonus resources/);
+assert.match(ctx.notableServiceText(shortageHistory), /Preserved 0\.1 resources during shortages/);
+assert.equal(productionHistory.totalProductionAdded, 0.1);
+assert.equal(shortageHistory.totalShortageOutputPreserved, 0.1);
+console.log('PASS: actual UI contribution/service strings describe aggregate resource totals without changing saved values.');
 ctx.renderNotables();
 const buttons=()=>ctx.pendingNotableEl.children[1].children.filter(e=>e.tag==='button');
 assert.equal(ctx.pendingNotableEl.children.length,2); assert.equal(ctx.pendingNotableEl.children[0].children[0].textContent,'candidate-1');
