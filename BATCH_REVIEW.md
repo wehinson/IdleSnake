@@ -15,8 +15,8 @@ Updated: 2026-10-11. Coordinator: GPT 6.1 Sol, high effort, local Jimothy.
 | Scope | Branch | Thread | State | Reviewed commit / task IDs |
 | --- | --- | --- | --- | --- |
 | 1, 6, 7, 9 UI | task/colony-ui-20261011 | mcp:4ee92de7-753a-47f6-84bd-7027e32edf3e | Round 2 PASS owned scope; economy integration condition pending | Accepted UI tip 6cb9d3a9b186364fd0887ff8fbe9fee6628eecf5 |
-| 3, 4, 5, 8 economy | task/colony-economy-20261011 | mcp:fd026147-88dc-4aae-8b42-576f1e265fa6 | New activity-label tip worker/parent checks pass; round 4 launch pending serial slot | New candidate fda0f854bdbf808c1ea456247da5183a090366b9 |
-| 2 Seed grace | task/seed-turn-grace-20261011 | mcp:57410d23-3950-46db-933b-7d760f1a72ce | Round 6 independent review running, sole check window | New candidate afcb392252d646a6c45b3ae79d0420fb17079a31 |
+| 3, 4, 5, 8 economy | task/colony-economy-20261011 | mcp:fd026147-88dc-4aae-8b42-576f1e265fa6 | Round 4 independent review running, sole finite check window | New candidate fda0f854bdbf808c1ea456247da5183a090366b9 |
+| 2 Seed grace | task/seed-turn-grace-20261011 | mcp:57410d23-3950-46db-933b-7d760f1a72ce | Round 6 source review running, finite checks finished/released | New candidate afcb392252d646a6c45b3ae79d0420fb17079a31 |
 
 Each checkout is a sibling under `C:/Users/wehin/.t3/worktrees/IdleSnake/`. Workers send completion here with stable request IDs `colony-ui-20261011-complete`, `colony-economy-20261011-complete`, `seed-turn-grace-20261011-complete`.
 
@@ -71,7 +71,8 @@ Each checkout is a sibling under `C:/Users/wehin/.t3/worktrees/IdleSnake/`. Work
 | Seed round 4 | colony-batch-seed-review-r4-20261011 | node:delegated-task:command%3Amcp%3Abcd63630-411c-4aec-8b6f-4afac57f78e2%3Adelegate-task%3Acolony-batch-seed-review-r4-20261011 | Cancelled before verdict; no acceptance |
 | Seed round 5 | colony-batch-seed-review-r5-20261011 | node:delegated-task:command%3Amcp%3Acb23ccd4-c229-4268-899a-dd8386890fc7%3Adelegate-task%3Acolony-batch-seed-review-r5-20261011 | Changes required: frame-crossing epoch replay P2 and early normalization P3 |
 | Economy round 3 | colony-batch-economy-review-r3-20261011 | node:delegated-task:command%3Amcp%3Acb23ccd4-c229-4268-899a-dd8386890fc7%3Adelegate-task%3Acolony-batch-economy-review-r3-20261011 | Changes required: P3 weighted activity mislabeled physical idle count |
-| Seed round 6 | colony-batch-seed-review-r6-20261011 | node:delegated-task:command%3Amcp%3Acb23ccd4-c229-4268-899a-dd8386890fc7%3Adelegate-task%3Acolony-batch-seed-review-r6-20261011 | Running against afcb392; solefinitechecks before callbackrelease |
+| Seed round 6 | colony-batch-seed-review-r6-20261011 | node:delegated-task:command%3Amcp%3Acb23ccd4-c229-4268-899a-dd8386890fc7%3Adelegate-task%3Acolony-batch-seed-review-r6-20261011 | Source review running;367full/70focused PASS, checkslot released |
+| Economy round 4 | colony-batch-economy-review-r4-20261011 | node:delegated-task:command%3Amcp%3Acb23ccd4-c229-4268-899a-dd8386890fc7%3Adelegate-task%3Acolony-batch-economy-review-r4-20261011 | Running against fda0f85; nextsolefinite checkwindow |
 
 ### Seed round 1 findings and response
 
@@ -176,6 +177,7 @@ Each checkout is a sibling under `C:/Users/wehin/.t3/worktrees/IdleSnake/`. Work
 - Parentcheck finished; nextsole fullcheck window allocated toready economyP3label owner (colony-economy-label-final-check-slot-start-20261011). SourceVM3casespass perworker; idleSnakesAreAverage marks time-weighted habitat only, Idle on average:Xsnakes otherwise existingactualidle wording; frozenUI6cb9d3a unchanged. Economyfullcheck/freeze/push pending. SeedR6prompt prepared withoriginalfullbrief/allpriorfindings/R4cancel/R5responseandmemoryserialallocation, persisted batch-review-seed-round6-draft.json; NOTlaunched yet untilappropriate solewindow. No inventedtaskId. Minigame informed serialprogress via colony-heavy-slot-serial-progress-20261011; explicitreleaseforthcomingafterfinitechecks.
 - Economy owner returned newfrozen `fda0f854bdbf808c1ea456247da5183a090366b9`, oneallocated360full/syntax120/authority11/VM3/diffcheckpass, noheavywork remains. Parent inspectedlatest4filequery/label/actualrendererharnessdelta and independently360full/syntax/authority/whitespacepassed,cleanexactlocal/cachedtip. Existingprogress/HUDtestsretained; rawaverages/physicalcounts/allmechanicsuntouched. NewR4fullbrief/allfindings/policy prepared as batch-review-economy-round4-draft.json; taskNOTyetlauncheduntilnextwindow.
 - Fresh SeedR6 delegate_task nowrunningafcb392,localcodex/gpt-6.1-sol/high atcreation, exacttaskIdabove; fullprompt/task persisted batch-review-seed-round6-prompt.json. Originalbrief/R1-R5findings/R4cancelnoacceptance/currentresponse preserved. It ownsSOLE finite full/focusedcheckwindow; requested colony-seed-r6-heavy-check-done-20261011 callback then source/smallonly, so economyR4 can runfullserialized. No coordinator/workerfullsuite runs concurrently; no featuremerge.
+- SeedR6callback independentlyconfirms cleanexactlocal/cached/liveafcb392,367full/syntax119/authority and70focused PASS once each, noheavywork remains; source/smallreviewcontinues withoutverdictyet. Checkwindowreleased. Fresh localcodex/gpt-6.1-sol/high economyR4 nowownsnextSOLEfinitewindowfda0f85, exacttaskIdabove; fulloriginalbrief/R1-R3findings/responses/policy/P3fixcontext included, prompt/task persisted batch-review-economy-round4-prompt.json. Requested colony-economy-r4-heavy-check-done-20261011 callback then source/smallonly; sharedslotrelease toMinigame afterfinitechecks. No concurrentfulls or acceptanceinferredfromchecks alone.
 
 ### Separate Minigame batch and baseline release
 
@@ -209,4 +211,4 @@ Each checkout is a sibling under `C:/Users/wehin/.t3/worktrees/IdleSnake/`. Work
 - Initial direct HTTP verification: 10 assets per route matched exact mapped checkout (HTML, game/CSS, session/queries, approved tongue engine/draw, theme kit/official CSS and image); primary game.js matches root working. Recheck after workers finish and integration merges.
 - Root preservation baseline: SHA-256 hashes for 27 unrelated modified/untracked root files saved locally in this worktree's git directory as `batch-root-preservation.json` (not committed).
 - All visual smoothness/layout/theme fit/accessibility by eye remain unverified until William tests. Direct engine/VM/HTTP checks cannot prove them.
-- PR: not created. UI owned scope accepted at6cb9d3a; economyfda0f85 worker/parent360checks pass,newR4launchpending Seedcheckwindow release; SeedR6runningafcb392. No feature branch integrated yet. Minigame and completed baseline release remain separate.
+- PR: not created. UI owned scope accepted at6cb9d3a; economyR4runningfda0f85 solefinitewindow; SeedR6source reviewrunningafcb392 after367/70independentchecks released. No feature branch integrated yet. Minigame and completed baseline release remain separate.
