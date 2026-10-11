@@ -3,7 +3,7 @@
 ## task/colony-batch-20261011 — Nine-change integration and independent review
 
 - Agent: Codex, GPT 6.1 Sol, high effort, local Jimothy; T3 integration thread `mcp:4179fc65-6476-4132-ab6c-582e4df713e3`.
-- Status: Active; UI owned scope PASS at `6cb9d3a`. Seed round5 rejects `1c87b03` for frame-crossing epoch replay/early historical normalization; parent reproduced both, original owner fixing for new round6. Economy stable `262cbaa` parent359tests/funded/Lake/graduation directchecks pass, independent round3 running with full duty/reserve policy. No feature merge or PR; full IDs/evidence in BATCH_REVIEW.md.
+- Status: Active; UI owned scope PASS at `6cb9d3a`. Seed round5 fixes now under soleworkerfullcheck allocation, newstabletip/R6 pending. Economy R3 confirms prior production/timing fixes but requires narrow query/label fix for weighted average idle activity (not physical snake count); originalowner source/smallchecks underway, fullchecksdeferred until nextserialwindow, freshR4 required. No feature merge or PR; full IDs/evidence in BATCH_REVIEW.md.
 - Base: local active working `31e773efee60c85d6781078803e4eae208911e4e`. Work only in this integration checkout; final delivery is one PR into working, with no working/main merge or deployment.
 - Scope and evidence: [BATCH_REVIEW.md](BATCH_REVIEW.md) records all nine acceptance conditions, worker threads/branches, interfaces, review steps and eventual reviewed commit/task IDs.
 - Verification: baseline `npm run check` passed 335 tests; individual reruns passed Seed 350, UI 335 and economy 346 with syntax/authority. UI VM acceptance script passed. Twelve HTTP assets each matched the frozen task tips; 27 protected unrelated root-file hashes remain unchanged. Independent review conclusions pending.
