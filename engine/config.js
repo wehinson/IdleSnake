@@ -94,8 +94,10 @@
   };
 
   const habitatConfig = {
+    unlockPreviousSnakes: 5,
     income: {
       basePerSecond: 0.01,
+      productionMultiplier: 10,
       foodValueMultiplier: true,
       milestoneMode: "multiply",
       overCapacityProvisionCost: 0.5
