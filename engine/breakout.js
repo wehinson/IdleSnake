@@ -133,7 +133,9 @@
     const paddle = state.paddle;
     let pWidth = paddleWidth(state);
 
+    const previousPaddleX = paddle.x;
     paddle.x = Math.max(0, Math.min(boardWidth - pWidth, paddle.x + paddle.input * config.paddleSpeed * dt));
+    if (paddle.x !== previousPaddleX) events.push({ type: "controlledMove" });
 
     const remainingPowerups = [];
     const pendingMultiballs = [];

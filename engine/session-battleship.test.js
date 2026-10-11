@@ -65,19 +65,23 @@ test("Battleship victory is authoritative, rewarded once, recorded, and serializ
   game.dispatch({ type: "battleshipStart" });
   const won = game.dispatch({ type: "battleshipFire", x: 0, y: 0 });
 
-  assert.deepEqual(won.events.find((item) => item.type === "runEnded"), { type: "runEnded", mode: "battleship", won: true, reward: 300 });
+  const payout = won.events.find((item) => item.type === "runEnded");
+  assert.equal(payout.mode, "battleship");
+  assert.equal(payout.won, true);
+  assert.equal(payout.outcome, "win");
+  assert.ok(payout.reward > 0);
   assert.equal(won.snapshot.phase, "gameover");
   assert.equal(won.snapshot.active.result, "won");
-  assert.equal(won.snapshot.seeds, 300);
+  assert.equal(won.snapshot.seeds, payout.reward);
   assert.equal(won.snapshot.records.battleshipBest, 3);
   assert.equal(won.snapshot.hud.best, 3);
   assert.equal(won.snapshot.hud.score, battleship.FLEET.length);
   assert.ok(game.dispatch({ type: "battleshipFire", x: 0, y: 0 }).events.some((item) => item.reason === "notRunning"));
-  assert.equal(game.snapshot().seeds, 300, "a completed battle cannot pay twice");
+  assert.equal(game.snapshot().seeds, payout.reward, "a completed battle cannot pay twice");
 
   const restored = createGameSession({ save: game.serialize(), now: 0, rng: () => 0 }).snapshot();
   assert.equal(restored.records.battleshipBest, 3);
-  assert.equal(restored.seeds, 300);
+  assert.equal(restored.seeds, payout.reward);
   assert.equal(restored.active, null, "live turn state is intentionally not persisted");
 });
 
@@ -102,5 +106,6 @@ test("Battleship AI delay advances only while running and resolves a determinist
   assert.equal(lost.snapshot.active.result, "lost");
   assert.equal(lost.snapshot.seeds, 0);
   assert.equal(lost.snapshot.records.battleshipBest, 0);
-  assert.deepEqual(lost.events.find((item) => item.type === "runEnded"), { type: "runEnded", mode: "battleship", won: false, reward: 0 });
+  assert.equal(lost.events.find((item) => item.type === "runEnded").won, false);
+  assert.equal(lost.events.find((item) => item.type === "runEnded").reward, 0);
 });

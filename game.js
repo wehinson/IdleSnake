@@ -642,7 +642,7 @@ function presentGameResult(result) {
   const ended = result.events.find((event) => event.type === "runEnded");
   if (ended && gameView.gameMode === "snakebird") showOverlay(ended.won ? "Level " + (gameView.snakebird.levelIndex + 1) + " Clear · +" + formatNumber(ended.reward) + " Seeds" : "Fell");
   if (ended && gameView.gameMode === "sokoban") showOverlay("Stage Clear · +" + formatNumber(ended.reward) + " Seeds");
-  if (gameView.gameMode === "sokoban") setScreenHint(gameView.state === "ready" ? "Arrow keys / D-pad: move · collect pellets · solve the crates" : sokobanStatusHint());
+  if (gameView.gameMode === "sokoban" && gameView.state !== "gameover") setScreenHint(gameView.state === "ready" ? "Arrow keys / D-pad: move · collect pellets · solve the crates" : sokobanStatusHint());
   if (gameView.gameMode === "battleship" && gameView.battleship?.phase === "placement") battleshipSetPlacementHint();
   if (gameView.gameMode === "broodline") syncBroodlineFormation();
   if (result.events.some((event) => event.type === "NOTABLE_GENERATED")) showNotablesMenu();
@@ -1856,7 +1856,7 @@ function interpretSessionEvents(events) {
         } else if (event.mode === "duel") {
 
           syncHud();
-          showOverlay(event.winner === "player" ? `Winner · +${formatNumber(event.reward || 0)} Seeds` : event.winner === "opponent" ? "Defeated" : "Draw");
+          showOverlay(`${event.winner === "player" ? "Winner" : event.winner === "opponent" ? "Defeated" : "Draw"} · +${formatNumber(event.reward || 0)} Seeds`);
         } else if (event.mode === "centipede") {
 
           syncHud();
@@ -1869,12 +1869,12 @@ function interpretSessionEvents(events) {
         } else if (event.mode === "crossing") {
 
           syncHud();
-          showOverlay(`Roadkill · Stage ${gameView.crossingStage}`);
+          showOverlay(`Roadkill · Stage ${gameView.crossingStage} · +${formatNumber(event.reward || 0)} Seeds`);
           setScreenHint("Start to cross again");
         } else if (event.mode === "breakout") {
 
           syncHud();
-          showOverlay(event.reward > 0 ? `Level Clear · +${formatNumber(event.reward)} Seeds` : "Game Over");
+          showOverlay(`${event.won ? "Level Clear" : "Game Over"} · +${formatNumber(event.reward || 0)} Seeds`);
           setScreenHint("Start to build another paddle");
         } else if (event.mode === "broodline") {
 
@@ -1885,8 +1885,13 @@ function interpretSessionEvents(events) {
         } else if (event.mode === "battleship") {
 
           syncHud();
-          showOverlay(event.won ? `Victory · +${formatNumber(event.reward || 0)} Seeds` : "Fleet Lost");
+          showOverlay(`${event.won ? "Victory" : "Fleet Lost"} · +${formatNumber(event.reward || 0)} Seeds`);
           setScreenHint(event.won ? "All enemy snakes sunk · Start to play again" : "Your nest was wiped out · Start to try again");
+        }
+        if (event.rewardDetails) {
+          setScreenHint(`+${formatDecimal(event.reward, 2)} Seeds · progress${event.outcome === "win" ? " + win" : ""} · income ×${formatDecimal(event.rewardDetails.incomeFactor, 1)} · variety ×${formatDecimal(event.rewardDetails.diversityFactor, 2)} · Start to play again`);
+          persistConsolidatedSave();
+          flushPendingSaves(); // Currency, reward RNG/history and receipt must persist together now.
         }
         break;
       case "battleshipShot":
@@ -1918,7 +1923,7 @@ function interpretSessionEvents(events) {
         break;
       case "levelUp":
         if (gameView.gameMode === "maze") {
-          showOverlay(`Round ${event.level - 1} Clear · +${formatNumber(event.reward)} Seeds`);
+          showOverlay(`Round ${event.level - 1} Clear · reward at run end`);
           window.setTimeout(() => { if (gameView.state === "running" && gameView.gameMode === "maze") hideOverlay(); }, 700);
         }
         break;
@@ -1927,7 +1932,7 @@ function interpretSessionEvents(events) {
           syncHud();
           directionInputLockedUntil = Date.now() + 1000;
           crossingPrimaryPressEpoch += 1;
-          showOverlay(`Stage ${gameView.crossingStage} Clear · +${formatNumber(event.reward)} Seeds`);
+          showOverlay(`Stage ${gameView.crossingStage} Clear · reward at run end`);
           setScreenHint("Next road loading");
         }
         break;
@@ -4215,6 +4220,8 @@ function syncUpgradeMenu() {
   minigamesNameEl.textContent = minigamesMaxed ? "All unlocked" : unlockedMinigame ? `Game ${unlockedMinigame}` : "None unlocked";
   minigamesLevelEl.textContent = `LV ${gameView.upgrades.minigamesLevel}`;
   minigamesCurrentEl.textContent = gameView.upgrades.minigamesLevel ? `${gameView.upgrades.minigamesLevel} phone game${gameView.upgrades.minigamesLevel === 1 ? "" : "s"} unlocked` : "Unlock phone game 1";
+  minigamesCurrentEl.title = window.IdleSnakeMinigameRewards.explanation;
+  if (minimizedKeypadButton) minimizedKeypadButton.title = window.IdleSnakeMinigameRewards.explanation;
   minigamesNextEl.textContent = activeSettlementIsFounding()
     ? "Unavailable while founding"
     : minigamesMaxed ? "Next: Maximum games" : `Next: phone game ${nextMinigame}`;
