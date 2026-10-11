@@ -1872,6 +1872,7 @@ function interpretSessionEvents(events) {
         if (event.rewardDetails) {
           setScreenHint(`+${formatDecimal(event.reward, 2)} Seeds · progress${event.outcome === "win" ? " + win" : ""} · income ×${formatDecimal(event.rewardDetails.incomeFactor, 1)} · variety ×${formatDecimal(event.rewardDetails.diversityFactor, 2)} · Start to play again`);
           persistConsolidatedSave();
+          flushPendingSaves(); // Currency, reward RNG/history and receipt must persist together now.
         }
         break;
       case "battleshipShot":
