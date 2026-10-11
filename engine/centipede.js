@@ -23,7 +23,7 @@
     mushroomDensity: 0.06,  // fraction of upper-field cells seeded at start
     waveMushrooms: 4,       // extra mushrooms added per wave
     tickMs: 70,
-    bulletStep: 2.4,        // +20% travel/auto-fire rate, still one bullet
+    bulletStep: 2.4,        // +20% travel rate; faster single-bullet re-fire
     segmentStepMs: 87.5,    // 70 / 0.8: enemies travel 20% slower
     points: { body: 10, head: 100, mushroom: 1 }
   };

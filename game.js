@@ -2130,7 +2130,7 @@ function drawBroodline() {
   const maxCam = broodlineGrid.columns - broodlineView;
   const targetX = Math.max(0, Math.min(maxCam, head.x - broodlineView / 2));
   const targetY = Math.max(0, Math.min(maxCam, head.y - broodlineView / 2));
-  const easing = effectiveReducedMotion() || gameView.state !== "running" ? 1 : .2;
+  const easing = gameView.state === "paused" ? 0 : effectiveReducedMotion() || gameView.state !== "running" ? 1 : .2;
   camera.x += (targetX - camera.x) * easing;
   camera.y += (targetY - camera.y) * easing;
   if (Math.abs(targetX - camera.x) < 0.002) camera.x = targetX;

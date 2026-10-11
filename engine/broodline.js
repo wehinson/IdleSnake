@@ -230,11 +230,6 @@
       }
     });
 
-    // Lethal damage taken mid-tick ends the run.
-    if (state.phase === "ended") {
-      return { state, events: [...events, { type: "endRun", reason: state.endReason || "Overwhelmed" }], alive: false };
-    }
-
     if (!state.enemies.length) {
       if (state.wave < WAVES_PER_ROUND) {
         state.wave += 1;

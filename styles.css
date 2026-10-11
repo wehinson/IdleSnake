@@ -1508,9 +1508,9 @@ body.has-strike-board:not(.is-fullscreen-mode) .phone-shell { height: auto; }
 
 .broodline-screen { position: absolute; inset: 0; z-index: 4; padding: 18px; background: rgba(211, 218, 167, 0.97); color: var(--screen-ink); overflow: auto; }
 .broodline-chain { display: grid; gap: 5px; margin: 12px 0; }
-.broodline-card { display: flex; align-items: center; gap: 8px; padding: 7px; border: 2px solid var(--screen-ink); background: rgba(255,255,255,.18); font: 700 .64rem/1.1 "Courier New", monospace; text-align: left; cursor: pointer; }
+.broodline-card { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; padding: 7px; border: 2px solid var(--screen-ink); background: rgba(255,255,255,.18); font: 700 .64rem/1.1 "Courier New", monospace; text-align: left; cursor: pointer; }
 .broodline-card.is-selected { background: var(--screen-ink); color: #dbe5ad; }
-.broodline-card small { margin-left: auto; opacity: .75; }
+.broodline-card small { flex-basis: 100%; line-height: 1.3; opacity: .85; }
 .broodline-formation-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 
 .controls {
