@@ -1,5 +1,18 @@
 # Branch status
 
+## task/minigame-batch-20261011 — Minigame PR2 coordination
+
+- Agent: local Jimothy, GPT 6.1 Sol high effort, T3 coordinator `mcp:618042fc-9354-4fc9-906a-1b3ca5c689e4`.
+- Status: Active. Six existing implementation workers; no accepted implementation or merge yet. Exactly one minigame PR will target `working`, separately from Colony PR1. No automatic merge or deployment.
+- Base: `31e773efee60c85d6781078803e4eae208911e4e`. Approved tongue behavior retained; root uncommitted balance files excluded.
+- Scope: requests 1–6 and 8–13 (numbering skips 7): duel/Nibbler/switching/shared connectors; Brick Breaker/Snakeger; 15 Snake Bird and 15 Sokoban puzzles; Broodline/strike/Centipede polish; authoritative calibrated Seed rewards.
+- Evidence and resume state: `MINIGAME_REVIEW.md`; full original brief: `MINIGAME_BRIEF.md`. Each final exact worker tip requires coordinator inspection/checks and independent T3 read-only review before integration.
+- Baseline verification: `npm run check` passed syntax, authority and all335 Node tests. No browser automation authorized; visual/layout/control feel remains for William to test.
+- Previews: shared port4173/PID10940; `/test6/`–`/test11/` reserved for workers and `/test12/` for this integration. Existing root and `/test1/`–`/test5/` preserved. Direct HTTP byte checks recorded in review file.
+- Release coordination: separate release thread `mcp:cb15038f-28e9-4ad5-a277-102c5f64b247` is authorized to ship only committed baseline31e773e, expected1.0.4. This batch stays based on31e773e, unapproved, without importing release/batch commits or bumping its version.
+- Version impact: no release bump for this PR; save migrations documented by owners and reviewed on integration.
+- Last update: 2026-10-11.
+
 ## task/tongue-seed-return — Shorter tongue and smooth Seed placement experiment
 
 - Agent: Codex, GPT 6.1 Sol, medium effort, local Jimothy, T3-created checkout `C:/Users/wehin/.t3/worktrees/IdleSnake/task-tongue-seed-return`.
