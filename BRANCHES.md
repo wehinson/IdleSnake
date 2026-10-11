@@ -3,7 +3,7 @@
 ## task/tongue-seed-return — Shorter tongue and smooth Seed placement experiment
 
 - Agent: Codex, GPT 6.1 Sol, medium effort, local Jimothy, T3-created checkout `C:/Users/wehin/.t3/worktrees/IdleSnake/task-tongue-seed-return`.
-- Status: Ready With Caveat; awaiting William's visual test and explicit approval before any merge into `working`.
+- Status: Approved by William and merged into `working` on 2026-10-11. Awaiting a separate ship instruction for `main` and deployment.
 - Base: active `working` commit `af0c946`. Fresh implementation; the scrapped `task/tongue-catch` branch and `archive/tongue-catch-2026-10-10` were not revived or merged.
 - Changes: opt-in tracker experiment halves Goo Fork emergence/reach/pull phase durations, preserves its easing, shape and two-cell catch range, and keeps the Seed held until the engine consumes it. A cancelled pull places the Seed from its last drawn position back at its copied original cell, restores its size, then retracts the tongue. The flexible tongue connects the current mouth to the Seed through repeated turns. New catches wait for placement to finish. Seed coordinates, movement speed, rewards, consumption and saves remain authoritative and unchanged.
 - Timing: return lasts 60% of the cancellation-time movement interval, bounded to 80–240 ms, with placement in the first 75% and retraction afterward. Pause freezes display time. Reduced motion prevents fresh catches; an existing displaced Seed finishes one return instead of jumping home. Removal by the engine cancels presentation immediately, including during pause.
@@ -11,7 +11,8 @@
 - Verification: `npm run check` passed syntax, engine authority, and all 335 Node tests. New deterministic tests cover preserved pull geometry, halved duration, cancellation from pull/hold, repeated turns and re-approach, pause, reduced motion, fast/slow timing boundaries, actual session food/rewards and consumption, and the actual drawing functions drawing exactly one Seed. Direct HTTP byte comparisons passed for the route's HTML, game code, tongue engine/drawing, CSS and official theme assets; primary game code still matches the root checkout. `git diff --check` passed.
 - Caveat: no browser automation or computer use was authorized or performed. Canvas appearance, mouth connection through sharp turns, and perceived timing still need William's visual test.
 - Files: engine/tongue.js, engine/tongue-return.test.js, scripts/tongue-draw.js, scripts/tongue-integration.test.js, game.js, BRANCHES.md.
-- Version impact: none. Commit/push only this task branch; no `working`/`main` merge or deployment.
+- Integration: William requested the merge on 2026-10-11. Merged with a merge commit; unrelated uncommitted balance work in the primary checkout was preserved and excluded from commits (all file hashes match the pre-merge baseline). Combined `npm run check` passed syntax, authority, and all 379 Node tests, including the pre-existing local balance tests. Direct HTTP comparisons confirm the primary route serves the merged tongue code. The stable `/test1/` preview still serves the approved task checkout; the primary `/` route serves `working`.
+- Version impact: none. No `main` merge or deployment.
 - Last update: 2026-10-11.
 
 ## working — Office Charcoal is the official theme
