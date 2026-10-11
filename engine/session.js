@@ -331,7 +331,7 @@
     }
     if (mode === "centipede") {
       state.active = centipede.createState({ cols: setup.cols ?? setup.grid?.columns, rows: setup.rows ?? setup.grid?.rows, playerRows: setup.playerRows, lives: setup.lives, startLength: setup.startLength, rng: () => state.rng() });
-      state.active.tickMs = setup.tickMs || 70;
+      state.active.tickMs = setup.tickMs || centipede.config.tickMs;
     }
   }
   function event(type, detail) { return { type, ...(detail || {}) }; }
@@ -391,12 +391,13 @@
   function reversesDirection(from, to) {
     return directionVectors[from].x + directionVectors[to].x === 0 && directionVectors[from].y + directionVectors[to].y === 0;
   }
-  function queueModeDirection(mode, active, direction) {
+  function queueModeDirection(mode, active, direction, phase) {
     const queue = mode === "broodline" ? active.queue : active.directionQueue;
     const current = mode === "duel" ? active.player.direction : active.direction;
     const length = mode === "duel" ? active.player.body.length : mode === "crossing" ? active.snake.length : mode === "maze" ? active.path.length : active.chain.length + 1;
     const intended = queue.at(-1) || current;
     if (direction === intended) {
+      if (mode === "broodline" && phase === "ready" && !queue.length) return true;
       if (mode !== "crossing" || queue.length) return false;
     }
     if ((mode === "broodline" || length > 1) && reversesDirection(intended, direction)) return false;
@@ -825,7 +826,11 @@
           if (!Number.isInteger(from) || from < 0 || from >= state.active.chain.length) return reject("invalidIndex");
           const to = from + (action.direction === "up" ? -1 : 1);
           if (to < 0 || to >= state.active.chain.length) return reject("invalidIndex");
+          // Formation changes segment order without moving the chain's cells.
+          const fromPos = state.active.chain[from].pos;
+          const toPos = state.active.chain[to].pos;
           [state.active.chain[from], state.active.chain[to]] = [state.active.chain[to], state.active.chain[from]];
+          state.active.chain[from].pos = fromPos; state.active.chain[to].pos = toPos;
           state.active.selected = to;
           events.push(event("broodlineFormationMoved", { direction: action.direction, from, to })); break;
         }
@@ -893,7 +898,7 @@
             } else return reject("cursorUnavailable");
             events.push(event("battleshipCursorMoved", { direction: action.direction })); break;
           }
-          if (["duel", "crossing", "maze", "broodline"].includes(state.mode) && !queueModeDirection(state.mode, state.active, action.direction)) return reject("invalidDirection");
+          if (["duel", "crossing", "maze", "broodline"].includes(state.mode) && !queueModeDirection(state.mode, state.active, action.direction, state.phase)) return reject("invalidDirection");
           if (state.mode === "snake") {
             if (state.active.shieldImpact) {
               if (!snake.queueDirectionAfterShield(state.active, action.direction)) return reject("invalidDirection");

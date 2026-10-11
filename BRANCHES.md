@@ -1,5 +1,15 @@
 # Branch status
 
+## task/minigame-brood-strike-centipede-20261011 — Minigame PR2 requests 8/9/10
+
+- Agent: Codex, GPT 6.1 Sol, local Jimothy, T3 isolated checkout; coordinator `mcp:618042fc-9354-4fc9-906a-1b3ca5c689e4`.
+- Status: Active. Base `31e773efee60c85d6781078803e4eae208911e4e`; no Colony task/integration commits, working/main merge, release bump, deployment, CI edits, or individual PR.
+- Scope: Broodline bounded companion/formation/control fixes and progression feedback; existing Venom Strike/Battleship full-width square boards with portrait/wide layouts and shot feedback; Centipede bullet travel +20%, enemy speed -20%, darker HP-driven obstacles, larger visual shooter. Shared connectors and reward formulas remain with their owners; this branch adds only scoped connector call sites and preserves payout hooks.
+- Preview: coordinator allocated and directly verified `http://localhost:4173/test10/`; shared server/routes remain coordinator-owned.
+- Verification so far: all 63 existing focused engine/session tests plus 9 new combat/cadence/collision tests pass. Additional direct rendering/layout/session checks and full `npm run check` are pending.
+- Caveat: no browser automation/computer use authorized or performed; appearance and physical phone fit require user visual acceptance. No save migration.
+- Last update: 2026-10-11.
+
 ## task/tongue-seed-return — Shorter tongue and smooth Seed placement experiment
 
 - Agent: Codex, GPT 6.1 Sol, medium effort, local Jimothy, T3-created checkout `C:/Users/wehin/.t3/worktrees/IdleSnake/task-tongue-seed-return`.
