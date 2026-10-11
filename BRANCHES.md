@@ -1,5 +1,23 @@
 # Branch status
 
+## task/colony-economy-20261011 ? Colony engine items 3, 4, 5, 8
+
+- Agent: Codex, GPT 6.1 Sol, T3 isolated task worktree. Base: active `working` at `31e773e`.
+- Status: Ready for independent review and integration; no approval to merge into `working` or deploy.
+- Integration: coordinator `mcp:4179fc65-6476-4132-ab6c-582e4df713e3`, branch `task/colony-batch-20261011`, one combined PR targeting `working`. No individual PR.
+- Changes: hatchlings retain 15-minute time growth and 5/10-minute length milestones, mature at zero Seeds, ignore old feeding pauses, and consume no Seeds. Egg durations, incubation/backpressure and partial saved progress remain intact. Adult habitat provision upkeep stays at its old rate.
+- Production: every habitat Seed/Branch/Provision output and Forager production is multiplied by 10 exactly once. Food-value, milestones, Notable and Seed-only length modifiers retain their order and scope. Costs, existing resource banks, game food rewards and Lake incubation effects are not scaled. Query Seed rates and current total include length; Forager retains its existing pre-length Seed basis.
+- Habitat gates: first habitat accessible; later placement/upgrades require five snakes in each preceding habitat, replacing score gates. Fresh locked cards hidden; next progress is below the visible cards. Occupied legacy higher habitats remain visible with an explicit blocked notice, retain population/production, and cannot expand until the chain is restored. Reduced prerequisites relock the chain. No live habitat-removal action exists, so reduced counts are tested through canonical saved settlement economies. Migration unlocked-habitat metrics now use population gates, preserving historical earned high-water marks.
+- Notable service: assigned leaders in populated working habitats accrue elapsed passive time even when their effect gain is zero. Reads/rendering/serialization do not accrue time. Unassigned, empty and expedition assignments do not serve; established inactive settlements accrue; founding settlements do not. Game pause keeps passive colony work and service running, consistent with existing mechanics. Save totals retained; new effect contributions use authoritative resource rates.
+- Interface coordination: UI teammate owns feeding presentation removal and visible in-place service refresh. Engine supplies seedRate, branchRate, provisionRate, foragerRate, eggHatchReduction, notableEffectRates, seedIncomePerSecond and separate upkeepPerSnakeRates. Small overlapping game.js progression/current-total changes and styles.css hidden rule require coordinated merge.
+- Individual acceptance: 11 new direct-engine regression cases cover zero-food online/offline/persistence, all output types/modifiers/cost separation, four vs five and dependency chains, legacy preservation/relock, local settlement gates/migration metrics, zero-effect service, pause/unassign/reassign, real offline elapsed time and repeated read/no duplicate service. Existing feeding/economy tests adapted to the requested mechanics; all unrelated scenarios retained.
+- Verification: `npm run check` passed syntax (119 JS files), authority (11 modes) and all 346 Node tests. Targeted colony/economy/notables/session/length/migration/snake-batch checks passed. `git diff --check` passed. HTTP 200 and byte-identical checks for index.html, engine/economy.js, engine/queries.js, game.js and styles.css at `http://localhost:4173/test4/` prove exact checkout routing. Shared server/routes were not changed.
+- Visual gaps: no browser automation/computer use authorized or performed. Adapted `tests/browser/snake-batch.spec.js` nursery zero-food/reload scenario and `fullscreen-mode.spec.js` removed-control/layout expectation are unexecuted here and await approved CI/manual verification with the UI branch. Layout, visible legacy notice and service refresh need visual review.
+- Scope: engine/config.js, economy.js, migration.js, notables.js, queries.js, session.js; relevant engine tests plus colony-progression.test.js; narrow game.js/styles.css progression; two feeding browser expectations. No workflow/package/README/simulation/balance changes; unrelated root-checkout work preserved.
+- Version impact: no save schema or release version bump. Faster production intentionally funds more adult over-capacity activity and egg progress; historical resource/service totals are not rewritten.
+- Last update: 2026-10-11.
+
+
 ## task/tongue-seed-return — Shorter tongue and smooth Seed placement experiment
 
 - Agent: Codex, GPT 6.1 Sol, medium effort, local Jimothy, T3-created checkout `C:/Users/wehin/.t3/worktrees/IdleSnake/task-tongue-seed-return`.

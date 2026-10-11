@@ -1246,11 +1246,16 @@ function buildHabitatList() {
     `;
     const button = card.querySelector(".habitat-place-button");
     const upgradeButton = card.querySelector(".habitat-upgrade-button");
+    const legacyProgress = document.createElement("p");
+    legacyProgress.className = "habitat-bonus";
+    legacyProgress.hidden = true;
+    card.append(legacyProgress);
     button.addEventListener("click", () => placeSnakeInHabitat(index));
     upgradeButton.addEventListener("click", () => upgradeHabitat(index));
     habitatListEl.append(card);
     return {
       card,
+      legacyProgress,
       button,
       upgradeButton,
       snakes: card.querySelector(".habitat-snakes"),
@@ -1267,6 +1272,10 @@ function buildHabitatList() {
       notable: card.querySelector(".habitat-notable")
     };
   });
+  const nextHabitat = document.createElement("p");
+  nextHabitat.id = "next-habitat-progress";
+  nextHabitat.className = "habitat-bonus";
+  habitatListEl.append(nextHabitat);
 }
 
 function totalProvisionsPerSecond() { return engineQueries.nurseryPanel(latestSnapshot).provisionsPerSecond; }
@@ -1274,7 +1283,7 @@ function totalProvisionsPerSecond() { return engineQueries.nurseryPanel(latestSn
 function renderHabitats() {
   const panel = engineQueries.habitatPanel(latestSnapshot);
   const { availableSnakes, placedSnakes, activation, fullActivation } = panel;
-  const totalIncome = activation.incomePerSecond;
+  const totalIncome = panel.seedIncomePerSecond;
   const totalProvisions = activation.provisionsProducedPerSecond;
   const totalProvisionsUse = activation.provisionsConsumedPerSecond;
   const totalProvisionsDraw = fullActivation.provisionsConsumedPerSecond;
@@ -1293,6 +1302,14 @@ function renderHabitats() {
     const { count, unlocked, multiplier, nextMilestone, overCapacity, idleSnakes, eggHatchReduction, seedRate, branchRate, provisionRate, provisionsUse, notable, hardCapacity, upgradeCost, canAssign, canUpgrade } = panel.habitats[index];
 
     ref.card.classList.toggle("is-locked", !unlocked);
+    ref.card.hidden = !panel.habitats[index].visible;
+    ref.card.title = panel.habitats[index].legacyOccupied
+      ? "Existing population preserved. Restore five snakes in each preceding habitat to assign or upgrade."
+      : "";
+    ref.legacyProgress.hidden = !panel.habitats[index].legacyOccupied;
+    ref.legacyProgress.textContent = panel.habitats[index].legacyOccupied
+      ? "Existing population and production preserved. Expansion waits for 5 snakes in each previous habitat."
+      : "";
     ref.card.classList.toggle("produces-provisions", Boolean(habitat.producesProvisions));
     ref.card.classList.toggle("produces-branches", Boolean(habitat.producesBranches));
     ref.card.classList.toggle("speeds-egg-hatch", Boolean(habitat.eggHatchReductionSeconds));
@@ -1321,7 +1338,7 @@ function renderHabitats() {
     ref.card.classList.toggle("is-hard-over-capacity", count > hardCapacity);
     ref.button.disabled = !canAssign;
     ref.button.textContent = !unlocked
-      ? `Score ${formatNumber(habitat.unlockScore)}`
+      ? "Previous habitats need 5 snakes"
       : count >= hardCapacity
         ? "At capacity"
       : availableSnakes < 1
@@ -1334,6 +1351,13 @@ function renderHabitats() {
       : `Upgrade - ${formatNumber(upgradeCost)} Branches`;
 
   });
+  const nextHabitat = document.getElementById("next-habitat-progress");
+  if (nextHabitat) {
+    nextHabitat.hidden = !panel.nextHabitat;
+    nextHabitat.textContent = panel.nextHabitat
+      ? `Next habitat in ${formatNumber(panel.nextHabitat.snakesNeeded)} Snakes`
+      : "";
+  }
 }
 
 function placeSnakeInHabitat(index) {
