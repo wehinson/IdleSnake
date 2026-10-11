@@ -1,5 +1,10 @@
 # Minigame coordinator independent reviews
 
+## Arcade R1 fix handoff — acceptance pending
+
+Original Arcade worker narrow R1 fix handoff: frozen clean pushed087fea5174137dfef42ce71b1358a96daaa5454e, one own commit after rejectedcca751ca. Only game.js/scripts/minigame-feedback.test.js/BRANCHES.md,64insertions4deletions. Actual gameLoop now invokes existing syncHud after ticks/events only running Broodline combat plus existingClassic. Formation/paused/gameover excluded. Brood syncHud gameover hintguard and change-only goals suppress repeatedpoliteannouncements. No engine/render/camera/formation/reducedmotion/rewardmath/control/flush/Centiclock/connector changes. Tiny actual extracted gameLoop+syncHud+interpreterVM noinput scripted snapshots PASS1(~70ms): progress2->9/kills1->2/wave1->2/enemies2->5/armor2->1/eggtimer3->2s/timer220->440, no alternate waveeventHUD trigger; formation/pausehint retained; terminal+37Seeds and synthetic centralrewardterminalhint retained afterlaterframe/explsyncHud; unchangedgoallivewrites suppressed. gitdiffcheckPASS. Prior full356/52focused ONLYpre-deltacca751ca; changedtipfull/combined evidence stillpending freshlease OIKOSpriority. WorkeropenuntilWilliamaccepts; no selfreview/full/server/browser/deploy/imports. CoordinatorR1 remainsREQUEST_CHANGES; new exacttipR2 gate required. Integration removeobsolete duelGridSelect, supplyhelper, preserve centralrewardhooks/flush/terminalguards/Centiclocks controlledMove asbefore.
+
+
 Only an independently passed exact implementation tip may enter the integration branch. Terminal completion is not acceptance. Cancelled/interrupted reviews remain classified as such. Each further round uses a new T3 delegate_task with the full original brief, prior findings/responses and unresolved objections.
 
 ## Sokoban R1 — ACCEPT
