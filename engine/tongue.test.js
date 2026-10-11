@@ -61,24 +61,25 @@ test("the Seed moves toward the mouth during the pull for every direction", () =
   });
 });
 
-test("the tracker plays the whole timeline even when the Seed starts one step away", () => {
+test("the tracker reaches contact without moving a live Seed one step away", () => {
   const tracker = tongue.createCatchTracker("fork");
   const seeds = [{ x: 3, y: 1 }];
   const first = tracker.update({ head, direction: "right", seeds, stepProgress: 0.4 });
   assert.equal(first.t, 0);
   const middle = tracker.update({ head, direction: "right", seeds, stepProgress: 0.7 });
-  assert.ok(Math.abs(middle.t - 0.5) < 1e-9);
+  assert.ok(Math.abs(middle.t - tongue.getStyle("fork").grabAt * 0.5) < 1e-9);
   const late = tracker.update({ head, direction: "right", seeds, stepProgress: 1 });
-  assert.equal(late.t, 1);
+  assert.equal(late.t, tongue.getStyle("fork").grabAt);
+  assert.deepEqual(late.seed, { x: 3.5, y: 1.5, scale: 1, stretch: 1 });
 });
 
-test("the tracker spans two steps for a Seed two cells ahead and stops on a turn", () => {
+test("the tracker spans two steps for a Seed two cells ahead and retracts on a turn", () => {
   const tracker = tongue.createCatchTracker("frog");
   const seeds = [{ x: 4, y: 1 }];
   assert.equal(tracker.update({ head, direction: "right", seeds, stepProgress: 0 }).t, 0);
   const nextHead = { x: 3, y: 1 };
-  assert.ok(Math.abs(tracker.update({ head: nextHead, direction: "right", seeds, stepProgress: 0 }).t - 0.5) < 1e-9);
-  assert.equal(tracker.update({ head: nextHead, direction: "up", seeds, stepProgress: 0.1 }), null);
+  assert.ok(Math.abs(tracker.update({ head: nextHead, direction: "right", seeds, stepProgress: 0 }).t - tongue.getStyle("frog").grabAt * 0.5) < 1e-9);
+  assert.equal(tracker.update({ head: nextHead, direction: "up", seeds, stepProgress: 0.1 }).phase, "retract");
 });
 
 test("a paused tracker keeps the same frame", () => {

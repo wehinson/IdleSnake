@@ -535,7 +535,7 @@ const snakeAnimationClock = window.IdleSnakeAnimationClock.createAnimationClock(
 const snakeAnimationNow = () => snakeAnimationClock.now(performance.now());
 let deathAnimation = null;
 // Sticky Goo Fork tongue: when a Seed is straight ahead within two steps, the
-// tongue grabs it and pulls it to the mouth before the head arrives. Display
+// tongue approaches it, then pulls only after an engine eat event. Display
 // only; the engine still eats the Seed when the head enters its cell.
 const TONGUE_STYLE = "gooFork";
 const tongueTracker = window.IdleSnakeTongue.createCatchTracker(TONGUE_STYLE);
@@ -615,6 +615,7 @@ function applySessionSnapshot(snapshot, savedAt = Date.now()) {
 
 function presentReadyGame() {
   snakeAnimationClock.reset();
+  tongueTracker.reset(); tongueFrame = null;
   digestionAnimations = []; crumbAnimations = []; tailWiggleStartedAt = null; deathAnimation = null;
   clearTimeout(deathOverlayTimer); deathOverlayTimer = null;
   hideBroodlineFormation(); boardMetrics = getBoardMetrics();
@@ -1809,8 +1810,16 @@ function interpretSessionEvents(events) {
       case "resumed": snakeAnimationClock.resume(performance.now()); break;
       case "hatch":
       case "eggBoardHatched": idleLastPanelAt = 0; break;
-      case "eat": if (gameView.gameMode === "snake") { playEatChomp(); startDigestionAnimation(); startCrumbAnimation(event.at); startTailWiggle(); } break;
+      case "eat":
+        if (gameView.gameMode === "snake") {
+          // Timestamped input can still correct this move within the engine's
+          // late-input window. Keep the consumed display stationary until then.
+          if (!effectiveReducedMotion()) tongueTracker.consume(event.at, snakeAnimationNow(), gameView.tickMs, snakeConfig.inputLateToleranceMs + 1);
+          playEatChomp(); startDigestionAnimation(); startCrumbAnimation(event.at); startTailWiggle();
+        }
+        break;
       case "movementCorrected":
+        tongueTracker.cancel(snakeAnimationNow(), gameView.tickMs); tongueFrame = null;
         digestionAnimations = []; crumbAnimations = []; tailWiggleStartedAt = null; deathAnimation = null;
         clearTimeout(deathOverlayTimer); deathOverlayTimer = null;
         if (gameView.state === "running") hideOverlay();
@@ -3558,9 +3567,7 @@ function drawFood() {
   const pulse = gameView.state === "running" && !effectiveReducedMotion() ? Math.sin(performance.now() / 130) * boardMetrics.cellSize * 0.05 : 0;
 
   updateTongueFrame();
-  const caught = tongueFrame?.seedCell;
   gameView.foods.forEach((snack) => {
-    if (caught && snack.x === caught.x && snack.y === caught.y) return;
     const inset = Math.max(4, Math.floor(boardMetrics.cellSize * 0.18) - pulse);
     drawSnack(snack, cellRect(snack, inset), foodType);
   });
@@ -3617,6 +3624,9 @@ function updateTongueFrame() {
   tongueFrame = tongueTracker.update({
     head: gameView.snake[0],
     direction: pendingHeadDirection(),
+    running: gameView.state === "running",
+    now: snakeAnimationNow(),
+    tickMs: gameView.tickMs,
     seeds: gameView.foods.filter((snack) => snack.kind !== "egg"),
     stepProgress: Math.max(0, Math.min(1, gameView.stepAccumulatorMs / Math.max(1, gameView.tickMs)))
   });
@@ -3627,8 +3637,8 @@ function drawTongueCatch() {
   if (!tongueFrame) return;
   const cell = boardMetrics.cellSize;
   window.IdleSnakeTongueDraw.drawForkTongue(ctx, { cell, x: boardMetrics.x, y: boardMetrics.y }, tongueFrame);
-  const snack = gameView.foods.find((food) => food.x === tongueFrame.seedCell.x && food.y === tongueFrame.seedCell.y);
-  if (!snack) return;
+  if (!tongueFrame.consumed) return;
+  const snack = tongueFrame.seedCell;
   const size = (cell - Math.max(4, Math.floor(cell * 0.18)) * 2) * tongueFrame.seed.scale;
   const rect = {
     x: boardMetrics.x + tongueFrame.seed.x * cell - size / 2,

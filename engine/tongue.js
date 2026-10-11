@@ -1,6 +1,6 @@
 // Tongue catch display model. Pure timing and geometry for the snake's tongue
 // reaching out, grabbing a Seed that lies straight ahead, and pulling it into
-// the mouth before the head arrives on the Seed cell. Display only: the run
+// the mouth after consumption is committed. Display only: the run
 // still eats the Seed when the head enters its cell, and nothing here changes
 // movement, collision, scoring, or save data.
 //
@@ -264,42 +264,87 @@
     ];
   }
 
-  // Tracks one catch across frames. The only memory is how far away the Seed
-  // was when the catch began, so a Seed that appears next to the head (or a
-  // turn into one) still plays the whole timeline, only faster.
+  // Approach is reversible: it can extend the tongue, never move food.
+  // Only an engine eat event can supply a consumed Seed for the pull effect.
   function createCatchTracker(styleId = styles[0].id) {
-    let current = null; // { key, startSteps }
+    let current = null;
+    let effect = null;
     let style = getStyle(styleId).id;
+    const duration = (tickMs) => Math.max(60, Math.min(180, tickMs * 0.6));
+    const mouthAt = (head, direction) => {
+      const v = vectors[direction] || vectors.right;
+      return { x: head.x + 0.5 + v.x * MOUTH_OFFSET, y: head.y + 0.5 + v.y * MOUTH_OFFSET };
+    };
+    const mix = (a, b, t) => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
 
-    function update({ head, direction, seeds, stepProgress = 0, running = true }) {
-      if (!running || !head) {
-        if (!running) return current?.frame || null;
-        current = null;
-        return null;
+    function update({ head, direction, seeds, stepProgress = 0, running = true, now = 0, tickMs = 200 }) {
+      if (!running) return current?.frame || effect?.frame || null;
+      if (!head) { current = null; effect = null; return null; }
+      const mouth = mouthAt(head, direction);
+      if (effect) {
+        const t = clamp01((now - effect.startedAt) / effect.duration);
+        if (t >= 1) effect = null;
+        else {
+          const pulling = effect.kind === "consume";
+          const tip = mix(effect.tip, mouth, ease("inOutSine", t));
+          const seed = pulling ? mix(effect.home, mouth, ease("inOutSine", t)) : effect.home;
+          effect.frame = {
+            style, t, phase: pulling ? "pull" : "retract", mouth, tip: pulling ? seed : tip,
+            direction: vectors[direction] || vectors.right,
+            seed: { ...seed, scale: pulling ? 1 - (1 - SWALLOW_SCALE) * t : 1, stretch: 1 },
+            seedCell: effect.seedCell, consumed: pulling, pull: pulling ? t : 0,
+            extension: 1 - t, tongueScale: pulling ? 1 : 1 - t,
+            length: Math.hypot((pulling ? seed : tip).x - mouth.x, (pulling ? seed : tip).y - mouth.y),
+            showTongue: true
+          };
+          return effect.frame;
+        }
       }
       let best = null;
       (seeds || []).forEach((seed) => {
         const steps = stepsUntilSeed(head, direction, seed, stepProgress);
         if (steps !== null && (!best || steps < best.steps)) best = { seed, steps };
       });
-      if (!best) {
+      const key = best && `${best.seed.x},${best.seed.y}`;
+      if (current && (current.key !== key || current.direction !== direction)) {
+        const frame = current.frame;
         current = null;
-        return null;
+        if (frame.length > 0.001) {
+          effect = { kind: "retract", tip: frame.tip, home: frame.seed,
+            startedAt: now, duration: duration(tickMs) };
+          return update({ head, direction, seeds, stepProgress, now, tickMs });
+        }
       }
-      const key = `${best.seed.x},${best.seed.y}`;
-      if (!current || current.key !== key || best.steps > current.startSteps) {
-        current = { key, startSteps: Math.max(0.001, best.steps), frame: null };
+      if (!best) return null;
+      if (!current || best.steps > current.startSteps) {
+        current = { key, direction, startSteps: Math.max(0.001, best.steps), frame: null };
       }
-      const t = 1 - best.steps / current.startSteps;
-      current.frame = { ...catchFrame(style, t, head, direction, best.seed), seedCell: best.seed };
+      // Stop at contact until the authoritative consumption arrives.
+      const t = (1 - best.steps / current.startSteps) * getStyle(style).grabAt;
+      current.frame = { ...catchFrame(style, t, head, direction, best.seed),
+        seedCell: best.seed, consumed: false };
       return current.frame;
     }
 
     return {
       update,
-      setStyle(id) { style = getStyle(id).id; current = null; },
+      consume(seedCell, now, tickMs, settleMs = 0) {
+        current = null;
+        effect = { kind: "consume", seedCell: { ...seedCell },
+          home: { x: seedCell.x + 0.5, y: seedCell.y + 0.5 },
+          startedAt: now + settleMs, duration: duration(tickMs) };
+        effect.tip = effect.home;
+      },
+      cancel(now, tickMs) {
+        const frame = effect?.frame || current?.frame;
+        const tip = frame?.tip || effect?.tip;
+        current = null;
+        effect = tip ? { kind: "retract", tip, home: frame?.seed || effect.home,
+          startedAt: now, duration: duration(tickMs) } : null;
+      },
+      setStyle(id) { style = getStyle(id).id; this.reset(); },
       get style() { return style; },
-      reset() { current = null; }
+      reset() { current = null; effect = null; }
     };
   }
 

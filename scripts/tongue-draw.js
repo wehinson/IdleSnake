@@ -7,13 +7,20 @@
   // points along +x, so the shapes are the same in every direction.
   function inMouthFrame(ctx, view, catchFrame, draw) {
     const CELL = view.cell;
-    const { mouth, direction } = catchFrame;
+    const { mouth } = catchFrame;
+    // Cancellation can leave the tip beside or behind the new mouth heading.
+    // Draw the full silhouette along that vector instead of clamping it to +x.
+    const gap = catchFrame.length || 1;
+    const direction = (catchFrame.phase === "retract" || catchFrame.consumed) && catchFrame.length > 0.000001
+      ? { x: (catchFrame.tip.x - mouth.x) / gap, y: (catchFrame.tip.y - mouth.y) / gap }
+      : catchFrame.direction;
     const toLocal = (point) => {
       const dx = (point.x - mouth.x) * CELL;
       const dy = (point.y - mouth.y) * CELL;
       return { x: dx * direction.x + dy * direction.y, y: -dx * direction.y + dy * direction.x };
     };
     ctx.save();
+    ctx.globalAlpha *= catchFrame.tongueScale ?? 1;
     ctx.translate(view.x + mouth.x * CELL, view.y + mouth.y * CELL);
     ctx.rotate(Math.atan2(direction.y, direction.x));
     draw(toLocal(catchFrame.tip), toLocal(catchFrame.seed));
@@ -29,7 +36,8 @@
       const pulling = catchFrame.phase === "pull";
       const reach = Math.max(0, tip.x);
       const stretch = Math.min(1, reach / (CELL * 2));
-      const thickness = CELL * options.thickness * (1 - stretch * 0.4);
+      const thickness = CELL * options.thickness * (1 - stretch * 0.4) * (catchFrame.tongueScale ?? 1);
+      const shapeScale = catchFrame.tongueScale ?? 1;
       const radius = seedRadius(view, catchFrame) + CELL * 0.04;
       // Prongs open as they leave the mouth and waggle while emerging.
       const waggle = catchFrame.phase === "emerge" ? 1 + 0.25 * Math.sin(catchFrame.t * 90) : 1;
@@ -37,7 +45,7 @@
       // While reaching, stop the fork at the near edge of the Seed so the
       // prongs stay in view instead of hiding under it.
       const prongReach = Math.cos(spread) * CELL * options.prong;
-      const forkX = pulling ? Math.max(0, reach - radius) : Math.max(0, Math.min(reach, seed.x - radius - prongReach));
+      const forkX = catchFrame.phase === "retract" ? Math.max(0, reach - prongReach * shapeScale) : pulling ? Math.max(0, reach - radius) : Math.max(0, Math.min(reach, seed.x - radius - prongReach));
       const tremble = options.tremble && pulling && Math.abs(catchFrame.pull - 0.5) < 0.001
         ? Math.sin(catchFrame.t * 400) * CELL * 0.025 : 0;
 
@@ -57,7 +65,7 @@
       // straight on from the body edges and the inner edges meet at the split.
       const bodyHalf = (index) => (thickness / 2) * (1 - 0.15 * (index / (points.length - 1)));
       const endHalf = bodyHalf(points.length - 1);
-      const tineLength = CELL * options.prong;
+      const tineLength = CELL * options.prong * shapeScale;
       const tines = [-1, 1].map((side) => {
         const root = { x: end.x, y: end.y + side * endHalf / 2 };
         const line = [];
