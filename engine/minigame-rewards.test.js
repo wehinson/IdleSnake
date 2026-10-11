@@ -273,9 +273,11 @@ test("applied movement is recorded before automatic growth or respawn, and rejec
   const breakout = require("./breakout.js");
   const centipede = require("./centipede.js");
   const bricks = breakout.createState(); bricks.paddle.input = 1;
-  assert.ok(breakout.step(bricks, { deltaMs: 1, boardWidth: 720, boardHeight: 720, elapsedMs: 1, rng: () => .4 }).events.some(e => e.type === "controlledMove"));
+  // The combined fixed-slice engine retains sub-tick time without applying input.
+  assert.equal(breakout.step(bricks, { deltaMs: 1, boardWidth: 720, boardHeight: 720, elapsedMs: 1, rng: () => .4 }).events.some(e => e.type === "controlledMove"), false);
+  assert.ok(breakout.step(bricks, { deltaMs: 4, boardWidth: 720, boardHeight: 720, elapsedMs: 5, rng: () => .4 }).events.some(e => e.type === "controlledMove"));
   bricks.paddle.x = 720 - breakout.paddleWidth(bricks);
-  assert.equal(breakout.step(bricks, { deltaMs: 1, boardWidth: 720, boardHeight: 720, elapsedMs: 2, rng: () => .4 }).events.some(e => e.type === "controlledMove"), false);
+  assert.equal(breakout.step(bricks, { deltaMs: 5, boardWidth: 720, boardHeight: 720, elapsedMs: 10, rng: () => .4 }).events.some(e => e.type === "controlledMove"), false);
   const shooter = centipede.createState({ rng: () => .4 });
   shooter.player.inputX = -1;
   assert.ok(centipede.step(shooter, { rng: () => .4 }).events.some(e => e.type === "controlledMove"));
