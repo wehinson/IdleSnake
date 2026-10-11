@@ -13,6 +13,7 @@ function enterFormation(game, pendingSeeds = 27) {
   game.dispatch({ type: "direction", direction: "up" });
   const originalStep = broodline.step;
   broodline.step = (state) => {
+    originalStep(state, { rng: () => .4 }); // Apply the real queued turn before the formation fixture.
     state.phase = "formation";
     state.chain = [
       { kind: "body", pos: { x: 14, y: 15 } },

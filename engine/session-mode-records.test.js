@@ -27,7 +27,7 @@ test("canonical per-mode records update without changing Snake best and survive 
   assert.equal(mazeEnded.snapshot.active.score, 10);
   assert.equal(mazeEnded.snapshot.records.mazeBest, 10);
   assert.equal(mazeEnded.snapshot.hud.best, 10);
-  assert.ok(mazeEnded.events.find((item) => item.type === "runEnded").reward > 0, "actual progress uses the shared formula");
+  assert.equal(mazeEnded.events.find((item) => item.type === "runEnded").reward, 0, "cancelled input preserves records but cannot reward autoplay");
 
   game.dispatch({ type: "selectMode", mode: "crossing", setup: { grid: { columns: 10, rows: 3 }, entryColumn: 0, tickMs: 1 } });
   game.dispatch({ type: "direction", direction: "up" }); game.tick(1);

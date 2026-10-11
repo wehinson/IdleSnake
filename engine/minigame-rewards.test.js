@@ -282,3 +282,91 @@ test("applied movement is recorded before automatic growth or respawn, and rejec
   shooter.player.x = 0;
   assert.equal(centipede.step(shooter, { rng: () => .4 }).events.some(e => e.type === "controlledMove"), false);
 });
+
+test("cancelled Nibbler directions match Start-only scoring traces and never enable a payout", () => {
+  const traces = [false, true].map(cancelled => {
+    let index = 0;
+    const draws = [.4, .4, .6547619047619048];
+    const game = createGameSession({ now: 0, rng: () => draws[index++] ?? .4 });
+    game.dispatch({ type: "selectMode", mode: "maze" });
+    if (cancelled) {
+      game.dispatch({ type: "direction", direction: "right" });
+      game.dispatch({ type: "direction", direction: "up" });
+    } else game.dispatch({ type: "begin" });
+    const trace = [];
+    for (let step = 0; step < 4; step++) {
+      const result = game.tick(100);
+      const { directionQueue, ...world } = result.snapshot.active;
+      trace.push({ active: world, events: result.events });
+    }
+    assert.equal(game.snapshot().phase, "gameover");
+    assert.equal(game.snapshot().active.score, 10, "real autoplay eats one food");
+    assert.equal(game.snapshot().seeds, 0);
+    assert.equal(game.snapshot().minigameRewards.earnings.maze, 0);
+    return { trace, ledger: game.snapshot().minigameRewards };
+  });
+  assert.deepEqual(traces[0], traces[1], "cancelled input did not affect any simulated movement or reward RNG");
+});
+
+test("an applied Nibbler turn with earned food pays, while a turn rejected by a wall does not", () => {
+  for (const open of [["2,2", "3,2", "4,2"], ["2,2", "2,1"]]) {
+    const game = createGameSession({ now: 0, rng: () => .4 });
+    game.dispatch({ type: "selectMode", mode: "maze", setup: {
+      grid: { columns: 5, rows: 5 }, tickMs: 100, open,
+      path: [{ x: 2, y: 2 }, { x: 2, y: 3 }, { x: 2, y: 4 }], food: { x: 3, y: 2 }
+    } });
+    game.dispatch({ type: "direction", direction: "right" });
+    const result = runHeadless(game, { steps: 10, stepMs: 100 });
+    assert.equal(result.ended, true);
+    const amount = result.events.find(e => e.type === "runEnded").reward;
+    if (open.includes("3,2")) {
+      assert.ok(result.snapshot.active.score >= 10);
+      assert.ok(amount > 0, "actual nondefault move ate food");
+    } else assert.equal(amount, 0, "accepted direction never moved into its wall");
+  }
+});
+
+test("directional modes require an applied command, even when a terminal step reports earned progress", () => {
+  for (const [mode, moduleName, stepName, direction] of [
+    ["duel", "duel", "stepVsSnake", "left"], ["maze", "maze", "stepMaze", "right"],
+    ["crossing", "crossing", "stepCrossing", "up"], ["broodline", "broodline", "step", "up"]
+  ]) {
+    const engine = require(`./${moduleName}.js`);
+    const originalStep = engine[stepName];
+    for (const applied of [false, true]) {
+      const game = createGameSession({ now: 0, rng: () => .4 });
+      game.dispatch({ type: "selectMode", mode, setup: mode === "maze" ? {
+        open: ["10,15", "11,15", "12,15"], food: { x: 12, y: 15 }
+      } : mode === "crossing" ? { entryColumn: 0, grid: { columns: 10, rows: 3 } } : undefined });
+      const queued = game.dispatch({ type: "direction", direction });
+      assert.equal(queued.events.some(e => e.type === "actionRejected"), false, mode);
+      let steps = 0;
+      engine[stepName] = (active, context) => {
+        if (applied && steps++ === 0) return originalStep(active, context);
+        // Terminal fixture represents termination before the queued command runs.
+        active.score = 100; active.pendingSeeds = 2; active.kills = 1;
+        return { state: active, alive: false, winner: "player", events: [] };
+      };
+      let ended;
+      try {
+        for (let tick = 0; tick < 8 && !ended; tick++) ended = game.tick(100).events.find(e => e.type === "runEnded");
+      } finally { engine[stepName] = originalStep; }
+      assert.ok(ended, mode);
+      if (applied) assert.ok(ended.reward > 0, `${mode}: real movement applied first`);
+      else assert.equal(ended.reward, 0, `${mode}: raw accepted command never ran`);
+    }
+  }
+});
+
+test("exhausted receipt IDs disable rewards without preventing directional game startup", () => {
+  const game = createGameSession({ now: 0, rng: () => .4, save: {
+    minigameRewards: { nextRunId: Number.MAX_SAFE_INTEGER - 1 }
+  } });
+  for (const mode of ["duel", "maze", "crossing", "broodline"]) {
+    const selected = game.dispatch({ type: "selectMode", mode });
+    assert.equal(selected.snapshot.phase, "ready", mode);
+    game.dispatch({ type: "direction", direction: mode === "duel" ? "left" : mode === "maze" ? "right" : "up" });
+    game.tick(100);
+    assert.equal(game.snapshot().seeds, 0, mode);
+  }
+});

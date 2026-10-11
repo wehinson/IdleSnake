@@ -1131,7 +1131,7 @@ function broodlineSpeciesLabel(kind) {
   return ({ garden: "Garden Snake", cave: "Cave Snake", electric: "Electric Snake", lava: "Lava Snake", rattle: "Rattle Snake", body: "Body segment", egg: "Egg" })[kind] || kind;
 }
 function launchBroodline(force = false) { return launchMode("broodline", force); }
-function showBroodlineFormation() { syncBroodlineFormation(); broodlineScreen.hidden = false; broodlineFormationStatusEl.textContent = `Round ${gameView.broodline.round} clear · ${gameView.broodline.pendingSeeds} Seeds pending`; setScreenHint("Arrange the chain, then continue"); }
+function showBroodlineFormation() { syncBroodlineFormation(); broodlineScreen.hidden = false; broodlineFormationStatusEl.textContent = `Round ${gameView.broodline.round} clear · ${gameView.broodline.pendingSeeds} progress points`; setScreenHint("Arrange the chain, then continue"); }
 function hideBroodlineFormation() { if (broodlineScreen) broodlineScreen.hidden = true; }
 function dispatchBroodlineFormation(action) {
   const result = dispatchSession(action);
@@ -3687,7 +3687,7 @@ function syncHud() {
     return;
   }
   if (gameView.gameMode === "broodline" && gameView.broodline) {
-    setText(scoreLabelEl, "Seeds"); setText(bestLabelEl, "Kills");
+    setText(scoreLabelEl, "Progress"); setText(bestLabelEl, "Kills");
     scoreEl.textContent = padScore(gameView.broodline.pendingSeeds); bestEl.textContent = padScore(gameView.broodline.kills);
     gridLabelEl.textContent = `R${gameView.broodline.round}`; timerEl.textContent = formatTime(gameView.elapsedMs);
     setScreenHint(`BODY ${gameView.broodline.chain.filter((part) => part.kind === "body").length} · ARMOR ${gameView.broodline.armor}/${gameView.broodline.maxArmor} · HATCH ${gameView.broodline.chain.filter((part) => ["garden", "cave", "electric", "lava", "rattle"].includes(part.kind)).length}`);

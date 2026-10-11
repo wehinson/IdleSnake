@@ -287,7 +287,9 @@
       const grid = setup.grid || { columns: state.selectedDuelGridSize, rows: state.selectedDuelGridSize };
       const px = Math.floor(grid.columns / 2) - 1; const ox = Math.floor(grid.columns / 2);
       const active = { grid, player: { body: [{ x: px, y: grid.rows - 3 }, { x: px, y: grid.rows - 2 }, { x: px, y: grid.rows - 1 }], direction: "up" }, opponent: { body: [{ x: ox, y: 2 }, { x: ox, y: 1 }, { x: ox, y: 0 }], direction: "down" }, foods: [], score: 0, direction: "up", nextDirection: "up", directionQueue: [], tickMs: setup.tickMs || slowedTick(125) };
-      active.foods = duel.spawnFoods(active, setup.foodCount || 5, () => state.rng()); state.active = active; return;
+      active.foods = duel.spawnFoods(active, setup.foodCount || 5, () => state.rng()); state.active = active;
+      if (state.rewardRun) state.rewardRun.lastAppliedHeading = active.player.direction;
+      return;
     }
     if (mode === "crossing") {
       const grid = setup.grid || { columns: 15, rows: 13 }; const entryColumn = setup.entryColumn ?? Math.floor(grid.columns / 2); const snakeLength = 3;
@@ -296,7 +298,9 @@
     if (mode === "broodline") {
       const grid = setup.grid || { columns: 30, rows: 30 };
       const active = { grid, round: 1, wave: 1, pendingSeeds: 0, rewardCollected: false, kills: 0, hatchlingsCollected: 0, eggsHatched: 0, armor: 0, maxArmor: 0, hp: 16, maxHp: 16, phase: "combat", selected: 0, head: { x: Math.floor(grid.columns / 2), y: Math.floor(grid.rows / 2) }, chain: [], enemies: [], pickups: [], effects: [], direction: "right", queue: [], tickMs: broodline.TICK_MS };
-      broodline.spawnRound(active, () => state.rng()); state.active = active; return;
+      broodline.spawnRound(active, () => state.rng()); state.active = active;
+      if (state.rewardRun) state.rewardRun.lastAppliedHeading = active.direction;
+      return;
     }
     if (mode === "breakout") {
       state.active = breakout.createState({ bricks: setup.bricks }); return;
@@ -319,7 +323,9 @@
     if (mode === "maze") {
       const grid = setup.grid || { columns: 21, rows: 21 };
       const active = { grid, open: Array.isArray(setup.open) ? new Set(setup.open) : buildMaze(setup.layoutIndex ?? Math.floor(state.rng() * 4)), path: Array.isArray(setup.path) ? clone(setup.path) : [{ x: 10, y: 15 }, { x: 9, y: 15 }, { x: 8, y: 15 }], food: setup.food ? clone(setup.food) : null, foodsEaten: 0, level: 1, score: 0, tickMs: setup.tickMs || maze.TICK_MS, direction: "up", directionQueue: [] };
-      if (!active.food) maze.spawnFood(active, () => state.rng()); state.active = active; return;
+      if (!active.food) maze.spawnFood(active, () => state.rng()); state.active = active;
+      if (state.rewardRun) state.rewardRun.lastAppliedHeading = active.direction;
+      return;
     }
     if (mode === "snakebird") {
       const levelIndex = setup.definition ? (Number.isInteger(setup.levelIndex) && setup.levelIndex >= 0 ? setup.levelIndex : 0) : puzzleLevelIndex(mode, setup.levelIndex);
@@ -439,6 +445,23 @@
     if (!settled) return;
     state.seeds = economy.roundSeeds(state.seeds + settled.reward);
     events.push(event("runEnded", { mode: state.mode, ...detail, ...settled }));
+  }
+  function stepControlledMinigame(state, step) {
+    const active = state.active;
+    const head = () => state.mode === "duel" ? active.player.body[0]
+      : state.mode === "maze" ? active.path[0] : state.mode === "crossing" ? active.snake[0] : active.head;
+    const before = { ...head() };
+    const stepped = step();
+    const after = head();
+    const run = state.rewardRun;
+    // Queued/replaced directions and Ready HUD headings are not applied play.
+    // Crossing moves only on commands; the other three modes move automatically.
+    if (run && (after.x !== before.x || after.y !== before.y)) {
+      const heading = state.mode === "duel" ? active.player.direction : active.direction;
+      if (state.mode === "crossing" || heading !== run.lastAppliedHeading) run.engaged = true;
+      run.lastAppliedHeading = heading;
+    }
+    return stepped;
   }
   function createGameSession(options) {
     options = options || {};
@@ -944,7 +967,7 @@
           let immediateMove = null;
           if (state.mode === "snakebird") { immediateMove = snakebird.applyMove(state.active, action.direction); if (!immediateMove.accepted) return reject("blocked"); }
           if (state.mode === "sokoban") { immediateMove = sokoban.applyMove(state.active, action.direction); if (!immediateMove.accepted) return reject("blocked"); }
-          if (state.rewardRun && state.rewardRun.mode === state.mode && !["breakout", "centipede"].includes(state.mode)) state.rewardRun.engaged = true;
+          if (state.rewardRun && state.rewardRun.mode === state.mode && ["runner", "snakebird", "sokoban"].includes(state.mode)) state.rewardRun.engaged = true;
           if (state.phase === "ready") { state.phase = "running"; events.push(event("runStarted", { mode: state.mode })); }
           if (state.mode === "breakout") state.active.paddle.input = action.direction === "left" ? -1 : action.direction === "right" ? 1 : 0;
           if (state.mode === "centipede") {
@@ -1250,14 +1273,14 @@
       if (state.phase === "running" && state.active && state.mode === "duel") {
         state.modeAccumulatorMs += dt;
         while (state.modeAccumulatorMs >= state.active.tickMs && state.phase === "running") {
-          const stepped = duel.stepVsSnake(state.active, { rng: () => state.rng() }); state.modeAccumulatorMs -= state.active.tickMs; events.push(...stepped.events);
+          const stepped = stepControlledMinigame(state, () => duel.stepVsSnake(state.active, { rng: () => state.rng() })); state.modeAccumulatorMs -= state.active.tickMs; events.push(...stepped.events);
           if (!stepped.alive) { state.phase = "gameover"; endMinigame(state, { winner: stepped.winner }, events); }
         }
       }
       if (state.phase === "running" && state.active && state.mode === "maze") {
         state.modeAccumulatorMs += dt;
         while (state.modeAccumulatorMs >= state.active.tickMs && state.phase === "running") {
-          const stepped = maze.stepMaze(state.active, { rng: () => state.rng() }); state.modeAccumulatorMs -= state.active.tickMs; events.push(...stepped.events);
+          const stepped = stepControlledMinigame(state, () => maze.stepMaze(state.active, { rng: () => state.rng() })); state.modeAccumulatorMs -= state.active.tickMs; events.push(...stepped.events);
           if (!stepped.alive) { state.phase = "gameover"; state.records.mazeBest = Math.max(state.records.mazeBest, state.active.score); endMinigame(state, {}, events); }
         }
       }
@@ -1273,7 +1296,7 @@
         } else {
           state.modeAccumulatorMs += dt;
           while (state.modeAccumulatorMs >= state.active.tickMs && state.phase === "running" && state.active.subphase === "playing") {
-            const stepped = crossing.stepCrossing(state.active); state.modeAccumulatorMs -= state.active.tickMs; events.push(...stepped.events);
+            const stepped = stepControlledMinigame(state, () => crossing.stepCrossing(state.active)); state.modeAccumulatorMs -= state.active.tickMs; events.push(...stepped.events);
             if (!stepped.alive) { state.phase = "gameover"; state.records.crossingBest = Math.max(state.records.crossingBest, state.active.score); endMinigame(state, {}, events); }
             const cleared = stepped.events.find((item) => item.type === "stageClear");
             if (cleared) {
@@ -1309,7 +1332,7 @@
       if (state.phase === "running" && state.active && state.mode === "broodline") {
         state.modeAccumulatorMs += dt;
         while (state.modeAccumulatorMs >= state.active.tickMs && state.phase === "running") {
-          const stepped = broodline.step(state.active, { rng: () => state.rng() }); state.modeAccumulatorMs -= state.active.tickMs; events.push(...stepped.events);
+          const stepped = stepControlledMinigame(state, () => broodline.step(state.active, { rng: () => state.rng() })); state.modeAccumulatorMs -= state.active.tickMs; events.push(...stepped.events);
           if (state.active.phase !== "combat") state.active.queue = [];
           if (!stepped.alive) endBroodline(state, state.active.endReason || stepped.events.find((item) => item.type === "endRun")?.reason || "Run ended", events);
         }
