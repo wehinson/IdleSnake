@@ -15,7 +15,7 @@ Updated: 2026-10-11. Coordinator: GPT 6.1 Sol, high effort, local Jimothy.
 | Scope | Branch | Thread | State | Reviewed commit / task IDs |
 | --- | --- | --- | --- | --- |
 | 1, 6, 7, 9 UI | task/colony-ui-20261011 | mcp:4ee92de7-753a-47f6-84bd-7027e32edf3e | Round 2 review running | New candidate 6cb9d3a9b186364fd0887ff8fbe9fee6628eecf5 |
-| 3, 4, 5, 8 economy | task/colony-economy-20261011 | mcp:fd026147-88dc-4aae-8b42-576f1e265fa6 | Round 1 changes required; worker fixing | Rejected candidate 3e8d01e58ed641999c9da6f2551fa9c7fcfdc4cc |
+| 3, 4, 5, 8 economy | task/colony-economy-20261011 | mcp:fd026147-88dc-4aae-8b42-576f1e265fa6 | Round 2 review running | New candidate 7f75b34116ae2763aeecd7b36f99d82f132482b8 |
 | 2 Seed grace | task/seed-turn-grace-20261011 | mcp:57410d23-3950-46db-933b-7d760f1a72ce | Round 2 review running | New candidate aabbea2cc15edbcbb42290c09d7beb49a62a4d62 |
 
 Each checkout is a sibling under `C:/Users/wehin/.t3/worktrees/IdleSnake/`. Workers send completion here with stable request IDs `colony-ui-20261011-complete`, `colony-economy-20261011-complete`, `seed-turn-grace-20261011-complete`.
@@ -66,6 +66,7 @@ Each checkout is a sibling under `C:/Users/wehin/.t3/worktrees/IdleSnake/`. Work
 | Economy round 1 | colony-batch-economy-review-r1-20261011 | node:delegated-task:command%3Amcp%3Abcd63630-411c-4aec-8b6f-4afac57f78e2%3Adelegate-task%3Acolony-batch-economy-review-r1-20261011 | Changes required: P1 offline scheduler, P2 progression and stats wording |
 | UI round 2 | colony-batch-ui-review-r2-20261011 | node:delegated-task:command%3Amcp%3Abcd63630-411c-4aec-8b6f-4afac57f78e2%3Adelegate-task%3Acolony-batch-ui-review-r2-20261011 | Running against 6cb9d3a |
 | Seed round 2 | colony-batch-seed-review-r2-20261011 | node:delegated-task:command%3Amcp%3Abcd63630-411c-4aec-8b6f-4afac57f78e2%3Adelegate-task%3Acolony-batch-seed-review-r2-20261011 | Running against aabbea2 |
+| Economy round 2 | colony-batch-economy-review-r2-20261011 | node:delegated-task:command%3Amcp%3Abcd63630-411c-4aec-8b6f-4afac57f78e2%3Adelegate-task%3Acolony-batch-economy-review-r2-20261011 | Running against 7f75b34 |
 
 ### Seed round 1 findings and response
 
@@ -91,6 +92,13 @@ Each checkout is a sibling under `C:/Users/wehin/.t3/worktrees/IdleSnake/`. Work
 - Seed returned clean/pushed `aabbea2cc15edbcbb42290c09d7beb49a62a4d62`. Buffered protected replay now uses original final buffered heading within34ms; on-time/delayed0/5/16/34ms snapshot/save/RNG/event regression added. Speculative future body forecast replaced saved optional queue-index guards that revalidate actual geometry when deferred turn executes, discard unsafe turn and revalidate dependent inputs without speculative RNG. Exact old food/body/RNG reproduction now3pickups/13segments/3draws, safely continues9,7. Multiple guards/core-step reload/session slices/saves covered; five new regressions retain prior15cases. Parent inspected changed diff and reran npm run check355/355 plus syntax/authority/whitespace.
 - Fresh UI and Seed delegate_task round2 prompts include original brief verbatim, prior worker/parent evidence, all findings and new responses, exact new frozen tips and unresolved economy dependencies. All same local codex/gpt-6.1-sol/high creation settings; task IDs above. Await automatic completion, no polling.
 
+### Economy fixes and round 2 evidence
+
+- Economy returned clean/pushed exact `7f75b34116ae2763aeecd7b36f99d82f132482b8`; fix commits29d7fc8(engine scheduler/Lake regressions) and7f75b34(progress/HUD/directUI/log). Parent inspected fix delta and new engine/UI regressions; independently npm run check351/351 plus syntax/authority/whitespace passed.
+- Parent independently reran the original one-hour fixture: live/offline now exactly match6adults/9eggs, progress[505000,210000], eggElapsed210000, eggProgress546, Seeds20700/Branches1800/Provisions18000; repeated offline target unchanged. Scheduler splits incubation/graduation/income boundaries and settles zero-time transitions, with no fixed loop cutoff omitting catch-up time. Worker additionally tests held full-yard/two-nest/resupply/partial saves/instant Lake incubation. Existing per-slice4dp currency rounding discrepancy<0.01 in partial-save variant disclosed; nursery production state identical.
+- Progress moves after nextHabitat.previousIndex card; actual-build/render VM covers legacy order, forward/backward gates, notices/disabled actions/all-unlocked hidden progress. Query caps current Lake reduction300seconds while raw activation remains unchanged; supported0/12/65/330 and unsupported330(30active) compare to real automatic egg duration. Retained working-followup HUD rates now1.375/1.5813/2.6125/paused1.375; direct actual HUD formatting checked, browser coverage preserved/unexecuted.
+- Fresh economy round2 delegate_task includes original brief, prior findings plus UI-owned/economy dependency findings, worker response, parent evidence and scheduler boundary/RNG/performance/save/service review focus. Same local codex/gpt-6.1-sol/high creation settings, taskId above. UI aggregate wording/smoke fix is explicitly owned by UI6cb9d3a; no duplication.
+
 ## Review and integration sequence
 
 1. Wait for all three worker completions; end turns while waiting (no polling monitors).
@@ -110,4 +118,4 @@ Each checkout is a sibling under `C:/Users/wehin/.t3/worktrees/IdleSnake/`. Work
 - Initial direct HTTP verification: 10 assets per route matched exact mapped checkout (HTML, game/CSS, session/queries, approved tongue engine/draw, theme kit/official CSS and image); primary game.js matches root working. Recheck after workers finish and integration merges.
 - Root preservation baseline: SHA-256 hashes for 27 unrelated modified/untracked root files saved locally in this worktree's git directory as `batch-root-preservation.json` (not committed).
 - All visual smoothness/layout/theme fit/accessibility by eye remain unverified until William tests. Direct engine/VM/HTTP checks cannot prove them.
-- PR: not created. UI/Seed round2 reviews running; economy fixes pending. No feature branch integrated yet.
+- PR: not created. All three round2 reviews running. No feature branch integrated yet.
