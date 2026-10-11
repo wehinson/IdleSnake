@@ -14,8 +14,8 @@ Updated: 2026-10-11. Coordinator: GPT 6.1 Sol, high effort, local Jimothy.
 
 | Scope | Branch | Thread | State | Reviewed commit / task IDs |
 | --- | --- | --- | --- | --- |
-| 1, 6, 7, 9 UI | task/colony-ui-20261011 | mcp:4ee92de7-753a-47f6-84bd-7027e32edf3e | Independent review running | Candidate 082ac59b7c46bb13be9dcd85e49b101af641def8 |
-| 3, 4, 5, 8 economy | task/colony-economy-20261011 | mcp:fd026147-88dc-4aae-8b42-576f1e265fa6 | Independent review running | Candidate 3e8d01e58ed641999c9da6f2551fa9c7fcfdc4cc |
+| 1, 6, 7, 9 UI | task/colony-ui-20261011 | mcp:4ee92de7-753a-47f6-84bd-7027e32edf3e | Round 1 changes required; worker fixing | Rejected candidate 082ac59b7c46bb13be9dcd85e49b101af641def8 |
+| 3, 4, 5, 8 economy | task/colony-economy-20261011 | mcp:fd026147-88dc-4aae-8b42-576f1e265fa6 | Round 1 changes required; worker fixing | Rejected candidate 3e8d01e58ed641999c9da6f2551fa9c7fcfdc4cc |
 | 2 Seed grace | task/seed-turn-grace-20261011 | mcp:57410d23-3950-46db-933b-7d760f1a72ce | Round 1 changes required; worker fixing | Rejected candidate e4032fe0677dd8b3401ac541255449c0c7049979 |
 
 Each checkout is a sibling under `C:/Users/wehin/.t3/worktrees/IdleSnake/`. Workers send completion here with stable request IDs `colony-ui-20261011-complete`, `colony-economy-20261011-complete`, `seed-turn-grace-20261011-complete`.
@@ -62,8 +62,8 @@ Each checkout is a sibling under `C:/Users/wehin/.t3/worktrees/IdleSnake/`. Work
 | Review | Stable clientRequestId | taskId | State |
 | --- | --- | --- | --- |
 | Seed round 1 | colony-batch-seed-review-r1-20261011 | node:delegated-task:command%3Amcp%3Abcd63630-411c-4aec-8b6f-4afac57f78e2%3Adelegate-task%3Acolony-batch-seed-review-r1-20261011 | Changes required: two P2 defects |
-| UI round 1 | colony-batch-ui-review-r1-20261011 | node:delegated-task:command%3Amcp%3Abcd63630-411c-4aec-8b6f-4afac57f78e2%3Adelegate-task%3Acolony-batch-ui-review-r1-20261011 | Running |
-| Economy round 1 | colony-batch-economy-review-r1-20261011 | node:delegated-task:command%3Amcp%3Abcd63630-411c-4aec-8b6f-4afac57f78e2%3Adelegate-task%3Acolony-batch-economy-review-r1-20261011 | Running |
+| UI round 1 | colony-batch-ui-review-r1-20261011 | node:delegated-task:command%3Amcp%3Abcd63630-411c-4aec-8b6f-4afac57f78e2%3Adelegate-task%3Acolony-batch-ui-review-r1-20261011 | Changes required: two UI fixes, two economy dependencies |
+| Economy round 1 | colony-batch-economy-review-r1-20261011 | node:delegated-task:command%3Amcp%3Abcd63630-411c-4aec-8b6f-4afac57f78e2%3Adelegate-task%3Acolony-batch-economy-review-r1-20261011 | Changes required: P1 offline scheduler, P2 progression and stats wording |
 
 ### Seed round 1 findings and response
 
@@ -71,6 +71,17 @@ Each checkout is a sibling under `C:/Users/wehin/.t3/worktrees/IdleSnake/`. Work
 - Delayed latest grace request behind earlier buffered turns: head(10,10) right, Seed(10,9), 200ms tick; queue up,left at100ms, defer down at170ms, then up timestamp198ms. On-time delivery yields left,up; delivery at205ms rejects invalidDirection and leaves left,down. session.js eligibility excludes buffered movement, bypassing protected replacement. Fix must preserve earlier precedence and identical pickup/rewards for delayed legal input.
 - Future-body prediction ignores subsequently spawned food: body(10,10),(9,10),(9,11),(10,11),(11,11),(11,10),(11,9),(11,8),(10,8),(10,7); right heading, queue up,left,up, deferred right, foodCountLevel1, Seeds(10,9),(9,9), RNG0,0.4228240862476992,0. Current code accepts deferred right; buffered pickups spawn/eat(9,8), additional growth causes collision at(10,8). Fix must revalidate authoritative geometry before deferred execution without speculative RNG draws.
 - Full findings sent to original Seed thread mode auto with stable request ID `colony-batch-seed-r1-fixes-20261011`. Worker must add regressions, rerun checks, push new tip and report. New delegate_task round will include original brief, prior findings and fix response. Do not merge this rejected tip.
+
+### Economy/UI round 1 findings and ownership
+
+- Economy reviewer passed 346 tests, syntax119/authority11, 960 baseline/tip activation comparisons (10x production, unchanged upkeep/Lake), correction service234ms without duplicates and HTTP identity. Required P1 fix: recurring online/offline nursery production differs. Save time1000, zero currencies, counts[5,5,5,25], 3600 live one-second ticks yields6 adults/9eggs/2hatchlings versus one offline hour1adult/2eggs/0hatchlings, currencies equal. Coordinator independently reproduced exact results. Outer economy scheduling must reconsider egg creation as incubation/graduation frees space, preserving egg timing/backpressure and no repeated catch-up accrual.
+- Economy-owned P2: actual VM DOM for counts[4,5,2,1] places Next habitat in1Snakes after Field/Lake/Forest/River; only Field regularly unlocked. Move progress immediately after last regularly unlocked card, retain legacy occupants/notices.
+- UI-owned P2 (both reviewers confirmed): Forest1/Production+50% contributes0.05Seed+0.05Branch/sec but aggregate0.1 displayed as bonus Seeds; Rationer similarly mixed. Use resource-neutral aggregate wording, preserve historical saved totals; no inferred breakdown from current assignment.
+- UI-owned P2: smoke.spec.js retains obsolete Lake/Forest/River wording. Adapt actual-current effect assertions without removing habitat/smoke coverage; account for integration fresh locked habitats hidden with suitable fixture.
+- Economy-owned P2 found by UI reviewer: Lake330snakes/upgrade9 displays raw-330HatchSec/Egg while actual300second base egg has0duration; query must expose capped effective300seconds. Preserve raw mechanics; test against engine egg duration.
+- Economy-owned P2: working-followup.spec.js HUD retains+0.1375/s/+0.1581/s against actual1.375/1.58125; adapt10x expectations preserving purchase/pause/death/narrow coverage. Browser scenarios remain CI-only.
+- UI review passed script,35 targeted tests,335 check tests and whitespace; candidate/service control behavior passes. All three original frozen candidates stayed clean/no drift during reviews.
+- Fix routing request IDs: `colony-batch-economy-r1-fixes-20261011`, `colony-batch-economy-ui-r1-findings-20261011`, `colony-batch-ui-contribution-r1-fix-20261011`, `colony-batch-ui-r1-fixes-20261011`. Original workers now fixing, no candidate approved/merged. Each changed tip needs fresh independent review round with original brief/findings/responses.
 
 ## Review and integration sequence
 
@@ -91,4 +102,4 @@ Each checkout is a sibling under `C:/Users/wehin/.t3/worktrees/IdleSnake/`. Work
 - Initial direct HTTP verification: 10 assets per route matched exact mapped checkout (HTML, game/CSS, session/queries, approved tongue engine/draw, theme kit/official CSS and image); primary game.js matches root working. Recheck after workers finish and integration merges.
 - Root preservation baseline: SHA-256 hashes for 27 unrelated modified/untracked root files saved locally in this worktree's git directory as `batch-root-preservation.json` (not committed).
 - All visual smoothness/layout/theme fit/accessibility by eye remain unverified until William tests. Direct engine/VM/HTTP checks cannot prove them.
-- PR: not created. Independent reviews: round 1 running for all three. No feature branch integrated yet.
+- PR: not created. All round 1 reviews require changes; original workers fixing. No feature branch integrated yet.
