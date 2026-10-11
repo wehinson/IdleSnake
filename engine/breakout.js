@@ -104,8 +104,9 @@
         const result = stepSlice(state, { ...ctx, deltaMs: PHYSICS_MS / count, elapsedMs: elapsedMs - PHYSICS_MS + (index + 1) * PHYSICS_MS / count });
         events.push(...result.events);
         if (!result.alive || result.events.some((item) => item.type === "ballLost")) {
+          const unconsumedMs = state.physicsAccumulatorMs + PHYSICS_MS * (count - index - 1) / count;
           state.physicsAccumulatorMs = 0;
-          return { state, events, alive: result.alive };
+          return { state, events, alive: result.alive, unconsumedMs };
         }
       }
     }
@@ -201,6 +202,7 @@
         brick.maxHp = brick.maxHp || brick.hp || 1;
         brick.hp = (brick.hp || 1) - 1;
         const destroyed = brick.hp === 0;
+        if (!destroyed) brick.color = BRICK_COLORS[brick.hp] || brick.color;
         if (destroyed) { state.bricks.splice(brickIndex, 1); state.score += 10; }
         const cameFromAbove = previousY + ball.radius <= brick.y;
         const cameFromBelow = previousY - ball.radius >= brick.y + brick.height;

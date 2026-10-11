@@ -1,7 +1,7 @@
 // Headless crossing minigame ("Snakeger" — Frogger-style road crossing).
 // Real-time; the active-phase step is pure here. Port of game.js stepCrossing's
 // play phase + updateCrossingCars + isCrossingCarHit. The clearing-phase timing
-// (now-based pause between stages) and overlays/saves stay host-side.
+// and the explicit Start between stages belong to the session; overlays stay UI-side.
 (function attachCrossing(root, factory) {
   const engine = factory();
   if (typeof module !== "undefined" && module.exports) module.exports = engine;

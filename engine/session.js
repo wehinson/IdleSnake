@@ -730,8 +730,10 @@
           if (!modeNames.has(state.mode)) return reject("modeNotImplemented");
           {
             const active = state.active;
+            const crossingRequiresStart = state.mode === "crossing" && (state.phase === "gameover" || active?.awaitingStart);
             const setup = action.setup || (isPuzzleMode(state.mode) && active ? puzzleRestartSetup(active) : undefined);
             startMode(state, state.mode, setup); rememberPuzzle();
+            if (crossingRequiresStart) state.active.awaitingStart = true;
           } events.push(event("runReady", { mode: state.mode })); break;
         case "battleshipStart":
           if (state.mode !== "battleship") return reject("invalidMode");
@@ -1185,7 +1187,7 @@
       return result(state, events);
     }
     function tickSlice(dtMs) {
-      // Classic Snake uses elapsed time even when frames stop in a hidden tab.
+      // Snake and fixed-step Breakout preserve elapsed time across long frames.
       // Other modes retain their existing live-frame limit.
       const rawDt = Math.max(0, Number(dtMs) || 0);
       const dt = ["snake", "breakout"].includes(state.mode) ? rawDt : Math.min(MAX_LIVE_DT, rawDt);
@@ -1254,7 +1256,7 @@
           state.modeAccumulatorMs += dt;
           while (state.modeAccumulatorMs >= state.active.tickMs && state.phase === "running" && state.active.subphase === "playing") {
             const stepped = crossing.stepCrossing(state.active); state.modeAccumulatorMs -= state.active.tickMs; events.push(...stepped.events);
-            if (!stepped.alive) { state.phase = "gameover"; state.records.crossingBest = Math.max(state.records.crossingBest, state.active.score); events.push(event("runEnded", { mode: "crossing" })); }
+            if (!stepped.alive) { state.phase = "gameover"; state.active.directionQueue = []; state.active.awaitingStart = true; state.records.crossingBest = Math.max(state.records.crossingBest, state.active.score); events.push(event("runEnded", { mode: "crossing" })); }
             const cleared = stepped.events.find((item) => item.type === "stageClear");
             if (cleared) {
               state.seeds += cleared.reward; state.records.crossingBest = Math.max(state.records.crossingBest, state.active.score);
@@ -1267,6 +1269,7 @@
       }
       if (state.phase === "running" && state.active && state.mode === "breakout") {
         const stepped = breakout.step(state.active, { deltaMs: dt, boardWidth: state.active.board.width, boardHeight: state.active.board.height, elapsedMs: state.elapsedMs, rng: () => state.rng() }); events.push(...stepped.events);
+        state.elapsedMs = Math.max(0, state.elapsedMs - (stepped.unconsumedMs || 0));
         const ballLost = stepped.events.find((item) => item.type === "ballLost");
         if (ballLost) { state.phase = "ready"; state.modeAccumulatorMs = 0; events.push(event("runReady", { mode: "breakout", reason: "ballLost", lives: ballLost.lives })); }
         else if (!stepped.alive || stepped.events.some((item) => item.type === "win")) { state.phase = "gameover"; const won = stepped.events.some((item) => item.type === "win"); const reward = won ? 500 : 0; state.seeds += reward; state.records.breakoutBest = Math.max(state.records.breakoutBest, state.active.score); events.push(event("runEnded", { mode: "breakout", reward })); }

@@ -1832,6 +1832,7 @@ function interpretSessionEvents(events) {
       case "win": if (gameView.gameMode === "snake") {  syncHud(); showOverlay("Maxed"); } break;
       case "runEnded":
         directionInputLockedUntil = Date.now() + 1000;
+        if (event.mode === "crossing") crossingStartPointerAllowed = false;
         if (event.mode === "runner") {
 
           syncHud();
@@ -1909,6 +1910,7 @@ function interpretSessionEvents(events) {
         break;
       case "stageClear":
         if (gameView.gameMode === "crossing") {
+          syncHud();
           directionInputLockedUntil = Date.now() + 1000;
           crossingStartPointerAllowed = false;
           showOverlay(`Stage ${gameView.crossingStage} Clear · +${formatNumber(event.reward)} Seeds`);
@@ -1917,6 +1919,7 @@ function interpretSessionEvents(events) {
         break;
       case "stageStarted":
         if (gameView.gameMode === "crossing") {
+          syncHud();
           showOverlay(`Stage ${event.stage} · Ready`);
           setScreenHint("Press Start to cross the next road");
         }

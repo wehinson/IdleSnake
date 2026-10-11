@@ -37,6 +37,7 @@ test("Breakout damage separates each contact, fractures persist, and only destru
     if (hit < 3) {
       assert.equal(state.bricks[0].hp, 3 - hit);
       assert.equal(state.bricks[0].maxHp, 3);
+      assert.equal(state.bricks[0].color, breakout.BRICK_COLORS[3 - hit]);
       assert.equal(state.score, 0);
       assert.equal(state.powerups.length, 0);
       assert.ok(state.balls[0].vy > 0);
@@ -113,6 +114,80 @@ test("fast balls cannot tunnel through thin bricks or paddle, including long fra
   assert.equal(state.lives, 2);
 });
 
+test("paddle collision geometry uses growth and expiry in the same physics slice", () => {
+  const state = breakout.createState({ bricks: [{ x: 100, y: 100, width: 80, height: 16 }] });
+  state.powerups = [breakout.createPowerup(state, "seed", state.paddle.x + 30, state.paddle.y)];
+  // Growth keeps the center but adds a half-segment at each end.
+  state.balls = [{ x: state.paddle.x - 15, y: state.paddle.y - 11, radius: 10, vx: 0, vy: 270.9 }];
+  tick(state, 16);
+  assert.equal(state.paddle.length, 4);
+  assert.ok(state.balls[0].vy < 0, "newly grown edge catches the ball immediately");
+  state.seedBoosts = [100];
+  const oldRight = state.paddle.x + breakout.paddleWidth(state);
+  state.balls = [{ x: oldRight - 10, y: state.paddle.y - 11, radius: 5, vx: 0, vy: 270.9 }];
+  tick(state, 40, 140);
+  assert.equal(state.paddle.length, 3);
+  assert.ok(state.balls[0].vy > 0, "expired edge no longer catches the ball");
+});
+
+test("session Breakout retains long-frame time and is independent of classic speed presets", () => {
+  const run = (frames, speed) => {
+    const game = createGameSession({ now: 0, rng: () => 0.9 });
+    const changed = game.dispatch({ type: "setSnakeSpeed", snakeSpeed: speed });
+    assert.equal(changed.events.some((event) => event.type === "actionRejected"), false);
+    assert.equal(changed.snapshot.snakeSpeed, speed);
+    game.dispatch({ type: "selectMode", mode: "breakout" });
+    game.dispatch({ type: "begin" });
+    for (const frame of frames) game.tick(frame);
+    return game.snapshot();
+  };
+  const expected = run([200], "snake");
+  const actual = run([100, 100], "snake");
+  assert.equal(expected.elapsedMs, 200);
+  assert.deepEqual(expected.active.balls, actual.active.balls);
+  for (const speed of ["turtle", "rabbit"]) assert.deepEqual(run([200], speed).active.balls, expected.active.balls);
+});
+
+test("Breakout long frames stop the run clock at ball loss and keep growth time for the next serve", () => {
+  const runSession = (delta) => {
+    const game = createGameSession({ now: 0, rng: () => 0.99 });
+    game.dispatch({ type: "selectMode", mode: "breakout", setup: { bricks: [{ x: 0, y: 5, width: 1, height: 1 }] } });
+    game.dispatch({ type: "begin" });
+    for (let count = 0; count < 600; count++) {
+      const result = game.tick(delta);
+      if (result.snapshot.phase !== "running") return result.snapshot;
+    }
+    assert.fail("fixture did not lose a ball");
+  };
+  const single = runSession(60000);
+  const partitioned = runSession(100);
+  assert.equal(single.phase, "ready");
+  assert.ok(Math.abs(single.elapsedMs - partitioned.elapsedMs) < 1e-6);
+  assert.ok(single.elapsedMs < 30000);
+  assert.deepEqual(single.active.balls, partitioned.active.balls);
+  const runGrowth = (delta) => {
+    const state = breakout.createState({ bricks: [{ x: 0, y: 5, width: 1, height: 1 }] });
+    state.paddle.length = 4; state.seedBoosts = [30000];
+    state.balls = [{ x: 20, y: 650, radius: 10, vx: 0, vy: 270.9 }];
+    let elapsed = 0;
+    for (let count = 0; count < 600; count++) {
+      const result = tick(state, delta, elapsed += delta);
+      elapsed -= result.unconsumedMs || 0;
+      if (result.events.some((event) => event.type === "ballLost")) {
+        tick(state, 16, elapsed + 16);
+        return { state, elapsed };
+      }
+    }
+    assert.fail("growth fixture did not lose a ball");
+  };
+  const grownSingle = runGrowth(60000);
+  const grownPartitioned = runGrowth(100);
+  assert.equal(grownSingle.state.paddle.length, 4);
+  assert.deepEqual(grownSingle.state.seedBoosts, [30000]);
+  assert.deepEqual(grownSingle.state.seedBoosts, grownPartitioned.state.seedBoosts);
+  assert.ok(Math.abs(grownSingle.elapsed - grownPartitioned.elapsed) < 1e-6);
+});
+
 test("caught pickups grow or add a correctly scaled ball and restore collision width on expiry", () => {
   const state = breakout.createState();
   const x = state.paddle.x + 40;
@@ -178,4 +253,20 @@ test("crossing stage win flushes queued input, locks Start, then requires explic
   assert.equal(idle.events.some((event) => event.type === "reward"), false);
   assert.equal(game.dispatch({ type: "primaryAction" }).snapshot.phase, "running");
   assert.deepEqual(game.snapshot().active.directionQueue, []);
+});
+
+test("crossing death flushes input and directional repeats cannot start the replacement run", () => {
+  const game = createGameSession({ now: 0, rng: () => 0.9 });
+  game.dispatch({ type: "selectMode", mode: "crossing", setup: { grid: { columns: 1, rows: 3 }, entryColumn: 0, tickMs: 1 } });
+  game.dispatch({ type: "direction", direction: "up" });
+  game.dispatch({ type: "direction", direction: "right" });
+  const death = game.tick(1).snapshot;
+  assert.equal(death.phase, "gameover");
+  assert.deepEqual(death.active.directionQueue, []);
+  assert.equal(game.dispatch({ type: "playDirection", direction: "up" }).snapshot.phase, "ready");
+  const repeated = game.dispatch({ type: "playDirection", direction: "up" });
+  assert.equal(repeated.snapshot.phase, "ready");
+  assert.ok(repeated.events.some((event) => event.reason === "explicitStartRequired"));
+  assert.equal(game.tick(1000).snapshot.phase, "ready");
+  assert.equal(game.dispatch({ type: "primaryAction" }).snapshot.phase, "running");
 });
