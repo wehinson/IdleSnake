@@ -36,14 +36,13 @@ test('cancelled tongue renderer keeps side and rear tips in the current mouth fr
     scope.IdleSnakeTongueDraw.drawForkTongue(ctx, { cell: 20, x: 7, y: 11 }, frame);
     assert.ok(paths.at(-1).length > 80);
     assert.ok(paths.at(-1).flat().every(Number.isFinite));
-    const outline = paths.at(-1);
-    assert.ok(Math.hypot(outline[0][0] + outline.at(-1)[0], outline[0][1] + outline.at(-1)[1]) < 1e-9, 'root edges stay centered on the mouth');
+    assert.ok(Math.abs(paths.at(-1)[0][0]) < 1e-9, 'silhouette starts at the mouth');
   }
 });
 
 test('actual game draw functions keep live food stationary and draw only consumed ghosts', () => {
   const source = fs.readFileSync(__dirname + '/../game.js', 'utf8').replace(/\r\n/g, '\n');
-  const functions = ['updateTongueFrame', 'drawTongueCatch', 'drawConsumedSeed', 'drawFood'].map(name => {
+  const functions = ['updateTongueFrame', 'drawTongueCatch', 'drawFood'].map(name => {
     const start = source.indexOf(`function ${name}(`);
     return source.slice(start, source.indexOf('\n}\n', start) + 3);
   }).join('\n');
@@ -67,9 +66,7 @@ test('actual game draw functions keep live food stationary and draw only consume
   scope.gameView.state = 'paused'; const frame = scope.tongueFrame;
   now = 999; scope.updateTongueFrame(); assert.equal(scope.tongueFrame, frame);
   scope.gameView.state = 'running'; scope.gameView.foods = []; scope.gameView.snake = [{ x: 2, y: 0 }];
-  tracker.consume(food, now, 180, 35); scope.updateTongueFrame(); scope.drawTongueCatch(); scope.drawConsumedSeed();
-  assert.equal(calls.length, 2, 'no bounce during the correction window');
-  now += 55; scope.updateTongueFrame(); scope.drawConsumedSeed();
+  tracker.consume(food, now, 180, 35); scope.updateTongueFrame(); scope.drawTongueCatch();
   assert.equal(calls.length, 3, 'consumed ghost does not depend on live food');
   reduced = true; scope.updateTongueFrame(); assert.equal(scope.tongueFrame, null);
   reduced = false; scope.updateTongueFrame(); assert.equal(scope.tongueFrame, null, 'reset removes consumed ghost');

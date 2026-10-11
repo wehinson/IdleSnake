@@ -281,24 +281,13 @@
       if (!running) return current?.frame || effect?.frame || null;
       if (!head) { current = null; effect = null; return null; }
       const mouth = mouthAt(head, direction);
-      // Time-based ripples continue between movement ticks. The host clock
-      // excludes pauses, and reduced motion resets the tracker altogether.
-      const motionPhase = now * Math.PI * 2 / Math.max(100, Math.min(240, tickMs));
-      const tongueWave = 0.06 * Math.sin(motionPhase);
-      const forkWaggle = 1 + 0.18 * Math.sin(motionPhase + 0.7);
       if (effect) {
         const t = clamp01((now - effect.startedAt) / effect.duration);
         if (t >= 1) effect = null;
         else {
           const pulling = effect.kind === "consume";
           const tip = mix(effect.tip, mouth, ease("inOutSine", t));
-          const facing = vectors[direction] || vectors.right;
-          const outsideMouth = { x: mouth.x + facing.x * 0.35, y: mouth.y + facing.y * 0.35 };
-          // The consumed display hops out past the mouth, then springs back.
-          // At t=0 (including the correction window) it remains at its home.
-          const seed = !pulling ? effect.home : t < 0.4
-            ? mix(effect.home, outsideMouth, ease("outCubic", t / 0.4))
-            : mix(outsideMouth, mouth, ease("outBack", (t - 0.4) / 0.6));
+          const seed = pulling ? mix(effect.home, mouth, ease("inOutSine", t)) : effect.home;
           effect.frame = {
             style, t, phase: pulling ? "pull" : "retract", mouth, tip: pulling ? seed : tip,
             direction: vectors[direction] || vectors.right,
@@ -306,7 +295,6 @@
             seedCell: effect.seedCell, consumed: pulling, pull: pulling ? t : 0,
             extension: 1 - t, tongueScale: pulling ? 1 : 1 - t,
             length: Math.hypot((pulling ? seed : tip).x - mouth.x, (pulling ? seed : tip).y - mouth.y),
-            tongueWave: tongueWave * (1 - t), forkWaggle,
             showTongue: true
           };
           return effect.frame;
@@ -332,16 +320,9 @@
         current = { key, direction, startSteps: Math.max(0.001, best.steps), frame: null };
       }
       // Stop at contact until the authoritative consumption arrives.
-      const approach = clamp01(1 - best.steps / current.startSteps);
-      const t = approach * getStyle(style).grabAt;
-      const frame = catchFrame(style, t, head, direction, best.seed);
-      // Keep reaching through the entire approach instead of holding the
-      // emerged length. Body ripples and the fork stay active at contact too.
-      const extension = ease("inOutSine", approach);
-      const tip = mix(mouth, { x: best.seed.x + 0.5, y: best.seed.y + 0.5 }, extension);
-      current.frame = { ...frame, tip, extension,
-        length: Math.hypot(tip.x - mouth.x, tip.y - mouth.y),
-        tongueWave, forkWaggle, seedCell: best.seed, consumed: false };
+      const t = (1 - best.steps / current.startSteps) * getStyle(style).grabAt;
+      current.frame = { ...catchFrame(style, t, head, direction, best.seed),
+        seedCell: best.seed, consumed: false };
       return current.frame;
     }
 
@@ -351,7 +332,7 @@
         current = null;
         effect = { kind: "consume", seedCell: { ...seedCell },
           home: { x: seedCell.x + 0.5, y: seedCell.y + 0.5 },
-          startedAt: now + settleMs, duration: Math.max(120, Math.min(180, tickMs * 0.85)) };
+          startedAt: now + settleMs, duration: duration(tickMs) };
         effect.tip = effect.home;
       },
       cancel(now, tickMs) {

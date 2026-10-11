@@ -3084,7 +3084,6 @@ function drawSnake() {
   // Aim the eyes at the direction the next step will actually move, so a fresh
   // turn shows on the head the instant it's pressed instead of a tick later.
   drawEyes(headRect.x, headRect.y, headRect.size, pendingHeadDirection());
-  drawConsumedSeed();
 }
 
 function shieldImpactProgress() {
@@ -3574,7 +3573,7 @@ function drawFood() {
   });
 }
 
-function drawSnack(snack, rect, foodType, overlay = false) {
+function drawSnack(snack, rect, foodType) {
   const centerX = rect.x + rect.size / 2;
   const centerY = rect.y + rect.size / 2;
 
@@ -3603,17 +3602,9 @@ function drawSnack(snack, rect, foodType, overlay = false) {
     ctx.fillStyle = "#9cac77";
     ctx.fillRect(centerX - 1, rect.y + rect.size * 0.22, 2, Math.max(2, rect.size * 0.14));
   } else {
+    ctx.fillRect(rect.x, rect.y, rect.size, rect.size);
     const cut = rect.size * 0.32;
-    if (overlay) {
-      // Leave the head intact inside the hollow Seed during the bounce.
-      ctx.fillRect(rect.x, rect.y, rect.size, cut);
-      ctx.fillRect(rect.x, rect.y + rect.size - cut, rect.size, cut);
-      ctx.fillRect(rect.x, rect.y + cut, cut, rect.size - cut * 2);
-      ctx.fillRect(rect.x + rect.size - cut, rect.y + cut, cut, rect.size - cut * 2);
-    } else {
-      ctx.fillRect(rect.x, rect.y, rect.size, rect.size);
-      ctx.clearRect(rect.x + cut, rect.y + cut, rect.size - cut * 2, rect.size - cut * 2);
-    }
+    ctx.clearRect(rect.x + cut, rect.y + cut, rect.size - cut * 2, rect.size - cut * 2);
   }
 
   ctx.fillStyle = "rgba(24, 36, 19, 0.42)";
@@ -3641,17 +3632,12 @@ function updateTongueFrame() {
   });
 }
 
-// Keep the tongue rooted under the head.
+// The tongue and the Seed it holds, drawn under the head.
 function drawTongueCatch() {
   if (!tongueFrame) return;
   const cell = boardMetrics.cellSize;
   window.IdleSnakeTongueDraw.drawForkTongue(ctx, { cell, x: boardMetrics.x, y: boardMetrics.y }, tongueFrame);
-}
-
-// A confirmed consumed Seed bounces above the head so the hop stays visible.
-function drawConsumedSeed() {
-  if (!tongueFrame?.consumed || tongueFrame.t <= 0) return;
-  const cell = boardMetrics.cellSize;
+  if (!tongueFrame.consumed) return;
   const snack = tongueFrame.seedCell;
   const size = (cell - Math.max(4, Math.floor(cell * 0.18)) * 2) * tongueFrame.seed.scale;
   const rect = {
@@ -3659,7 +3645,7 @@ function drawConsumedSeed() {
     y: boardMetrics.y + tongueFrame.seed.y * cell - size / 2,
     size
   };
-  drawSnack(snack, rect, currentFoodType(), true);
+  drawSnack(snack, rect, currentFoodType());
 }
 
 function drawScanlines() {
