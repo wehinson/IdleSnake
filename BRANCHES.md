@@ -34,6 +34,20 @@
 - Version impact: none. Root unrelated balances/saves/tests untouched.
 - Last update:2026-10-11.
 
+
+## task/minigame-snakebird-levels-20261011 — MINIGAME PR2 request5
+
+- Agent: Codex, GPT 6.1 Sol, local Jimothy, T3 isolated checkout; base `31e773efee60c85d6781078803e4eae208911e4e`.
+- Status: Ready With Caveat for coordinator review. Exactly15 original boards replace all five old boards, with distinct anchored reaches, growth budgets, tail folds, fruit ordering, return routes, shelves/posts/canopy circuits, and a bottom-row harvest over the abyss. Verified shortest counts: 7,8,9,12,13,14,16,20,25,26,27,27,28,33,35 (300 moves total).
+- Constraints: task-branch commits/push only; no working/main merge, individual PR, Colony commits, browser automation, or shared-server mutation. Coordinator `mcp:618042fc-9354-4fc9-906a-1b3ca5c689e4` owns combined review/PR and `/test8/` route allocation.
+- Verification: `node scripts/solve-snakebird.js` independently solves/replays all15 via the actual engine; largest search28,110 states. `node --test snakebird-engine.test.js engine/session-puzzles.test.js engine/snakebird-campaign.test.js` passes39 tests, including every real-session win, growth/support/settled exit, required growth/fruit orders, vacating tail, exactly-one terminal event, persistence and direct random access. `npm run check` passes syntax, authority and all359 Node tests. `git diff --check` passes. All Sokoban content equals the exact base. Direct HTTP byte comparisons match `/test8/` index/game/styles/session/puzzle/Snakebird engine files; coordinator allocated that stable route.
+- Migration: saveVersion5 retained. First shipped selection marks campaignVersion2, expands to15 and retains old slot clear credits. Old bestMoves/clear/selection records are archived under `legacyRecords["1"]`; incomparable live bestMoves reset to null. Migration is idempotent and archives survive completion/reload. Old fully-cleared5 unlock record slot6. Legacy and v5 saves preserve currencies, Sokoban records, upgrades, nursery, habitats, Notables and settlements. Existing reload behavior discards active puzzle boards; no live saves were opened or modified. Random launch/continue remains unchanged and can choose any of15.
+- Research: both read-only GPT6.1Sol medium T3 tasks completed; actual node IDs, sources and results recorded in `SNAKEBIRD_LEVELS.md`. Mechanics supplied levels1–5; layout research supplied6–11/15; similar Tail Bridge rejected; parent authored12–14 and independently validated all15. Original maps/text/assets, with mechanic/search inspiration attributed to Noumenon Games/Felix Eliasson and Sturtevant et al. (AIIDE2020).
+- Files: engine/puzzle-levels.js (Snakebird array only), snakebird-engine.js (progress metadata/migration), engine/session.js (Snakebird initialization only), engine/session-puzzles.test.js (dynamic invalid bound), engine/snakebird-campaign.test.js, engine/snakebird-solutions.json, scripts/solve-snakebird.js, SNAKEBIRD_LEVELS.md, BRANCHES.md.
+- Integration: Snake UI owner handles Bird connectors and dynamic HUD count; reward owner received all15 verified optimalMoves and owns every payout/history hook. This task does not edit either renderer or payout hook. Existing reward metadata remains for compatibility until central integration.
+- Caveat: no browser/computer automation; visual fit, human difficulty and combined connector/reward behavior await coordinator/user review. Human difficulty is inferred from distinct reasoning requirements and shortest paths, not established by playtesting. Task branch only; no working/main merge, release version change or deployment.
+- Last update: 2026-10-11.
+
 ## task/tongue-seed-return — Shorter tongue and smooth Seed placement experiment
 
 - Agent: Codex, GPT 6.1 Sol, medium effort, local Jimothy, T3-created checkout `C:/Users/wehin/.t3/worktrees/IdleSnake/task-tongue-seed-return`.

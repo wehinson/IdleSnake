@@ -34,7 +34,7 @@ test("puzzle selection rejects invalid actions without changing the session", ()
   for (const action of [
     { type: "launchPuzzle", mode: "toString" },
     { type: "continuePuzzle" },
-    ...[-1, 5, 0.5, NaN].map(levelIndex => ({ type: "selectPuzzleLevel", mode: "snakebird", levelIndex }))
+    ...[-1, levels.snakebird.length, 0.5, NaN].map(levelIndex => ({ type: "selectPuzzleLevel", mode: "snakebird", levelIndex }))
   ]) {
     const result = game.dispatch(action);
     assert.ok(result.events.some(e => e.type === "actionRejected"));

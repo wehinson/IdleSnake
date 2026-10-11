@@ -310,6 +310,9 @@
     if (mode === "snakebird") {
       const levelIndex = setup.definition ? (Number.isInteger(setup.levelIndex) && setup.levelIndex >= 0 ? setup.levelIndex : 0) : puzzleLevelIndex(mode, setup.levelIndex);
       const definition = setup.definition || puzzleLevels.snakebird[levelIndex];
+      if (shippedPuzzleDefinitions.has(definition)) {
+        state.snakebirdProgress = snakebird.migrateCampaignProgress(state.snakebirdProgress, puzzleLevels.snakebird.length, 2);
+      }
       const requestedCount = Number.isInteger(setup.levelCount) && setup.levelCount >= 1 ? setup.levelCount : (setup.definition ? 1 : puzzleLevels.snakebird.length);
       const levelCount = Math.max(requestedCount, levelIndex + 1);
       state.active = { ...snakebird.parseLevel(definition.map), levelIndex, levelCount, definition, tickMs: 1000 }; return;
