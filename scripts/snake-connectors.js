@@ -14,7 +14,10 @@
       if (wrap && rows > 2 && Math.abs(dy) > rows - 1.001) dy -= Math.sign(dy) * rows;
       // Disconnected pieces (or separate heads) never gain a long connector.
       const length = Math.hypot(dx, dy);
-      if (!Number.isFinite(length) || length < 0.001 || length > 1.001) continue;
+      // The default game's shield recoil shifts the head by up to0.18 cells.
+      // Keep that neck connected while still rejecting a missing whole cell.
+      const fractional = [a.x, a.y, b.x, b.y].some((value) => !Number.isInteger(value));
+      if (!Number.isFinite(length) || length < 0.001 || length > (fractional ? 1.2 : 1.001)) continue;
       const start = { x: a.x + 0.5, y: a.y + 0.5 };
       const end = { x: start.x + dx, y: start.y + dy };
       if (i === points.length - 1 && tailBaseDistance > 0) {
