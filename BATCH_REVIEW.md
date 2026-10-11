@@ -14,7 +14,7 @@ Updated: 2026-10-11. Coordinator: GPT 6.1 Sol, high effort, local Jimothy.
 
 | Scope | Branch | Thread | State | Reviewed commit / task IDs |
 | --- | --- | --- | --- | --- |
-| 1, 6, 7, 9 UI | task/colony-ui-20261011 | mcp:4ee92de7-753a-47f6-84bd-7027e32edf3e | Round 2 review running | New candidate 6cb9d3a9b186364fd0887ff8fbe9fee6628eecf5 |
+| 1, 6, 7, 9 UI | task/colony-ui-20261011 | mcp:4ee92de7-753a-47f6-84bd-7027e32edf3e | Round 2 PASS owned scope; economy integration condition pending | Accepted UI tip 6cb9d3a9b186364fd0887ff8fbe9fee6628eecf5 |
 | 3, 4, 5, 8 economy | task/colony-economy-20261011 | mcp:fd026147-88dc-4aae-8b42-576f1e265fa6 | Round 2 review running | New candidate 7f75b34116ae2763aeecd7b36f99d82f132482b8 |
 | 2 Seed grace | task/seed-turn-grace-20261011 | mcp:57410d23-3950-46db-933b-7d760f1a72ce | Round 2 changes required; worker fixing timestamp progress | Rejected candidate aabbea2cc15edbcbb42290c09d7beb49a62a4d62 |
 
@@ -64,7 +64,7 @@ Each checkout is a sibling under `C:/Users/wehin/.t3/worktrees/IdleSnake/`. Work
 | Seed round 1 | colony-batch-seed-review-r1-20261011 | node:delegated-task:command%3Amcp%3Abcd63630-411c-4aec-8b6f-4afac57f78e2%3Adelegate-task%3Acolony-batch-seed-review-r1-20261011 | Changes required: two P2 defects |
 | UI round 1 | colony-batch-ui-review-r1-20261011 | node:delegated-task:command%3Amcp%3Abcd63630-411c-4aec-8b6f-4afac57f78e2%3Adelegate-task%3Acolony-batch-ui-review-r1-20261011 | Changes required: two UI fixes, two economy dependencies |
 | Economy round 1 | colony-batch-economy-review-r1-20261011 | node:delegated-task:command%3Amcp%3Abcd63630-411c-4aec-8b6f-4afac57f78e2%3Adelegate-task%3Acolony-batch-economy-review-r1-20261011 | Changes required: P1 offline scheduler, P2 progression and stats wording |
-| UI round 2 | colony-batch-ui-review-r2-20261011 | node:delegated-task:command%3Amcp%3Abcd63630-411c-4aec-8b6f-4afac57f78e2%3Adelegate-task%3Acolony-batch-ui-review-r2-20261011 | Running against 6cb9d3a |
+| UI round 2 | colony-batch-ui-review-r2-20261011 | node:delegated-task:command%3Amcp%3Abcd63630-411c-4aec-8b6f-4afac57f78e2%3Adelegate-task%3Acolony-batch-ui-review-r2-20261011 | PASS owned scope at 6cb9d3a; economy Lake dependency |
 | Seed round 2 | colony-batch-seed-review-r2-20261011 | node:delegated-task:command%3Amcp%3Abcd63630-411c-4aec-8b6f-4afac57f78e2%3Adelegate-task%3Acolony-batch-seed-review-r2-20261011 | Changes required: P2 request-time progress across speed/pause |
 | Economy round 2 | colony-batch-economy-review-r2-20261011 | node:delegated-task:command%3Amcp%3Abcd63630-411c-4aec-8b6f-4afac57f78e2%3Adelegate-task%3Acolony-batch-economy-review-r2-20261011 | Running against 7f75b34 |
 
@@ -105,6 +105,12 @@ Each checkout is a sibling under `C:/Users/wehin/.t3/worktrees/IdleSnake/`. Work
 - New P2: session inputElapsed subtracts wall delay from rescaled/frozen accumulator, misclassifying original tick fraction across speed/pause. 200ms tick/head10,10right/Seed11,10; inputup timestamp1171(85.5%), speedRabbit1175/delivery1180 -> ontime consumesSeed11,10, delayed turns10,9/misses. Slowing also incorrectly defers some84.9% inputs. Pause1175/tick10ms/resume/deliver1171 reproduces same bypass. Parent independently reproduced speed and pause cases.
 - Original Seed worker receives complete findings/request-time progress fix/regressions through stable request ID `colony-batch-seed-r2-fixes-20261011`. Both prior fixes/tests retained. Changed tip must receive fresh round3 original brief+all previous findings/resolutions+response review. No Seed tip accepted/merged yet.
 
+### UI round 2 acceptance and bank-supported Lake condition
+
+- UI reviewer PASS owned scope at exact6cb9d3a, clean/no drift. Both UI-owned objections resolved. Independent UI script,35 targeted/check335/syntax/authority/whitespace passed; additional VM verified actual actions/queue/archive/service/control identity/current callback, canonical smoke fixture under both queries and length-scaledSeeds/rawForager. FourHTTP assets match. No further UI-owned fix needed; preserve this exact tip for eventual merge.
+- New economy-owned P2: counts[5,330,5,1], Lakeupgrade9, Provisions1e6, eggProgress500 -> habitatPanel bank-supported activation displays-300HatchSec/Egg, but automatic tick1 eggDuration243000ms means actual reduction57sec. Parent independently reproduced. Read-model must derive hatch effect from the same recurring-supported activation as egg creation; UI consumes field. Do not change actual mechanics solely to match display.
+- Sent finding to original economy thread requestID `colony-batch-economy-lake-bank-r2-20261011`; its round2 review still running, so worker must keep tracked worktree/tip7f75b34 stable while preparing analysis. Coordinator releases edit freeze with terminal review findings; changed tip then requires fresh review including this condition. HUD rate fixes present but browser unexecuted. No merge until all three pass.
+
 ## Review and integration sequence
 
 1. Wait for all three worker completions; end turns while waiting (no polling monitors).
@@ -124,4 +130,4 @@ Each checkout is a sibling under `C:/Users/wehin/.t3/worktrees/IdleSnake/`. Work
 - Initial direct HTTP verification: 10 assets per route matched exact mapped checkout (HTML, game/CSS, session/queries, approved tongue engine/draw, theme kit/official CSS and image); primary game.js matches root working. Recheck after workers finish and integration merges.
 - Root preservation baseline: SHA-256 hashes for 27 unrelated modified/untracked root files saved locally in this worktree's git directory as `batch-root-preservation.json` (not committed).
 - All visual smoothness/layout/theme fit/accessibility by eye remain unverified until William tests. Direct engine/VM/HTTP checks cannot prove them.
-- PR: not created. UI/economy round2 reviews running; Seed round2 timing fix requested. No feature branch integrated yet.
+- PR: not created. UI owned scope accepted at6cb9d3a; economy round2 running/new Lake condition; Seed timing fix underway. No feature branch integrated yet.
