@@ -453,6 +453,27 @@ html[data-theme="@ID@"] :is(.nav-up, .nav-down, .nav-left, .nav-right) {
   border-radius: 6px;
 }
 
+/* The default direction keys are round; the large D-pad keeps its own shape */
+html[data-theme="@ID@"] .phone-nav:not(.is-large-dpad) :is(.nav-up, .nav-down, .nav-left, .nav-right) {
+  justify-self: center;
+  border-radius: 50%;
+}
+
+html[data-theme="@ID@"] .phone-nav:not(.is-large-dpad) :is(.nav-up, .nav-down) {
+  width: 42px;
+  height: 42px;
+}
+
+html[data-theme="@ID@"] .phone-nav:not(.is-large-dpad) :is(.nav-left, .nav-right) {
+  width: 40px;
+  height: 40px;
+}
+
+/* The fullscreen key is a full circle, not an oval */
+html[data-theme="@ID@"] .fullscreen-mode-button {
+  border-radius: 50%;
+}
+
 /* The menu is a pocket reference card */
 html[data-theme="@ID@"] .menu-panel {
   border: 1px solid var(--s-line-strong);

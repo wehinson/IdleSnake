@@ -138,3 +138,15 @@ test("retro handset themes stay matte, readable, and keep the chosen snake colou
     assert.match(css, /\.phone-key:focus-visible \{ outline: none; \}/, `${theme.id} keeps the keypad focus rule`);
   }
 });
+
+test("Office Charcoal is the official theme and the picker is off", () => {
+  const html = readFileSync(join(themesDir, "..", "index.html"), "utf8");
+  assert.match(html, /ThemeKit\.start\(\{[^}]*defaultTheme: "office-charcoal"[^}]*picker: false[^}]*\}\)/);
+  assert.ok(loadThemes().some((theme) => theme.id === "office-charcoal"));
+  const source = readFileSync(join(themesDir, "theme-kit.js"), "utf8");
+  assert.match(source, /if \(options\.picker !== false\) buildPicker\(\);/);
+  assert.match(source, /readStored\(\) \|\| options\.defaultTheme \|\| ORIGINAL\.id/);
+  const css = readFileSync(join(themesDir, "office-charcoal", "theme.css"), "utf8");
+  assert.match(css, /\.phone-nav:not\(\.is-large-dpad\) :is\(\.nav-up, \.nav-down, \.nav-left, \.nav-right\) \{[^}]*border-radius: 50%;/);
+  assert.match(css, /\.fullscreen-mode-button \{\s*border-radius: 50%;/);
+});

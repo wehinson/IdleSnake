@@ -1,8 +1,9 @@
 # Theme redesigns
 
-Snake Forever has ten themes: five from round 3 and five retro handsets from round 4. Use the
-theme picker at the bottom-left of the page to switch between them. You can also
-open `?theme=<id>`. **Original** is the default, and it is unchanged.
+Snake Forever has ten themes: five from round 3 and five retro handsets from round 4. **Office Charcoal** is the official
+theme and the default. The theme picker is off (`picker: false` in `index.html`), and a stored
+choice from the old picker is ignored. Open `?theme=<id>` to see another theme, for example
+`?theme=original`.
 
 | id | Name | Designer |
 | --- | --- | --- |

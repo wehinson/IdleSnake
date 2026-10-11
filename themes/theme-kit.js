@@ -284,6 +284,8 @@
     try {
       const fromQuery = new URLSearchParams(location.search).get("theme");
       if (fromQuery) return fromQuery;
+      // Without a picker the player cannot change a stored choice, so the default theme applies.
+      if (options.picker === false) return null;
       return localStorage.getItem(options.storageKey);
     } catch {
       return null;
@@ -291,6 +293,7 @@
   }
 
   function store(id) {
+    if (options.picker === false) return;
     try {
       localStorage.setItem(options.storageKey, id);
     } catch {
@@ -523,8 +526,8 @@
   function start(config = {}) {
     options = { ...options, ...config, baseTitle: config.baseTitle || document.title };
     const boot = () => {
-      buildPicker();
-      apply(readStored() || ORIGINAL.id, { persist: false });
+      if (options.picker !== false) buildPicker();
+      apply(readStored() || options.defaultTheme || ORIGINAL.id, { persist: false });
     };
     if (document.body) boot();
     else document.addEventListener("DOMContentLoaded", boot, { once: true });
