@@ -16,7 +16,7 @@ Updated: 2026-10-11. Coordinator: GPT 6.1 Sol, high effort, local Jimothy.
 | --- | --- | --- | --- | --- |
 | 1, 6, 7, 9 UI | task/colony-ui-20261011 | mcp:4ee92de7-753a-47f6-84bd-7027e32edf3e | Independent review running | Candidate 082ac59b7c46bb13be9dcd85e49b101af641def8 |
 | 3, 4, 5, 8 economy | task/colony-economy-20261011 | mcp:fd026147-88dc-4aae-8b42-576f1e265fa6 | Independent review running | Candidate 3e8d01e58ed641999c9da6f2551fa9c7fcfdc4cc |
-| 2 Seed grace | task/seed-turn-grace-20261011 | mcp:57410d23-3950-46db-933b-7d760f1a72ce | Independent review running | Candidate e4032fe0677dd8b3401ac541255449c0c7049979 |
+| 2 Seed grace | task/seed-turn-grace-20261011 | mcp:57410d23-3950-46db-933b-7d760f1a72ce | Round 1 changes required; worker fixing | Rejected candidate e4032fe0677dd8b3401ac541255449c0c7049979 |
 
 Each checkout is a sibling under `C:/Users/wehin/.t3/worktrees/IdleSnake/`. Workers send completion here with stable request IDs `colony-ui-20261011-complete`, `colony-economy-20261011-complete`, `seed-turn-grace-20261011-complete`.
 
@@ -61,9 +61,16 @@ Each checkout is a sibling under `C:/Users/wehin/.t3/worktrees/IdleSnake/`. Work
 
 | Review | Stable clientRequestId | taskId | State |
 | --- | --- | --- | --- |
-| Seed round 1 | colony-batch-seed-review-r1-20261011 | node:delegated-task:command%3Amcp%3Abcd63630-411c-4aec-8b6f-4afac57f78e2%3Adelegate-task%3Acolony-batch-seed-review-r1-20261011 | Running |
+| Seed round 1 | colony-batch-seed-review-r1-20261011 | node:delegated-task:command%3Amcp%3Abcd63630-411c-4aec-8b6f-4afac57f78e2%3Adelegate-task%3Acolony-batch-seed-review-r1-20261011 | Changes required: two P2 defects |
 | UI round 1 | colony-batch-ui-review-r1-20261011 | node:delegated-task:command%3Amcp%3Abcd63630-411c-4aec-8b6f-4afac57f78e2%3Adelegate-task%3Acolony-batch-ui-review-r1-20261011 | Running |
 | Economy round 1 | colony-batch-economy-review-r1-20261011 | node:delegated-task:command%3Amcp%3Abcd63630-411c-4aec-8b6f-4afac57f78e2%3Adelegate-task%3Acolony-batch-economy-review-r1-20261011 | Running |
+
+### Seed round 1 findings and response
+
+- Reviewer independently passed npm run check 350/350 and grace/batch 28/28, but found two uncovered P2 defects. Coordinator independently reproduced both with direct Node checks.
+- Delayed latest grace request behind earlier buffered turns: head(10,10) right, Seed(10,9), 200ms tick; queue up,left at100ms, defer down at170ms, then up timestamp198ms. On-time delivery yields left,up; delivery at205ms rejects invalidDirection and leaves left,down. session.js eligibility excludes buffered movement, bypassing protected replacement. Fix must preserve earlier precedence and identical pickup/rewards for delayed legal input.
+- Future-body prediction ignores subsequently spawned food: body(10,10),(9,10),(9,11),(10,11),(11,11),(11,10),(11,9),(11,8),(10,8),(10,7); right heading, queue up,left,up, deferred right, foodCountLevel1, Seeds(10,9),(9,9), RNG0,0.4228240862476992,0. Current code accepts deferred right; buffered pickups spawn/eat(9,8), additional growth causes collision at(10,8). Fix must revalidate authoritative geometry before deferred execution without speculative RNG draws.
+- Full findings sent to original Seed thread mode auto with stable request ID `colony-batch-seed-r1-fixes-20261011`. Worker must add regressions, rerun checks, push new tip and report. New delegate_task round will include original brief, prior findings and fix response. Do not merge this rejected tip.
 
 ## Review and integration sequence
 
