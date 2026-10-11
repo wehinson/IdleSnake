@@ -538,7 +538,7 @@ let deathAnimation = null;
 // tongue grabs it and pulls it to the mouth before the head arrives. Display
 // only; the engine still eats the Seed when the head enters its cell.
 const TONGUE_STYLE = "gooFork";
-const tongueTracker = window.IdleSnakeTongue.createCatchTracker(TONGUE_STYLE);
+const tongueTracker = window.IdleSnakeTongue.createCatchTracker(TONGUE_STYLE, { outwardDurationScale: 0.5, returnOnCancel: true });
 let tongueFrame = null;
 
 const activeDirectionKeys = new Set();
@@ -3607,8 +3607,7 @@ function drawSnack(snack, rect, foodType) {
 function updateTongueFrame() {
   const active = gameView.gameMode === "snake"
     && (gameView.state === "running" || gameView.state === "paused")
-    && gameView.snake?.length
-    && !effectiveReducedMotion();
+    && gameView.snake?.length;
   if (!active) {
     tongueTracker.reset();
     tongueFrame = null;
@@ -3618,6 +3617,10 @@ function updateTongueFrame() {
     head: gameView.snake[0],
     direction: pendingHeadDirection(),
     seeds: gameView.foods.filter((snack) => snack.kind !== "egg"),
+    running: gameView.state === "running",
+    nowMs: snakeAnimationNow(),
+    tickMs: gameView.tickMs,
+    reducedMotion: effectiveReducedMotion(),
     stepProgress: Math.max(0, Math.min(1, gameView.stepAccumulatorMs / Math.max(1, gameView.tickMs)))
   });
 }
