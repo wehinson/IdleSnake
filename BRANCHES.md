@@ -1,6 +1,6 @@
 # Branch status
 
-## task/tongue-catch ? Cancelled tongue catches and committed Seed pull
+## task/tongue-catch - Cancelled tongue catches and committed Seed pull
 
 - Category: tongue display engine, drawing, and catch integration.
 - Agent: Codex, GPT 6.1 Sol, medium reasoning effort, on Jimothy in this T3-managed thread.
@@ -12,6 +12,8 @@
 - Verification: `npm run check` passed syntax, engine authority, and all 338 Node tests. Eleven new tests cover last-millisecond turns at Turtle/Snake/Rabbit speeds, successful consumption and its reward/growth/acceleration/save, late timestamped correction, a mid-approach speed change with preserved turn boundary, moving mouths, pause, cancellation geometry, actual game drawing functions, and reduced motion. `git diff --check` passed.
 - Local test: `http://localhost:4173/test1/` on Jimothy serves this exact task checkout. The shared 4173 server keeps the primary checkout at `/`; its local router and route map live outside tracked files in the primary git directory. Direct HTTP checks matched the task index and all 56 linked assets byte-for-byte, checked the `/test1` trailing-slash redirect, and checked the primary root route.
 - Caveat: no browser or computer automation was authorized or used. Canvas geometry and host integration were checked directly in Node; appearance and animation smoothness still need William's visual test.
+- Follow-up requested by William: the confirmed consumed Seed now hops 0.35 cells beyond the current mouth and springs back over 120-180 ms, drawn above the head after the correction window. The hollow Seed preserves the head beneath it. Approach has no emerged-length hold: the tongue keeps extending with time-based body ripples and fork movement. Pauses and reduced motion retain their existing behavior; live food stays stationary and last-second steering remains valid.
+- Follow-up verification: focused checks pass all 22 tongue tests, including bounce and settle in all four directions, continuous approach motion, unchanged live food, pause, and cancellation. Full `npm run check` passed syntax, authority, and all 340 Node tests. `git diff --check` passed. The same `/test1/` route serves the updated task checkout; visual motion still awaits William's test.
 - Backup: commit and push this task branch only. No merge into working until William tests and explicitly approves.
 - Last update: 2026-10-10.
 

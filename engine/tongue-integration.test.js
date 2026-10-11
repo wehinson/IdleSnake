@@ -129,3 +129,40 @@ test('speed change preserves turn boundary and cannot authorize an anticipated p
   assert.equal(result.events.some(e => e.type === 'eat'), false);
   assert.equal(result.snapshot.seeds, 0);
 });
+
+test('confirmed consumed Seed hops beyond each mouth and springs back, with no early motion', () => {
+  for (const [direction, vector] of [['right', { x: 1, y: 0 }], ['left', { x: -1, y: 0 }], ['up', { x: 0, y: -1 }], ['down', { x: 0, y: 1 }]]) {
+    const tracker = tongue.createCatchTracker('gooFork');
+    const args = { head: { x: 2, y: 2 }, direction, seeds: [], tickMs: 200 };
+    tracker.consume(args.head, 100, 200, 35);
+    for (const now of [100, 120, 134, 135]) {
+      const frame = tracker.update({ ...args, now });
+      assert.deepEqual(frame.seed, { x: 2.5, y: 2.5, scale: 1, stretch: 1 });
+    }
+    const peak = tracker.update({ ...args, now: 135 + 170 * 0.4 });
+    const forward = frame => (frame.seed.x - frame.mouth.x) * vector.x + (frame.seed.y - frame.mouth.y) * vector.y;
+    assert.ok(Math.abs(forward(peak) - 0.35) < 1e-9, direction);
+    const returnFrame = tracker.update({ ...args, now: 135 + 170 * 0.8 });
+    assert.ok(forward(returnFrame) < 0, 'spring overshoots slightly into the mouth');
+    const settled = tracker.update({ ...args, now: 135 + 170 * 0.99 });
+    assert.ok(Math.abs(forward(settled)) < Math.abs(forward(returnFrame)));
+    assert.equal(tracker.update({ ...args, now: 306 }), null);
+  }
+});
+
+test('approach keeps extending and rippling while the Seed remains fixed, and pause freezes motion', () => {
+  const tracker = tongue.createCatchTracker('gooFork');
+  const args = { head: { x: 2, y: 2 }, direction: 'right', seeds: [{ x: 4, y: 2 }], tickMs: 200 };
+  tracker.update({ ...args, now: 0 });
+  const first = tracker.update({ ...args, now: 60, stepProgress: 0.3 });
+  const second = tracker.update({ ...args, now: 90, stepProgress: 0.45 });
+  assert.ok(second.length > first.length, 'no emerged-length hold');
+  const next = tracker.update({ ...args, now: 110, stepProgress: 0.45 });
+  assert.notEqual(next.tongueWave, second.tongueWave);
+  assert.notEqual(next.forkWaggle, second.forkWaggle);
+  assert.deepEqual(next.seed, { x: 4.5, y: 2.5, scale: 1, stretch: 1 });
+  assert.equal(tracker.update({ ...args, now: 1000, running: false }), next);
+  const cancelled = tracker.update({ ...args, direction: 'up', now: 110 });
+  assert.deepEqual(cancelled.tip, next.tip);
+  assert.equal(cancelled.consumed, false);
+});

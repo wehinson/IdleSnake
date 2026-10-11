@@ -40,7 +40,7 @@
       const shapeScale = catchFrame.tongueScale ?? 1;
       const radius = seedRadius(view, catchFrame) + CELL * 0.04;
       // Prongs open as they leave the mouth and waggle while emerging.
-      const waggle = catchFrame.phase === "emerge" ? 1 + 0.25 * Math.sin(catchFrame.t * 90) : 1;
+      const waggle = catchFrame.forkWaggle ?? (catchFrame.phase === "emerge" ? 1 + 0.25 * Math.sin(catchFrame.t * 90) : 1);
       const spread = options.spread * Math.min(1, reach / (CELL * 0.6)) * waggle;
       // While reaching, stop the fork at the near edge of the Seed so the
       // prongs stay in view instead of hiding under it.
@@ -55,7 +55,7 @@
       for (let i = 0; i <= segments; i += 1) {
         const along = i / segments;
         const wave = options.wave ? options.wave(catchFrame) * Math.min(1, forkX / CELL) * Math.sin(along * Math.PI * 3) * Math.sin(along * Math.PI) : 0;
-        points.push({ x: forkX * along, y: wave * CELL + tremble * along });
+        points.push({ x: forkX * along, y: (wave + (catchFrame.tongueWave || 0) * Math.min(1, forkX / CELL) * Math.sin(along * Math.PI * 2)) * CELL + tremble * along });
       }
       const end = points[points.length - 1];
 
