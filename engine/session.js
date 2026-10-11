@@ -489,9 +489,17 @@
       const segment = { at: simulationNow, progress: state.modeAccumulatorMs / interval,
         interval, running: state.phase === "running" };
       const previous = snakeInputTiming.at(-1);
+      if (segment.running) {
+        // Keep the cadence's original boundary clock as frame anchors accumulate
+        // epoch rounding. Exact stored frame progress takes precedence below.
+        segment.graceAt = previous?.running && previous.interval === interval
+          ? previous.graceAt : simulationNow + (0.85 - segment.progress) * interval;
+      }
       if (previous && previous.running === segment.running && (!segment.running || previous.interval === interval)) {
         const expected = previous.progress + (previous.running ? (simulationNow - previous.at) / interval : 0);
-        if (Math.abs(segment.progress - expected) <= snakeInputProgressTolerance(simulationNow, previous.at, interval)) return;
+        // Coalesce only when wall-clock interpolation preserves authoritative
+        // relative progress. Rounded epoch frames can require distinct anchors.
+        if (Math.abs(segment.progress - expected) <= Number.EPSILON * 16) return;
       }
       if (snakeInputTiming.at(-1)?.at === simulationNow) snakeInputTiming.pop();
       snakeInputTiming.push(segment);
@@ -507,14 +515,14 @@
         return Math.abs(progress - 0.85) <= Number.EPSILON * 16 ? 0.85 : progress;
       }
       const segment = timing.findLast(item => item.at <= at) || timing[0];
+      if (at === segment.at) {
+        return Math.abs(segment.progress - 0.85) <= Number.EPSILON * 16 ? 0.85 : segment.progress;
+      }
       const progress = segment.progress + (segment.running ? (at - segment.at) / segment.interval : 0);
       // Normalize only the timestamp representing the exact boundary. A
       // distinguishable earlier timestamp must retain its pre-grace progress.
       const boundaryAt = segment.at + (0.85 - segment.progress) * segment.interval;
-      return segment.running && at === boundaryAt ? 0.85 : progress;
-    }
-    function snakeInputProgressTolerance(at, anchor, interval) {
-      return Math.max(Number.EPSILON * 16, Number.EPSILON * Math.max(Math.abs(at), Math.abs(anchor)) * 2 / interval);
+      return segment.running && (at === segment.graceAt || at === boundaryAt) ? 0.85 : progress;
     }
     recordSnakeInputTiming(true);
     function restoreCheckpoint(checkpoint) {
@@ -1289,6 +1297,9 @@
           }
         } else {
           state.modeAccumulatorMs += dt;
+          // Capture actual relative progress at each frame's rounded timestamp,
+          // including unchanged-speed frames and the final pre-movement slice.
+          recordSnakeInputTiming();
           while (state.modeAccumulatorMs >= snake.nextMoveInterval(state.active) && state.phase === "running") {
             state.modeAccumulatorMs -= snake.nextMoveInterval(state.active);
             if (recentMovement && !replayingInput) {

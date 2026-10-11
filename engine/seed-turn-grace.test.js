@@ -720,6 +720,157 @@ test("crossing epoch replay preserves earlier buffers, latest legal input and ca
   }
 });
 
+test("sliced epoch frame timestamps retain exact and pre-boundary progress across context changes", () => {
+  for (const now of [1791741600000, 2000000000000]) {
+    for (const early of [false, true]) {
+      for (const context of ["plain", "hydrated", "hydratedMidTick", "pause", "speedRabbit", "speedTurtle", "buffered", "hydratedPauseBuffer"]) {
+        for (const lateMs of [undefined, 0, 16, 34]) {
+          function run(delayed) {
+            const buffered = context.includes("Buffer") || context === "buffered";
+            let draws = 0;
+            const rng = () => { draws++; return 0.5; };
+            let game = gameAt({ now, rng, speed: context === "speedRabbit" ? "snake" : "rabbit",
+              foods: [{ x: buffered ? 10 : 11, y: buffered ? 9 : 10, kind: "seed" }] });
+            if (context.startsWith("hydrated")) {
+              const saved = game.serialize();
+              game = createGameSession({ save: saved, now: saved.savedAt, rng });
+            }
+            if (buffered) { turn(game, "up"); turn(game, "left"); }
+            const interval = game.snapshot().active.tickMs;
+            const frames = early ? [...Array(4).fill(interval * 0.17), interval * 0.17 - 0.0004]
+              : [...Array(8).fill(interval * 0.1), interval * 0.05];
+            for (const [index, frame] of frames.entries()) {
+              if (context === "hydratedMidTick" && index === frames.length - 1) {
+                const saved = game.serialize();
+                game = createGameSession({ save: saved, now: saved.savedAt, rng });
+              }
+              game.tick(frame);
+            }
+            const progress = game.snapshot().modeAccumulatorMs / interval;
+            assert.equal(progress >= 0.85, !early);
+            const inputAt = game.serialize().savedAt;
+            let request;
+            const direction = buffered ? "down" : "up";
+            if (!delayed) request = turn(game, direction, inputAt);
+            if (context === "pause" || context === "hydratedPauseBuffer") {
+              game.dispatch({ type: "pause" }); game.tick(10); game.dispatch({ type: "resume" });
+            }
+            if (context === "speedRabbit" || context === "speedTurtle") {
+              game.dispatch({ type: "setSnakeSpeed", snakeSpeed: context === "speedRabbit" ? "rabbit" : "turtle" });
+            }
+            const remaining = game.snapshot().active.tickMs - game.snapshot().modeAccumulatorMs;
+            game.tick(lateMs == null ? 1 : remaining + lateMs);
+            if (delayed) request = turn(game, direction, inputAt);
+            const label = JSON.stringify({ now, early, context, lateMs, delayed });
+            assert.equal(rejected(request), false, label);
+            assert.equal(deferred(request), !early, label);
+            assert.equal(request.events.some(e => e.type === "movementCorrected"), delayed && lateMs != null && early && !buffered, label);
+            assert.equal(request.events.some(e => e.type === "eat"), false, "input delivery must not duplicate pickup");
+            if (lateMs == null) game.tick(game.snapshot().active.tickMs - game.snapshot().modeAccumulatorMs);
+            const pickedUp = !early || buffered;
+            assert.deepEqual(game.snapshot().active.snake[0], buffered || early ? { x: 10, y: 9 } : { x: 11, y: 10 }, label);
+            assert.equal(game.snapshot().active.score, Number(pickedUp), label);
+            assert.equal(game.snapshot().seeds, Number(pickedUp), label);
+            assert.deepEqual(game.snapshot().active.directionQueue, buffered ? ["left", "down"] : early ? [] : ["up"], label);
+            const saved = game.serialize();
+            assert.equal(validateSaveCandidate(saved).ok, true);
+            const restored = createGameSession({ save: saved, now: saved.savedAt, rng: () => 0.5 });
+            assert.deepEqual(restored.snapshot().active, game.snapshot().active);
+            const next = game.snapshot().active.tickMs - game.snapshot().modeAccumulatorMs;
+            game.tick(next); restored.tick(next);
+            assert.deepEqual(restored.snapshot().active, game.snapshot().active);
+            if (early && !buffered) {
+              // Early correction reverses a pickup but retains its drawn RNG
+              // for reuse. Compare draws after reaching that Seed legitimately.
+              for (const direction of ["right", "down", null]) {
+                if (direction) { turn(game, direction); turn(restored, direction); }
+                const step = game.snapshot().active.tickMs;
+                game.tick(step); restored.tick(step);
+                assert.deepEqual(restored.snapshot().active, game.snapshot().active);
+              }
+              assert.deepEqual(game.snapshot().active.snake[0], { x: 11, y: 10 });
+              assert.equal(game.snapshot().active.score, 1);
+            }
+            return { snapshot: game.snapshot(), saved: game.serialize(), draws };
+          }
+          assertTimingResultsEqual(run(true), run(false), true);
+        }
+      }
+    }
+  }
+});
+
+test("stored frame progress overrides the original epoch boundary when clocks round differently", () => {
+  for (const now of [1791741600000, 2000000000000]) {
+    for (const kind of ["originalBoundary", "capturedEarly", "capturedExact"]) {
+      for (const lateMs of [undefined, 16]) {
+        function run(delayed) {
+          const game = gameAt({ now, speed: "rabbit" });
+          const interval = game.snapshot().active.tickMs;
+          const frames = kind === "originalBoundary" ? [interval * 0.5, interval * 0.35]
+            : [...Array(4).fill(interval * 0.17), interval * 0.17 - (kind === "capturedEarly" ? 0.0004 : 0)];
+          for (const frame of frames) game.tick(frame);
+          const inputAt = kind === "originalBoundary" ? now + interval * 0.85 : game.serialize().savedAt;
+          if (kind === "capturedEarly") assert.equal(inputAt, now + interval * 0.85,
+            "known early frame can share the original rounded boundary timestamp");
+          else assert.ok(game.serialize().savedAt > now + interval * 0.85);
+          let requested;
+          if (!delayed) requested = turn(game, "up", inputAt);
+          const remaining = interval - game.snapshot().modeAccumulatorMs;
+          game.tick(lateMs == null ? 1 : remaining + lateMs);
+          if (delayed) requested = turn(game, "up", inputAt);
+          const held = kind !== "capturedEarly";
+          assert.equal(deferred(requested), held, JSON.stringify({ now, kind, lateMs, delayed }));
+          if (lateMs == null) game.tick(interval - game.snapshot().modeAccumulatorMs);
+          assert.deepEqual(game.snapshot().active.snake[0], held ? { x: 11, y: 10 } : { x: 10, y: 9 });
+          assert.equal(game.snapshot().active.score, Number(held));
+          assert.equal(game.snapshot().seeds, Number(held));
+          return { snapshot: game.snapshot(), saved: game.serialize() };
+        }
+        assertTimingResultsEqual(run(true), run(false), true);
+      }
+    }
+  }
+});
+
+test("distinct rounded frame anchors survive while redundant and paused anchors coalesce", () => {
+  const fs = require("node:fs");
+  const vm = require("node:vm");
+  const source = fs.readFileSync(require.resolve("./session.js"), "utf8");
+  const marker = "return { snapshot: () => makeSnapshot(state), dispatch, tick, advanceOffline,";
+  const testModule = { exports: {} };
+  vm.runInNewContext(source.replace(marker, "return { timingForTest: () => clone(snakeInputTiming), snapshot: () => makeSnapshot(state), dispatch, tick, advanceOffline,"),
+    { module: testModule, require });
+  for (const now of [1000, 1791741600000]) {
+    const saved = gameAt({ now, speed: "rabbit" }).serialize();
+    const game = testModule.exports.createGameSession({ save: saved, now, rng: () => 0.5 });
+    const interval = game.snapshot().active.tickMs;
+    for (let index = 0; index < 8; index++) game.tick(interval * 0.1);
+    game.tick(interval * 0.05);
+    const running = game.timingForTest();
+    assert.equal(running.length, now === 1000 ? 1 : 10);
+    if (now !== 1000) {
+      assert.equal(running.at(-1).at, game.serialize().savedAt);
+      assert.equal(running.at(-1).progress, game.snapshot().modeAccumulatorMs / interval);
+    }
+    for (let index = 0; index < 20; index++) game.dispatch({ type: "setSnakeSpeed", snakeSpeed: "rabbit" });
+    assert.equal(game.timingForTest().length, running.length);
+    game.dispatch({ type: "pause" });
+    const pausedCount = game.timingForTest().length;
+    assert.ok(pausedCount <= running.length + 1, "pause adds at most one distinct clock segment");
+    for (let index = 0; index < 20; index++) {
+      game.tick(1); game.dispatch({ type: "setSnakeSpeed", snakeSpeed: index % 2 ? "rabbit" : "turtle" });
+    }
+    assert.equal(game.timingForTest().length, pausedCount);
+    game.dispatch({ type: "resume" });
+    assert.equal(game.timingForTest().length, pausedCount + 1);
+    assert.equal(deferred(turn(game, "up", now === 1000 ? now + interval * 0.85 : running.at(-1).at)), true);
+    game.tick(game.snapshot().active.tickMs - game.snapshot().modeAccumulatorMs);
+    assert.equal(game.timingForTest().length, 1);
+    assert.equal(game.snapshot().active.score, 1);
+  }
+});
+
 test("redundant paused clock segments coalesce across 10000 unchanged-speed dispatches", () => {
   const fs = require("node:fs");
   const vm = require("node:vm");
