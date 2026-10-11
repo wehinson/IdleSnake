@@ -40,7 +40,7 @@
           multiplier: economy.habitatMultiplier(habitat, count),
           nextMilestone: habitat.milestones.find((item) => count < item.score),
           overCapacity: Math.max(0, count - habitat.naturalCapacity), idleSnakes: activation.idleCounts[index],
-          eggHatchReduction: workingSnakes * (habitat.eggHatchReductionSeconds || 0),
+          eggHatchReduction: Math.min(config.nurseryConfig.eggHatchMs / 1000, workingSnakes * (habitat.eggHatchReductionSeconds || 0)),
           seedRate: activation.habitatSeedOutputs[index] * seedIncomeMultiplier, branchRate: activation.habitatBranchOutputs[index],
           provisionRate: activation.habitatProvisionOutputs[index],
           foragerRate: notable?.powerType === "FORAGER" && notables.isForagerEligible(habitat) ? activation.habitatSeedOutputs[index] * notable.powerMagnitude : 0,

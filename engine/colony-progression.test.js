@@ -232,3 +232,69 @@ test("zero-food egg incubation and maturation match online/offline and persisted
     assert.equal(restored.snapshot().nursery.colonyCount, 2);
   }
 });
+
+function productionState(snapshot) {
+  const n = snapshot.nursery;
+  return { seeds: snapshot.seeds, branches: snapshot.branches, provisions: snapshot.provisions,
+    adults: n.colonyCount, eggsStarted: n.eggsStarted, eggElapsedMs: n.eggElapsedMs,
+    eggProgress: n.eggProgress, eggHatchDurationMs: n.eggHatchDurationMs,
+    hatchlingProgress: n.hatchlings.map((h) => h.progressMs), nestEggs: n.nestEggs,
+    resupplyEggHolding: n.resupplyEggHolding };
+}
+
+test("recurring nursery production is identical for one-hour live and offline scheduling", () => {
+  const saved = game([5, 5, 5, 25], { currencies: { seeds: 0, branches: 0, provisions: 0 }, nursery: { colonyCount: 0 } }).serialize();
+  const live = createGameSession({ save: saved, now: saved.savedAt, rng: () => 0.99 });
+  const offline = createGameSession({ save: saved, now: saved.savedAt + 3600000, rng: () => 0.99 });
+  for (let i = 0; i < 3600; i += 1) live.tick(1000);
+  offline.advanceOffline(saved.savedAt + 3600000);
+  const actual = productionState(offline.snapshot());
+  assert.deepEqual(actual, productionState(live.snapshot()));
+  assert.equal(actual.adults, 6); assert.equal(actual.eggsStarted, 9);
+  assert.deepEqual(actual.hatchlingProgress, [505000, 210000]);
+  assert.equal(actual.eggElapsedMs, 210000); assert.equal(actual.eggProgress, 546);
+  const settled = offline.serialize();
+  offline.advanceOffline(saved.savedAt + 3600000);
+  assert.deepEqual(productionState(offline.snapshot()), actual, "the same offline target is not accrued twice");
+  const restored = createGameSession({ save: settled, now: settled.savedAt, rng: () => 0.99 });
+  assert.deepEqual(productionState(restored.snapshot()), actual, "partial incubation and growth persist");
+});
+
+test("recurring scheduling preserves partial saves, yard backpressure and zero-duration incubation", () => {
+  for (const counts of [[5, 5, 5, 25], [5, 330, 5, 25]]) {
+    const original = game(counts, { currencies: { seeds: 0, branches: 0, provisions: 1e6 },
+      habitats: { counts, upgradeLevels: [0, 9] }, nursery: { colonyCount: 0, nestLevel: 1, eggElapsedMs: 300000,
+        eggHatchDurationMs: 300000, eggProgress: 500,
+        hatchlings: [{ id: "a", progressMs: 899999 }, { id: "b", progressMs: 600001 }],
+        nestEggs: [{ elapsedMs: 299999, hatchDurationMs: 300000 }], resupplyEggHolding: 2 } });
+    const saved = original.serialize();
+    const live = createGameSession({ save: saved, now: saved.savedAt, rng: () => 0.99 });
+    const offline = createGameSession({ save: saved, now: saved.savedAt + 3600000, rng: () => 0.99 });
+    for (let i = 0; i < 3600; i += 1) live.tick(1000);
+    offline.advanceOffline(saved.savedAt + 3600000);
+    const a = productionState(live.snapshot()); const b = productionState(offline.snapshot());
+    for (const key of ["seeds", "branches", "provisions", "eggProgress"]) { near(a[key], b[key], 0.01); delete a[key]; delete b[key]; }
+    assert.deepEqual(a, b);
+    assert.ok(a.adults >= 6, "recurring production continues after the saved held eggs");
+  }
+});
+
+test("Lake query reports the capped effective current reduction used to start real eggs", () => {
+  for (const [lakeCount, expected] of [[0, 0], [12, 12], [65, 65], [330, 300]]) {
+    // River output funds every Lake snake without relying on a temporary bank.
+    const counts = [5, lakeCount, 5, 25];
+    const session = game(counts, { currencies: { seeds: 0, branches: 0, provisions: 0 },
+      habitats: { counts, upgradeLevels: [0, 9] } });
+    const snapshot = session.snapshot();
+    const panel = queries.habitatPanel(snapshot);
+    assert.equal(panel.habitats[1].eggHatchReduction, expected);
+    const state = local(counts); state.habitats.upgradeLevels[1] = 9;
+    economy.creditEggProgress(state, 500);
+    assert.equal(state.nursery.eggHatchDurationMs, nurseryConfig.eggHatchMs - expected * 1000);
+    assert.equal(economy.calculateHabitatActivation(counts, 1, undefined, [0, 9]).eggHatchReductionSeconds, lakeCount,
+      "raw nonproduction mechanics are preserved");
+  }
+  const unsupported = game([5, 330], { currencies: { seeds: 0, branches: 0, provisions: 0 },
+    habitats: { counts: [5, 330], upgradeLevels: [0, 9] } });
+  assert.equal(queries.habitatPanel(unsupported.snapshot()).habitats[1].eggHatchReduction, 30, "only active Lake snakes affect incubation");
+});

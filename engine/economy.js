@@ -264,7 +264,7 @@
   // resources, and shuffles them around the pen. Mutates `nursery`
   // in place and returns the new seed total plus a `changed` flag.
   function advanceNursery(nursery, seeds, deltaMs, rng) {
-    if (deltaMs <= 0) return { seeds, changed: false };
+    if (deltaMs < 0 || (deltaMs === 0 && !nursery.hatchlings.some((h) => h.progressMs >= nurseryConfig.growthMs))) return { seeds, changed: false };
     let changed = false;
 
     if (nursery.hatchlings.length === 0) {
@@ -307,7 +307,10 @@
   // remainder) — matching the original wall-clock boundary split.
   function tickNursery(nursery, seeds, dtMs, rng) {
     const events = [];
-    if (dtMs <= 0) return { seeds, events };
+    if (dtMs < 0) return { seeds, events };
+    // Settle saved/completed graduates before resolving held eggs, even when
+    // no time elapses. This prevents a full yard from delaying an instant hatch.
+    ({ seeds } = advanceNursery(nursery, seeds, 0, rng));
     // Transported eggs wait safely off-nest, then enter incubation as actual
     // nest slots become available. They are never discarded for lack of space.
     const occupiedSlots = () => (nursery.eggElapsedMs === null ? 0 : 1) + nursery.nestEggs.length;
@@ -345,6 +348,13 @@
       remainingMs -= slice;
     }
     return { seeds, events };
+  }
+
+  function nurseryBoundaryMs(nursery) {
+    const boundaries = nursery.hatchlings.map((h) => nurseryConfig.growthMs - h.progressMs);
+    if (nursery.eggElapsedMs !== null) boundaries.push(nursery.eggHatchDurationMs - nursery.eggElapsedMs);
+    boundaries.push(...nursery.nestEggs.map((egg) => egg.hatchDurationMs - egg.elapsedMs));
+    return Math.min(...boundaries.filter((time) => time > 0));
   }
 
   function layEgg() {
@@ -641,13 +651,15 @@
     const foodValue = ctx.foodValue != null ? ctx.foodValue : foodValueFromUpgrades(state.upgrades);
     const events = [];
 
-    // Split passive time at egg thresholds. This lets an offline catch-up begin
-    // incubation at the moment its passive income reaches the requirement,
-    // rather than incorrectly waiting until the end of a long catch-up.
-    let remainingMs = Math.max(0, Number(dtMs) || 0);
-    let guard = 0;
-    while (remainingMs > 0 && guard < 10000) {
+    // Split passive time at income, incubation and graduation thresholds.
+    // Reconsider egg creation whenever a nest slot or yard slot becomes free,
+    // so recurring offline production follows the same scheduler as live time.
+    let remainingMs = Number.isFinite(Number(dtMs)) ? Math.max(0, Number(dtMs)) : 0;
+    while (remainingMs > 0) {
+      events.push(...tickNursery(state.nursery, state.seeds, 0, rng).events);
       events.push(...tryStartEgg(state));
+      // Lake reductions can create an egg with zero incubation duration.
+      events.push(...tickNursery(state.nursery, state.seeds, 0, rng).events);
       // Slice at the moment PROVISIONS income (not total habitat income) would
       // complete the current egg, since only provisions contribute to it.
       const activation = calculateHabitatActivation(state.habitats.counts, foodValue, state.notables, state.habitats.upgradeLevels);
@@ -655,7 +667,7 @@
       const needed = eggRequirement(state.nursery) - state.nursery.eggProgress;
       const canAccrue = provisionsPerSecond > 0 && needed > 0;
       const untilEggMs = canAccrue ? Math.max(1, needed / provisionsPerSecond * 1000) : Infinity;
-      const sliceMs = Math.min(remainingMs, untilEggMs);
+      const sliceMs = Math.min(remainingMs, untilEggMs, nurseryBoundaryMs(state.nursery));
 
       const nurseryResult = tickNursery(state.nursery, state.seeds, sliceMs, rng);
       state.seeds = nurseryResult.seeds;
@@ -664,7 +676,6 @@
       events.push(...habitatResult.events);
       events.push(...creditEggProgress(state, habitatResult.provisionsIncome));
       remainingMs -= sliceMs;
-      guard += 1;
     }
 
     events.push(...tryStartEgg(state));
