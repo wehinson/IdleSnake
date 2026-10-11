@@ -31,12 +31,12 @@ Both required research task IDs and completed results are recorded in [SNAKEBIRD
 
 Integration still must verify Bird connectors/dynamic HUD count and preserve campaign metadata while replacing the existing legacy payout with the central once-only receipt. This acceptance is **not combined payout proof**. Appearance and human difficulty need manual review. No edits, live saves, servers, HTTP checks, browser automation, nested delegation, or Colony imports were performed.
 
-## Snake UI R2 — ACCEPT review; changed-tip full gate pending
+## Snake UI R2 — ACCEPT; individual gate complete
 
 - Task: `node:delegated-task:command%3Amcp%3Aab0d5ba8-7bee-42d0-aa6d-445234728aef%3Adelegate-task%3Aminigame-batch-snake-independent-r2-53bd059-20261011`
 - Backing thread: `thread:delegated-task:command%3Amcp%3Aab0d5ba8-7bee-42d0-aa6d-445234728aef%3Adelegate-task%3Aminigame-batch-snake-independent-r2-53bd059-20261011`
 - Local Codex/GPT6.1Sol high chosen at creation. Completed/result_available, no pending children. Exact53bd0593a3ab2dae37b0eec0c65275d902692413/base31e773e/incrementalb880..53bd.
-- Source/small independent review passes; full changed-tip npm check still queued behind OIKOS priority and fresh grant. No merge/full individual acceptance yet. R1 REQUEST_CHANGES remains old-tip classification.
+- Source/small independent review passes; parent ONE full changed-tip npm check at exact53bd059 also PASS354/syntax122/authority11canonical, zero failure/cancel/skip,8.1sec starting08:08:10UTC afterHTTP2actualrelease. HEADcleanunchangedbefore/after; finitewindowimmediatelyreleased. Individual acceptance complete, unmerged. R1 REQUEST_CHANGES remains old-tip classification. Published result below correctly describes full check as pending at review publication time; this later gate satisfies it.
 - Agent-created terminal child settles immediately after this complete durable record; history retained.
 
 ### Complete published result
