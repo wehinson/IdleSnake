@@ -9,7 +9,7 @@
 - Evidence and resume state: `MINIGAME_REVIEW.md`; full original brief: `MINIGAME_BRIEF.md`. Each final exact worker tip requires coordinator inspection/checks and independent T3 read-only review before integration.
 - Baseline verification: `npm run check` passed syntax, authority and all335 Node tests. No browser automation authorized; visual/layout/control feel remains for William to test.
 - Previews: shared port4173/PID10940; `/test6/`–`/test11/` reserved for workers and `/test12/` for this integration. Existing root and `/test1/`–`/test5/` preserved. Direct HTTP byte checks recorded in review file.
-- Release coordination: separate release thread `mcp:cb15038f-28e9-4ad5-a277-102c5f64b247` is authorized to ship only committed baseline31e773e, expected1.0.4. This batch stays based on31e773e, unapproved, without importing release/batch commits or bumping its version.
+- Release coordination: baseline-only1.0.4 release is on main `0f148ad1af6b6d288cb67d956f3d9a6e851fa003`; `working` remains31e773e. Only release metadata differs from baseline; no pending batch entered main. Release thread reports live64 runtime asset hashes match, CI/deployment completion pending. This batch stays based on31e773e, unapproved, without importing release/batch commits or bumping its version.
 - Version impact: no release bump for this PR; save migrations documented by owners and reviewed on integration.
 - Last update: 2026-10-11.
 
