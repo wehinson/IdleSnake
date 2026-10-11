@@ -11,6 +11,15 @@
   const vectors = {
     up: { x: 0, y: -1 }, down: { x: 0, y: 1 }, left: { x: -1, y: 0 }, right: { x: 1, y: 0 }
   };
+  const GRID = Object.freeze({ columns: 20, rows: 25 });
+
+  function wrap(grid, point) {
+    return { x: (point.x % grid.columns + grid.columns) % grid.columns, y: (point.y % grid.rows + grid.rows) % grid.rows };
+  }
+  function distance(grid, a, b) {
+    const dx = Math.abs(a.x - b.x); const dy = Math.abs(a.y - b.y);
+    return Math.min(dx, grid.columns - dx) + Math.min(dy, grid.rows - dy);
+  }
 
   function isWallHit(grid, point) {
     return point.x < 0 || point.x >= grid.columns || point.y < 0 || point.y >= grid.rows;
@@ -18,17 +27,17 @@
   function contains(body, point) {
     return body.some((part) => part.x === point.x && part.y === point.y);
   }
-  function nextHead(snakeRef) {
-    const vector = vectors[snakeRef.direction];
-    return { x: snakeRef.body[0].x + vector.x, y: snakeRef.body[0].y + vector.y };
+  function nextHead(snakeRef, grid, direction = snakeRef.direction) {
+    const vector = vectors[direction];
+    return wrap(grid, { x: snakeRef.body[0].x + vector.x, y: snakeRef.body[0].y + vector.y });
   }
 
   function safeDirections(state, snakeRef, otherRef) {
     return Object.keys(vectors).filter((candidate) => {
       const vector = vectors[candidate];
       if (vector.x + vectors[snakeRef.direction].x === 0 && vector.y + vectors[snakeRef.direction].y === 0) return false;
-      const point = { x: snakeRef.body[0].x + vector.x, y: snakeRef.body[0].y + vector.y };
-      return !isWallHit(state.grid, point) && !contains(snakeRef.body, point) && !contains(otherRef.body, point);
+      const point = nextHead(snakeRef, state.grid, candidate);
+      return !contains(snakeRef.body, point) && !contains(otherRef.body, point);
     });
   }
 
@@ -37,15 +46,14 @@
     const safe = safeDirections(state, state.opponent, state.player);
     if (safe.length === 0) return;
     const target = state.foods.reduce((closest, food) => {
-      const distance = Math.abs(food.x - state.opponent.body[0].x) + Math.abs(food.y - state.opponent.body[0].y);
-      return !closest || distance < closest.distance ? { food, distance } : closest;
+      const foodDistance = distance(state.grid, food, state.opponent.body[0]);
+      return !closest || foodDistance < closest.distance ? { food, distance: foodDistance } : closest;
     }, null);
     safe.sort((a, b) => {
-      const aPoint = { x: state.opponent.body[0].x + vectors[a].x, y: state.opponent.body[0].y + vectors[a].y };
-      const bPoint = { x: state.opponent.body[0].x + vectors[b].x, y: state.opponent.body[0].y + vectors[b].y };
+      const aPoint = nextHead(state.opponent, state.grid, a);
+      const bPoint = nextHead(state.opponent, state.grid, b);
       if (!target) return 0;
-      return (Math.abs(aPoint.x - target.food.x) + Math.abs(aPoint.y - target.food.y)) -
-        (Math.abs(bPoint.x - target.food.x) + Math.abs(bPoint.y - target.food.y));
+      return distance(state.grid, aPoint, target.food) - distance(state.grid, bPoint, target.food);
     });
     state.opponent.direction = safe[0];
   }
@@ -78,22 +86,22 @@
     }
     chooseOpponentDirection(state);
 
-    const playerHead = nextHead(state.player);
-    const opponentHead = nextHead(state.opponent);
+    const playerHead = nextHead(state.player, state.grid);
+    const opponentHead = nextHead(state.opponent, state.grid);
     const playerFood = state.foods.findIndex((f) => f.x === playerHead.x && f.y === playerHead.y);
     const opponentFood = state.foods.findIndex((f) => f.x === opponentHead.x && f.y === opponentHead.y);
 
-    // Simultaneous resolution: heads/tails leaving their squares this tick
-    // shouldn't block unless both heads move into the same square.
-    const playerBodyAfterMove = (playerFood >= 0 ? state.player.body : state.player.body.slice(0, -1)).slice(1);
-    const opponentBodyAfterMove = (opponentFood >= 0 ? state.opponent.body : state.opponent.body.slice(0, -1)).slice(1);
-    const playerCollision = isWallHit(state.grid, playerHead) ||
-      contains(playerBodyAfterMove, playerHead) || contains(opponentBodyAfterMove, playerHead);
-    const opponentCollision = isWallHit(state.grid, opponentHead) ||
-      contains(opponentBodyAfterMove, opponentHead) || contains(playerBodyAfterMove, opponentHead);
-    const sameCellHeadOn = playerHead.x === opponentHead.x && playerHead.y === opponentHead.y;
     const headSwap = playerHead.x === state.opponent.body[0].x && playerHead.y === state.opponent.body[0].y &&
       opponentHead.x === state.player.body[0].x && opponentHead.y === state.player.body[0].y;
+    // A vacated tail is safe unless growing. Old heads become body segments;
+    // a simultaneous head swap is resolved by the dedicated head-on rule.
+    const playerBodyAfterMove = (playerFood >= 0 ? state.player.body : state.player.body.slice(0, -1)).slice(headSwap ? 1 : 0);
+    const opponentBodyAfterMove = (opponentFood >= 0 ? state.opponent.body : state.opponent.body.slice(0, -1)).slice(headSwap ? 1 : 0);
+    const playerCollision =
+      contains(playerBodyAfterMove, playerHead) || contains(opponentBodyAfterMove, playerHead);
+    const opponentCollision =
+      contains(opponentBodyAfterMove, opponentHead) || contains(playerBodyAfterMove, opponentHead);
+    const sameCellHeadOn = playerHead.x === opponentHead.x && playerHead.y === opponentHead.y;
     const headToHead = sameCellHeadOn || headSwap;
 
     if (playerCollision || opponentCollision || headToHead) {
@@ -126,5 +134,5 @@
     return { state, events, alive: true, winner: null };
   }
 
-  return { vectors, isWallHit, contains, nextHead, safeDirections, chooseOpponentDirection, spawnFoods, stepVsSnake };
+  return { GRID, vectors, wrap, distance, isWallHit, contains, nextHead, safeDirections, chooseOpponentDirection, spawnFoods, stepVsSnake };
 });

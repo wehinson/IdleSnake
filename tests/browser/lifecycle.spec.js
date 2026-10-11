@@ -91,7 +91,7 @@ test("Centipede Reset remains in Centipede and Duel key nine opens Runner", asyn
   await context.close();
 });
 
-test("Maze launch, pause, resume, and reset stay session-owned", async ({ browser }) => {
+test("Nibbler launch, pause, resume, and reset stay session-owned", async ({ browser }) => {
   const { context, page, pageErrors, consoleErrors } = await openWithSave(browser, craftedSave(9));
   await page.locator('[data-minigame="2"]').click();
   await expect(page.locator("#stateText")).toHaveText("Snake Forever · Ready");

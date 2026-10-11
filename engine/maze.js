@@ -1,4 +1,4 @@
-// Headless maze minigame ("Snake Forever" mode) — snake threading a maze,
+// Headless maze minigame (Nibbler mode) — snake threading a maze,
 // eating food, leveling up. Real-time (host drives it from the tick loop), but
 // the per-step logic is pure here. Port of game.js stepMaze/spawnMazeFood; the
 // junction-choice/travel UI stays host-side (it only sets `direction`).

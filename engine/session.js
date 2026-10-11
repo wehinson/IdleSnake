@@ -50,7 +50,7 @@
   function puzzleRestartSetup(active) {
     return { definition: active.definition, levelIndex: active.levelIndex ?? active.stageIndex, levelCount: active.levelCount, grid: { columns: active.width, rows: active.height } };
   }
-  const duelGridSizes = new Set([10, 15, 20, 30, 40]);
+  const duelGridSizes = new Set([20]);
 
   // Randomness is injected (default Math.random) so the browser host and the sim
   // share identical behavior. state.rng is a function returning [0, 1); it is a
@@ -121,8 +121,8 @@
     };
   }
   function normalDuelGridSize(value) {
-    const size = Number(value);
-    return duelGridSizes.has(size) ? size : 30;
+    // Retain the legacy preference field for save compatibility; duel is fixed.
+    return duel.GRID.columns;
   }
   function migrateLegacy(save, now, mobileControlsDefault) {
     save = save && typeof save === "object" ? save : {};
@@ -279,7 +279,7 @@
     state.mode = mode; state.phase = "ready"; state.modeAccumulatorMs = 0; state.elapsedMs = 0;
     if (mode === "snake") return startSnake(state, setup);
     if (mode === "duel") {
-      const grid = setup.grid || { columns: state.selectedDuelGridSize, rows: state.selectedDuelGridSize };
+      const grid = { ...duel.GRID };
       const px = Math.floor(grid.columns / 2) - 1; const ox = Math.floor(grid.columns / 2);
       const active = { grid, player: { body: [{ x: px, y: grid.rows - 3 }, { x: px, y: grid.rows - 2 }, { x: px, y: grid.rows - 1 }], direction: "up" }, opponent: { body: [{ x: ox, y: 2 }, { x: ox, y: 1 }, { x: ox, y: 0 }], direction: "down" }, foods: [], score: 0, direction: "up", nextDirection: "up", directionQueue: [], tickMs: setup.tickMs || slowedTick(125) };
       active.foods = duel.spawnFoods(active, setup.foodCount || 5, () => state.rng()); state.active = active; return;
@@ -688,8 +688,6 @@
       const reject = (reason) => { events.push(event("actionRejected", { action: action.type || null, reason })); return result(state, events); };
       switch (action.type) {
         case "openMinigame": {
-          if (state.phase === "paused") return dispatch({ type: "resume" });
-          if (state.phase === "gameover") return dispatch({ type: "resetRun" });
           const number = action.number;
           if (number === 9 && state.mode === "duel") return dispatch({ type: "launchGame", mode: "runner" });
           if (!Number.isInteger(number) || number < 1 || number > config.minigameCatalog.length) return reject("invalidMinigame");
@@ -893,7 +891,11 @@
             } else return reject("cursorUnavailable");
             events.push(event("battleshipCursorMoved", { direction: action.direction })); break;
           }
-          if (["duel", "crossing", "maze", "broodline"].includes(state.mode) && !queueModeDirection(state.mode, state.active, action.direction)) return reject("invalidDirection");
+          if (state.mode === "maze" && state.phase === "ready") {
+            // All four inputs can start; the first tick still checks walls/body.
+            // Normal reversal checks apply after the opening input.
+            state.active.direction = action.direction; state.active.directionQueue = [action.direction];
+          } else if (["duel", "crossing", "maze", "broodline"].includes(state.mode) && !queueModeDirection(state.mode, state.active, action.direction)) return reject("invalidDirection");
           if (state.mode === "snake") {
             if (state.active.shieldImpact) {
               if (!snake.queueDirectionAfterShield(state.active, action.direction)) return reject("invalidDirection");

@@ -1,5 +1,18 @@
 # Branch status
 
+## task/minigame-snake-ui-20261011 - Minigames requests 1, 2, 12, 13
+
+- Agent: Codex, GPT 6.1 Sol high effort, local Jimothy, T3 thread `mcp:30aa62db-38dd-45af-a2d2-05b177b3a30f`.
+- Status: Active; scoped implementation checkpoint. Coordinator `mcp:618042fc-9354-4fc9-906a-1b3ca5c689e4` independently reviews before Minigame PR2 integration.
+- Base: exact local working `31e773efee60c85d6781078803e4eae208911e4e`; task checkout only. No Colony commits, working/main merge, deployment, version bump, CI changes, or individual PR.
+- Changes: fixed Duel 20x25 with wrapped movement/AI/collision checks; connected solid Duel/Nibbler bodies; black pulsing Duel Seeds; Nibbler catalog/Ready/results/accessibility names and four-direction Ready starts; direct one-click minigame switching across pause/gameover; shared default-width connector helper, with short clipped wrap seam pieces, default tail endpoint and theme/palette mapping; Bird/Sokoban calls and dynamic Bird level count.
+- Migration: keep legacy selectedDuelGridSize field normalized to20; runtime grid20x25 regardless of old saved size/custom setup. Other progress/settings retained. Nibbler remains21x21 nonwrapping.
+- Shared interface: `scripts/snake-connectors.js` exposes `IdleSnakeConnectors.draw(ctx, cellPoints, {cellSize,x,y,color,columns,rows,wrap,tailBaseDistance,width})`; wrapper `drawSnakeConnectors(points,color,options)` applies board/theme defaults then options. Siblings own Brick/Snakeger and Arcade connector call sites.
+- Verification so far:61 targeted existing Duel/session/UI-boundary Node tests pass. Regression additions and full npm run check pending. Browser tests preserved and expected Nibbler names updated; browser automation is unauthorized and not run.
+- Preview: coordinator allocated/HTTP-verified `http://localhost:4173/test6/`; shared server/routes never mutated by this worker.
+- Version impact: none. Root unrelated balances/saves/tests untouched.
+- Last update:2026-10-11.
+
 ## task/tongue-seed-return — Shorter tongue and smooth Seed placement experiment
 
 - Agent: Codex, GPT 6.1 Sol, medium effort, local Jimothy, T3-created checkout `C:/Users/wehin/.t3/worktrees/IdleSnake/task-tongue-seed-return`.

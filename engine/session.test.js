@@ -253,30 +253,30 @@ test("migrates durable UI preferences from legacy V2 fields without changing cos
 
   const settingsFallback = createGameSession({ save: { saveVersion: 2, settings: { reducedMotion: true, duelGridSize: 15 } }, now: 10 }).snapshot();
   assert.equal(settingsFallback.reducedMotion, true);
-  assert.equal(settingsFallback.selectedDuelGridSize, 15);
+  assert.equal(settingsFallback.selectedDuelGridSize, 20);
 });
 
 test("session preferences dispatch, validate, serialize, and round-trip deterministically", () => {
   const game = createGameSession({ now: 0 });
   const motion = game.dispatch({ type: "setReducedMotion", reducedMotion: true });
   assert.deepEqual(motion.events, [{ type: "reducedMotionChanged", reducedMotion: true }]);
-  const grid = game.dispatch({ type: "setSelectedDuelGridSize", selectedDuelGridSize: 40 });
-  assert.deepEqual(grid.events, [{ type: "duelGridSizeChanged", selectedDuelGridSize: 40 }]);
+  const grid = game.dispatch({ type: "setSelectedDuelGridSize", selectedDuelGridSize: 20 });
+  assert.deepEqual(grid.events, [{ type: "duelGridSizeChanged", selectedDuelGridSize: 20 }]);
   game.dispatch({ type: "setCosmetics", cosmetics: { head: "#fff" } });
 
   const save = game.serialize();
   assert.equal(save.session.reducedMotion, true);
-  assert.equal(save.session.selectedDuelGridSize, 40);
+  assert.equal(save.session.selectedDuelGridSize, 20);
   const restored = createGameSession({ save, now: 0 }).snapshot();
   assert.equal(restored.reducedMotion, true);
-  assert.equal(restored.selectedDuelGridSize, 40);
+  assert.equal(restored.selectedDuelGridSize, 20);
   assert.deepEqual(restored.cosmetics, { body: null, head: "#fff" });
   assert.deepEqual(createGameSession({ save, now: 0 }).serialize(), createGameSession({ save, now: 0 }).serialize());
 
-  for (const invalid of [false, null, undefined, 0, 12, 31, 50, {}, []]) {
+  for (const invalid of [false, null, undefined, 0, 10, 15, 12, 30, 31, 40, 50, {}, []]) {
     const rejected = game.dispatch({ type: "setSelectedDuelGridSize", selectedDuelGridSize: invalid });
     assert.ok(rejected.events.some((event) => event.type === "actionRejected" && event.reason === "invalidDuelGridSize"));
-    assert.equal(rejected.snapshot.selectedDuelGridSize, 40);
+    assert.equal(rejected.snapshot.selectedDuelGridSize, 20);
   }
   for (const invalid of [null, 1, "true", undefined]) {
     const rejected = game.dispatch({ type: "setReducedMotion", reducedMotion: invalid });
@@ -288,7 +288,7 @@ test("session preferences dispatch, validate, serialize, and round-trip determin
 test("malformed persisted preferences normalize to safe defaults", () => {
   for (const invalid of [null, false, 0, 9, 11, 100, "not-a-size", {}, []]) {
     const snapshot = createGameSession({ save: { saveVersion: 2, board: { selectedDuelGridSize: invalid } }, now: 0 }).snapshot();
-    assert.equal(snapshot.selectedDuelGridSize, 30);
+    assert.equal(snapshot.selectedDuelGridSize, 20);
   }
   for (const invalid of [null, 0, 1, "true", {}, []]) {
     const snapshot = createGameSession({ save: { saveVersion: 2, accessibility: { reducedMotion: invalid } }, now: 0 }).snapshot();
@@ -336,7 +336,7 @@ test("real-time modes use engine dimensions while grid modes accept host grids",
   assert.equal(runner.active.boardWidth, 720);
   assert.equal(runner.active.boardHeight, 720);
   const duel = game.dispatch({ type: "selectMode", mode: "duel", setup: { grid: { columns: 15, rows: 15 } } }).snapshot;
-  assert.deepEqual(duel.active.grid, { columns: 15, rows: 15 });
+  assert.deepEqual(duel.active.grid, { columns: 20, rows: 25 });
 });
 
 test("offline catch-up credits idle income from the save's savedAt, not boot time", () => {
@@ -595,8 +595,9 @@ test("queued modes validate atomically and use their browser-aligned buffers", (
   for (const scenario of cases) {
     const game = createGameSession({ now: 0, rng: lcg(7) });
     game.dispatch({ type: "selectMode", mode: scenario.mode });
+    if (scenario.mode === "maze") game.dispatch({ type: "begin" });
     const rejected = game.dispatch({ type: "direction", direction: scenario.rejected });
-    assert.equal(rejected.snapshot.phase, "ready", `${scenario.mode} rejected Ready input stays ready`);
+    assert.equal(rejected.snapshot.phase, scenario.mode === "maze" ? "running" : "ready", `${scenario.mode} rejected input preserves phase`);
     assert.equal(rejected.snapshot.active[scenario.queue].length, 0);
     assert.equal(rejected.events.some((item) => item.type === "runStarted" || item.type === "directionQueued"), false);
     for (const direction of scenario.accepted) game.dispatch({ type: "direction", direction });

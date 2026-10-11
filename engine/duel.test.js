@@ -41,16 +41,16 @@ test("player eating food grows and scores", () => {
   assert.equal(r.events.some((e) => e.type === "eat"), true);
 });
 
-test("running the player into a wall ends the duel in the opponent's favor", () => {
+test("player crosses an edge onto the opposite cell", () => {
   const s = state({
-    player: { body: [{ x: 9, y: 5 }, { x: 8, y: 5 }], direction: "right" }, // (10,5) is a wall
+    player: { body: [{ x: 9, y: 5 }, { x: 8, y: 5 }], direction: "right" }, // wraps to (0,5)
     opponent: { body: [{ x: 2, y: 2 }, { x: 1, y: 2 }], direction: "down" },
     foods: [{ x: 0, y: 9 }, { x: 1, y: 9 }, { x: 2, y: 9 }, { x: 3, y: 9 }, { x: 4, y: 9 }]
   });
   const r = duel.stepVsSnake(s, { rng: seededRng(1) });
-  assert.equal(r.alive, false);
-  assert.equal(r.winner, "opponent");
-  assert.equal(r.events.some((e) => e.type === "gameOver"), true);
+  assert.equal(r.alive, true);
+  assert.deepEqual(s.player.body[0], { x: 0, y: 5 });
+  assert.equal(r.events.some((e) => e.type === "gameOver"), false);
 });
 
 function headSwapState(playerLength, opponentLength) {
