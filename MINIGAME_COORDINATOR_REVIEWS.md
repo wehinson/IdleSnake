@@ -2,6 +2,35 @@
 
 Only an independently passed exact implementation tip may enter the integration branch. Terminal completion is not acceptance. Cancelled/interrupted reviews remain classified as such. Each further round uses a new T3 delegate_task with the full original brief, prior findings/responses and unresolved objections.
 
+## Snakebird R1 — ACCEPT
+
+- Task: `node:delegated-task:command%3Amcp%3Aab0d5ba8-7bee-42d0-aa6d-445234728aef%3Adelegate-task%3Aminigame-batch-snakebird-independent-r1-715ac20-20261011`
+- Backing thread: `thread:delegated-task:command%3Amcp%3Aab0d5ba8-7bee-42d0-aa6d-445234728aef%3Adelegate-task%3Aminigame-batch-snakebird-independent-r1-715ac20-20261011`
+- Local Codex/GPT6.1Sol high at creation; completed/result_available, no pending children. Exact715ac205c0dc00e9fdf4e351723d0aea2ee1f840/base31e773e.
+- Parent exactfull359/all15actualBFS+witnesses already passed; independent source/9selectedtests/additionalmechanics+migrationprobes now pass individual gate. No merge or combined payout/renderer proof.
+- Agent-created terminal child settles immediately after this durable result, retaining history.
+
+### Complete published result
+
+**ACCEPT — request 5 at exact tip `715ac205c0dc00e9fdf4e351723d0aea2ee1f840`.** No blocking findings. The checkout remained clean; local and tracking tips match. Only the two reported task commits follow base `31e773efee60c85d6781078803e4eae208911e4e`.
+
+I inspected all 15 maps, rationales, stored witnesses, engine rules, solver predicates, migration code, and session changes. The sequence has substantive variety: anchored reaches and landings, required growth budgets, vacating-tail folds, fruit ordering, return crossings, posts/pillars, canopy routing, and a supported bottom-row harvest. I found no illegal layout or unintended easy bypass. The progression judgment uses these mechanics alongside solution length; human difficulty ordering remains unverified.
+
+Independent checks passed:
+
+- **9 selected tests**, run serially without invoking search: legal initial boards, all 15 real-session witness completions, terminal-event deduplication, migration/reload, random access, growth, gravity, and first-clear records.
+- Small direct probes confirmed two legal vacating-tail entries become blocked when growth retains the tail.
+- Additional migration probes confirmed loading in Bird mode leaves old records untouched, shipped restart migrates, all five old clear credits remain credited, and custom selection/completion stays unversioned.
+- Exact text comparison confirmed the entire Sokoban prefix and shared wrapper suffix equal the base. `git diff --check` passed.
+
+The [migration implementation](C:/Users/wehin/.t3/worktrees/IdleSnake/task-minigame-snakebird-levels-20261011/snakebird-engine.js:124) preserves clear credits, archives old records under `legacyRecords["1"]`, resets incomparable live best moves, remains idempotent, and preserves metadata through completion. Old full-five clears unlock record slot 6. The [three-line session hunk](C:/Users/wehin/.t3/worktrees/IdleSnake/task-minigame-snakebird-levels-20261011/engine/session.js:322) applies migration only when a shipped definition is selected. Direct level access remains unrestricted.
+
+The [solver](C:/Users/wehin/.t3/worktrees/IdleSnake/task-minigame-snakebird-levels-20261011/scripts/solve-snakebird.js:28) uses actual engine transitions, ordered-body/remaining-fruit state keys, and distinct exhaustion/limit/depth-limit outcomes. Its fruit-order restriction is sound. I inspected the stored shortest witnesses and negative-check logic; **I did not rerun BFS or the reported full-suite proof**.
+
+Both required research task IDs and completed results are recorded in [SNAKEBIRD_LEVELS.md](C:/Users/wehin/.t3/worktrees/IdleSnake/task-minigame-snakebird-levels-20261011/SNAKEBIRD_LEVELS.md:111): mechanics supplied levels 1–5; layout research supplied 6–11/15, with the redundant candidate rejected. Attribution matches the cited [developer description](https://store.steampowered.com/app/357300/Snakebird/), [Eliasson account](https://www.gamedeveloper.com/production/snakebird-development-images-and-history), and [AIIDE paper](https://ojs.aaai.org/index.php/AIIDE/article/download/7421/7328/10923). No copied assets or bulk datasets appear in the diff.
+
+Integration still must verify Bird connectors/dynamic HUD count and preserve campaign metadata while replacing the existing legacy payout with the central once-only receipt. This acceptance is **not combined payout proof**. Appearance and human difficulty need manual review. No edits, live saves, servers, HTTP checks, browser automation, nested delegation, or Colony imports were performed.
+
 ## Snake UI R2 — ACCEPT review; changed-tip full gate pending
 
 - Task: `node:delegated-task:command%3Amcp%3Aab0d5ba8-7bee-42d0-aa6d-445234728aef%3Adelegate-task%3Aminigame-batch-snake-independent-r2-53bd059-20261011`
