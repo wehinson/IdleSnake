@@ -186,6 +186,46 @@ test("large D-pad center requires a fresh eligible press after the crossing win 
   assert.equal(sandbox.paused, 2, "ordinary pause control survives");
 });
 
+test("Space-paused crossing clear resumes through a fresh post-lock center or Pause press without becoming Start", () => {
+  const listeners = { start: {}, pause: {} };
+  let now = 0;
+  let large = true;
+  const sandbox = { gameView: { gameMode: "crossing", crossingPhase: "clearing", state: "running" }, directionInputLockedUntil: 1000,
+    controlsEl: { classList: { contains: () => large } }, Date: { now: () => now }, started: 0, toggled: 0,
+    startGame: () => { sandbox.started++; }, resetGame() {},
+    togglePause: () => { sandbox.toggled++; sandbox.gameView.state = sandbox.gameView.state === "paused" ? "running" : "paused"; },
+    startButton: { addEventListener: (name, listener) => { listeners.start[name] = listener; } },
+    pauseButton: { addEventListener: (name, listener) => { listeners.pause[name] = listener; } }
+  };
+  vm.createContext(sandbox);
+  vm.runInContext(source.slice(source.indexOf("function activatePrimaryAction()"), source.indexOf("function resetGame()")), sandbox);
+  vm.runInContext(source.slice(source.indexOf("let crossingPrimaryPressEpoch"), source.indexOf('resetButton.addEventListener("click", resetGame)')), sandbox);
+  const start = source.indexOf('  if (event.code === "Space") {');
+  const end = source.indexOf('\n  if (event.code === "Enter") {', start);
+  vm.runInContext(`function space(event) { ${source.slice(start, end)} }`, sandbox);
+  sandbox.space({ code: "Space", repeat: false, preventDefault() {} });
+  assert.equal(sandbox.gameView.state, "paused");
+  listeners.pause.pointerdown({ pointerId: 1 });
+  now = 1000;
+  listeners.pause.click({ detail: 1, pointerId: 1 });
+  assert.equal(sandbox.gameView.state, "paused", "locked held press stays rejected");
+  listeners.pause.pointerdown({ pointerId: 1 }); listeners.pause.click({ detail: 1, pointerId: 1 });
+  assert.equal(sandbox.gameView.state, "running", "fresh post-lock center resumes the clear");
+  assert.equal(sandbox.started, 0);
+  listeners.pause.pointerdown({ pointerId: 1 });
+  sandbox.gameView.state = "ready"; sandbox.gameView.crossingPhase = "playing";
+  listeners.pause.click({ detail: 1, pointerId: 1 });
+  assert.equal(sandbox.started, 0, "pause intent cannot turn into next-stage Start on release");
+  listeners.pause.pointerdown({ pointerId: 1 }); listeners.pause.click({ detail: 1, pointerId: 1 });
+  assert.equal(sandbox.started, 1, "fresh Ready center explicitly starts");
+  large = false; sandbox.gameView.state = "paused"; sandbox.gameView.crossingPhase = "clearing";
+  listeners.pause.pointerdown({ pointerId: 1 }); listeners.pause.click({ detail: 1, pointerId: 1 });
+  assert.equal(sandbox.gameView.state, "running", "ordinary Pause also resumes a clear");
+  assert.equal(sandbox.started, 1);
+  sandbox.space({ code: "Space", repeat: true, preventDefault() {} });
+  assert.equal(sandbox.gameView.state, "running", "held Space repeat does not toggle again");
+});
+
 test("actual crossing clear/ready events refresh the length HUD and death invalidates pending Start", () => {
   let displayedLength = 0;
   const sandbox = { gameView: { gameMode: "crossing", crossingStage: 1, crossingSnake: Array(4).fill({ x: 0, y: 0 }) },

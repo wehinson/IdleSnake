@@ -4643,14 +4643,16 @@ let crossingPrimaryPressEpoch = 0;
 function bindCrossingPrimaryControl(button, activate) {
   let press = null;
   button.addEventListener("pointerdown", (event) => {
-    press = { epoch: crossingPrimaryPressEpoch, pointerId: event.pointerId,
-      allowed: gameView.gameMode !== "crossing" || (Date.now() >= directionInputLockedUntil && gameView.crossingPhase !== "clearing") };
+    press = { epoch: crossingPrimaryPressEpoch, pointerId: event.pointerId, phase: gameView.state,
+      allowed: gameView.gameMode !== "crossing" || (Date.now() >= directionInputLockedUntil
+        && (gameView.crossingPhase !== "clearing" || button === pauseButton)) };
   });
   button.addEventListener("pointercancel", (event) => {
     if (press?.pointerId === event.pointerId) press = null;
   });
   button.addEventListener("click", (event) => {
     if (gameView.gameMode === "crossing" && event.detail > 0 && (!press?.allowed || press.epoch !== crossingPrimaryPressEpoch
+      || press.phase !== gameView.state
       || (event.pointerId >= 0 && event.pointerId !== press.pointerId))) return;
     press = null;
     activate();
