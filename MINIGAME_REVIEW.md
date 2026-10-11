@@ -1,11 +1,11 @@
 # Minigame PR2 integration and review record
 
-Updated2026-10-11. All six independently passed tips are merged ONLY into this integration branch. Combined exacte30f7c9 check passes475 tests; promised final combined source/small review and PR remain.
+Updated2026-10-11. All six independently passed tips are merged ONLY into this integration branch. Combined exacte30f7c9 check passes475 tests; final combined R1 ACCEPT exactcee27b7 with12 bounded groups. Docs-only handoff successor preserves runtime/tests. One separate Minigame PR to working is review-ready; William approval remains required.
 
 ## Current state
 
-- Integration: `task/minigame-batch-20261011`, coordinator `mcp:618042fc-9354-4fc9-906a-1b3ca5c689e4`; base `31e773efee60c85d6781078803e4eae208911e4e`. Four gameplay merge commits: `9b58aee`, `f31336d`, `fb2224d`, `410c429`; review checkpoint before merges `81f0ea6`.
-- All six individually ACCEPTED: Snake53bd059, Brick0f6aafc, Bird715ac20, Sokc664c56, Arcade087fea5(R2 fixes R1HUD finding), Rewards707e51f(docsonlyaftereaef). Six explicit merges ONLY integration:9b58aee/f31336d/fb2224d/410c429/6fac4c0/ca4e08e. Combined code/test tipe30f7c9 passes475 tests; no working/main/Colony/release import, no PR yet.
+- Integration: `task/minigame-batch-20261011`, coordinator `mcp:618042fc-9354-4fc9-906a-1b3ca5c689e4`; base `31e773efee60c85d6781078803e4eae208911e4e`. Six gameplay merge commits: `9b58aee`, `f31336d`, `fb2224d`, `410c429`, `6fac4c0`, `ca4e08e`; review checkpoint before merges `81f0ea6`.
+- All six individually ACCEPTED: Snake53bd059, Brick0f6aafc, Bird715ac20, Sokc664c56, Arcade087fea5(R2 fixes R1HUD finding), Rewards707e51f(docsonlyaftereaef). Six explicit merges ONLY integration:9b58aee/f31336d/fb2224d/410c429/6fac4c0/ca4e08e. Combined code/test tipe30f7c9 passes475 tests; no working/main/Colony/release import, final combined R1 ACCEPT recorded; PR creation follows this docs-only handoff.
 - Heavy lock released after combined three-pass fix-loop lease: final exacte30f7c9 npm475/syntax139/authority11canonical/diff PASS; two earlier passes retained failed fixture expectations. No repeated full suite needed for docs-only successors. OIKOS nextREADY priority; its server4318/PID17032 styledassets proofPASS/manualvisualhydration pending; sharedSnake4173/PID14548 preserved. Current owner in own Git MINIGAME_HEAVY_LOCK.json.
 - Colony PR1 remains a separate scope under its coordinator; none of its implementation/integration commits enter this branch.
 - Shared preview: PID14548/4173 and route table unchanged. Home retired test1 because T3 storage cleanup removes its merged tongue checkout; its404 is expected and no restoration/route edit is authorized. Healthy set is root+test2–test12. Final audit79 exact asset matches/no-store (81requests includes2retired404), owncombined test12 references allmatched; root27hashes unchanged. Approvedtongue remains in working/root/shipped1.0.4.

@@ -39,7 +39,7 @@ Light direct HTTP audit: **79/81 asset checks matched exactly with no-store**, i
 
 ## Acceptance limitations
 
-The promised final combined independent source/small review is still required before PR handoff. No local browser/computer automation was authorized. Phone scrolling, fullscreen fit, perceived animation/focus, live announcements and human puzzle difficulty require William's manual testing.
+Final combined independent source/small review R1 ACCEPTED exact `cee27b76b418a2303a6d62dfa811162687697465`:12 bounded serial engine/VM groups passed, no material/P0-P2 findings. It checked actual shared lifecycle, rendering, applied-input, campaign, receipt and canonical-save paths and reused exact-code475 evidence. Full verdict/task ID is in MINIGAME_COORDINATOR_REVIEWS.md. This successor changes only docs, including correction of an extra EOF blank line in MINIGAME_BRIEF.md; runtime/tests remain unchanged. One separate Minigame PR to working is review-ready, awaiting William approval. No local browser/computer automation was authorized. Phone scrolling, fullscreen fit, perceived animation/focus, live announcements and human puzzle difficulty require William's manual testing.
 
 Reward calibration and simulated rates are documented in MINIGAME_REWARDS.md. At fixed factors, higher score/wins/income earn more per run and historically low-earned games pay more. A substantial base award and 25% repeat floor can favor quick minimal-progress failures by Seeds/min; existing weak-controller traces show this material balance risk. They are not player percentiles. This PR does not silently retune games or add time gates.
 

@@ -1,5 +1,38 @@
 # Minigame coordinator independent reviews
 
+## Final combined integration R1 — ACCEPT
+
+Task `node:delegated-task:command%3Amcp%3Aab0d5ba8-7bee-42d0-aa6d-445234728aef%3Adelegate-task%3Aminigame-batch-combined-independent-r1-cee27b7-20261011`, terminal completed/no pending children. Exact reviewed target `cee27b76b418a2303a6d62dfa811162687697465`; runtime/test tip `e30f7c9c9c0475292920421c5a9f9bbe8ee36dd6`. Complete published result follows. The final successor changes documentation only, including correction of the noted extra EOF blank line in MINIGAME_BRIEF.md. Runtime/tests remain byte-identical; no full rerun.
+
+**ACCEPT** — exact reviewed SHA `cee27b76b418a2303a6d62dfa811162687697465`, against base `31e773efee60c85d6781078803e4eae208911e4e`. No new material defects or P0–P2 findings.
+
+Independent source review and **12 bounded, serial engine/VM probe groups passed**:
+
+1. Browser script order, shared exports and actual session settlement.
+2. Nibbler’s four immediate Ready headings and applied-only engagement baseline.
+3. Breakout’s slice/clamp movement events, terminal clock correction and receipts.
+4. Centipede’s movement-before-respawn ordering, separate clocks and bullet collision rows.
+5. Bird migration, retained clear credits, optimal metadata, completion and reload.
+6. Crossing’s pause, 1000ms transition, explicit Start and terminal-only credit.
+7. Nine Crossing press cases covering epoch, identity, cancellation, phase and resume guards.
+8. Sokoban’s reachable retained-tail rejection and nongrowing control.
+9. One-click switching without settlement of the discarded run.
+10. Exact preservation of both 15-level arrays and seven accepted engine/helper/witness files.
+11. Actual shared-helper coordinates, ordering, theme and width under Breakout, Runner and Broodline transforms.
+12. Actual Broodline frame→HUD→settlement flow: 33 natural-loss frames, change-only goals, immediate canonical save and preserved terminal hint.
+
+Two probe-harness errors were corrected; all remaining independent checks continued. No unresolved probe failures or skips remain.
+
+Reused evidence: final **475/475 tests, 139 syntax checks and 11-mode authority/canonical persistence**, corroborated by the retained log, plus all six individual acceptances and campaign proofs. No full suite, solver or simulation was rerun. Earlier failed/cancelled rounds and combined passes remain classified accordingly.
+
+Two nonblocking items remain:
+
+- **P3 balance risk:** the [base award and repeat floor](C:/Users/wehin/.t3/worktrees/IdleSnake/task-minigame-batch-20261011/engine/minigame-rewards.js:66) can favor quick qualifying losses by Seeds/min despite correct per-run monotonicity. Retuning remains unauthorized.
+- **Whitespace discrepancy:** base-to-target `git diff --check` exits 1 for an extra final blank line at [MINIGAME_BRIEF.md:39](C:/Users/wehin/.t3/worktrees/IdleSnake/task-minigame-batch-20261011/MINIGAME_BRIEF.md:39). Tested-tip-to-target checking passes.
+
+Phone/fullscreen layout, focus, perceived animation, live announcements and human puzzle difficulty remain unverified. HEAD stayed exact and the checkout stayed clean. No files, claims, saves, services, routes, refs or PRs were changed.
+
+
 ## Arcade coordinator independent R2 — ACCEPT
 
 Task `node:delegated-task:command%3Amcp%3Aab0d5ba8-7bee-42d0-aa6d-445234728aef%3Adelegate-task%3Aminigame-batch-arcade-independent-r2-087fea5-20261011`, terminalcompleted/nochildren, exact087fea5174137dfef42ce71b1358a96daaa5454e. Complete published result:
