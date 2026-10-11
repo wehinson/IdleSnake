@@ -5,7 +5,7 @@ const { runHeadless } = require("./simulate.js");
 const levels = require("./puzzle-levels.js");
 const snakebird = require("../snakebird-engine.js");
 const sokoban = require("./sokoban.js");
-const firstPush = ["right", "right", "right", "up", "up", "up", "up", "right", "right", "right", "right"];
+const firstPush = ["right", "right", "right"];
 
 test("all shipped puzzle levels load through the session with unchanged content", () => {
   const game = createGameSession({ now: 0 });
@@ -111,7 +111,7 @@ test("Snakebird input completion stops headless ticks, preserves rewards and pro
 test("Sokoban final-level completion wraps to the first shipped level", () => {
   const game = createGameSession({ now: 0 });
   const definition = { reward: 1, map: ["#####", "#...#", "#####"], snake: [{ x: 1, y: 1 }], crates: [{ x: 2, y: 1, kind: "light" }], goals: [{ x: 3, y: 1 }], pellets: [], plates: [], gates: [] };
-  game.dispatch({ type: "selectMode", mode: "sokoban", setup: { definition, levelIndex: 4 } });
+  game.dispatch({ type: "selectMode", mode: "sokoban", setup: { definition, levelIndex: levels.sokoban.length - 1 } });
   assert.equal(game.dispatch({ type: "direction", direction: "right" }).snapshot.phase, "gameover");
   const next = game.dispatch({ type: "continuePuzzle" }).snapshot;
   assert.equal(next.active.stageIndex, 0);

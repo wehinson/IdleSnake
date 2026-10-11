@@ -56,7 +56,7 @@ const { runHeadless } = require("./engine/simulate.js");
 
 const game = createGameSession({ now: 0, rng: () => 0.5 });
 game.dispatch({ type: "selectPuzzleLevel", mode: "sokoban", levelIndex: 0 });
-const moves = ["right", "right", "right", "up", "up", "up", "up", "right", "right", "right", "right"];
+const moves = ["right", "right", "right"];
 const result = runHeadless(game, {
   steps: moves.length,
   controller: (_, step) => ({ type: "direction", direction: moves[step] })

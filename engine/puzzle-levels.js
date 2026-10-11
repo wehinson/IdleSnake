@@ -42,35 +42,35 @@ const sokobanLevels = (() => {
     stage("Dogleg Delivery", 85, "A heavy crate must turn the corner; each push needs a different brace.", [
       "########", "#....G.#", "#......#", "#...C..#", "#p..#p.#", "#21H...#", "########"
     ]),
-    stage("Opposed Loads", 100, "Solve loads facing opposite walls without boxing in the long body.", [
-      "#########", "#21Hpp..#", "#.......#", "#GC...CG#", "#.......#", "#########"
+    stage("Light Work First", 100, "Move the light crate to reach growth, then prepare the heavy brace.", [
+      "#########", "#21H.####", "####cp###", "#p.....##", "#....CG##", "#...G..##", "#########"
     ]),
-    stage("Light Work First", 120, "Move the light crate to reach growth, then prepare the heavy brace.", [
-      "#########", "#21H....#", "####cp###", "#p.....##", "#....CG##", "#...G..##", "#########"
-    ]),
-    stage("Living Bridge", 145, "Keep a body segment on the plate while the head pushes through its gate.", [
+    stage("Living Bridge", 120, "Keep a body segment on the plate while the head pushes through its gate.", [
       "#########", "#21Hpp..#", "#.....###", "#..a.CAG#", "#.....###", "#########"
     ]),
-    stage("Rebrace", 170, "The first shove spends the brace. Coil again before the second shove.", [
-      "##########", "#21Hpp...#", "#..#.....#", "#....C.G.#", "#........#", "##########"
+    stage("Rebrace", 145, "The first shove spends the brace. Coil again before the second shove.", [
+      "###########", "#21Hpp....#", "#..#......#", "#.....C.G.#", "#.........#", "###########"
     ]),
-    stage("Crossed Cargo", 200, "Deliver two heavy crates in different directions through the same workspace.", [
+    stage("Crossed Cargo", 170, "Deliver two heavy crates in different directions through the same workspace.", [
       "#########", "#...G...#", "#...C...#", "#21Hpp..#", "#....CG.#", "#.......#", "#########"
+    ]),
+    stage("Opposed Loads", 200, "Solve loads facing opposite walls without boxing in the long body.", [
+      "#########", "#21Hpp..#", "#.......#", "#GC...CG#", "#.......#", "#########"
     ]),
     stage("Gatehouse", 235, "Shift the light crate while preserving space for a gated heavy push.", [
       "#########", "#21Hpp..#", "#....cG##", "#..a.CAG#", "#.....###", "#########"
     ]),
     stage("Two Keys", 275, "Body placement must open two gates; collect extra length before crossing.", [
-      "##########", "#21Hppp..#", "#.....####", "#.a..CAG##", "#.b...####", "#....CBG##", "##########"
+      "##########", "#21Hppp..#", "#......###", "#.a..CAG##", "#b.....###", "#....CBG##", "##########"
     ]),
     stage("Three Bearings", 320, "Three heavy loads compete for the same turning room and wall anchors.", [
-      "##########", "#21Hpp...#", "#....G...#", "#....C...#", "#GC...CG.#", "#........#", "##########"
+      "#########", "#...G...#", "#...C...#", "#21Hpp..#", "#GC..CG.#", "#.......#", "#########"
     ]),
     stage("Long Lever", 370, "Growth extends the plate reach but makes rebracing and turning harder.", [
       "###########", "#21H..p####", "#..#..p####", "#a.....CAG#", "#p.#..p####", "#......####", "###########"
     ]),
-    stage("Anchorworks", 430, "Plan the order of three loads, two gates, and two opposing wall braces.", [
-      "##########", "#21Hppp..#", "#....c.G.#", "#.a..CAG.#", "#b.......#", "#GC.B....#", "##########"
+    stage("Anchorworks", 430, "A parked crate blocks the tail anchor. Clear it to finish the gated load, then restore it.", [
+      "#########", "#...G...#", "#...C...#", "#21Hpp.##", "#GCa.CAG#", "#......##", "#########"
     ])
   ];
 })();

@@ -470,10 +470,12 @@ The entries below record prior checks and decisions. All intended work is includ
 ## task/minigame-sokoban-levels-20261011 ? MINIGAME PR2 request 6
 
 - Agent: local Codex, GPT 6.1 Sol; isolated T3 task branch from `31e773efee60c85d6781078803e4eae208911e4e`.
-- Status: Active; content/design verification in progress.
-- Scope: fifteen total Sokoban stages requiring actual pellet growth and wall-backed heavy pushes; only the Sokoban array, its engine legality and scoped tests/docs. Snakebird, payouts and connectors belong to sibling tasks.
-- Checks: initial engine-search witnesses found for twelve draft stages; remaining layouts being revised. Read-only T3 design research completed; confirmed retained-tail collision bug, now corrected pending regression tests.
-- Save/version: existing rewards/records retained; no schema change or release bump.
-- Preview: coordinator-owned `http://localhost:4173/test9/`; no server mutation or browser automation.
-- Delivery: task branch backup only; no PR, merge, deployment, working/main or Colony changes.
+- Status: Ready for coordinator review; task branch only, no individual PR or merge.
+- Scope: fifteen total Sokoban stages requiring genuine growth and directional tail/wall bracing; narrow retained-tail growth collision correction. Snakebird array and all session/payout/connector implementation preserved.
+- Acceptance: all fifteen engine/session witnesses win legally; every heavy shove rejects unchanged without its actual support or with length four. All zero/single-pellet counterexample searches exhaust without solution. Two Keys requires three pellets (length six); Long Lever requires four (length seven). Gate pockets prove no bypass; Rebrace spends its anchor and Anchorworks requires clearing the left goal/tail anchor.
+- Tests: 53/53 targeted tests; `npm run check` passed syntax120JS, authority11modes and all363Node tests. Existing tests retained with scoped first-stage witness/final-stage index updates. Browser fixture updated but not run. Direct HTTP200/exact-byte checks for index/game/puzzle-levels/sokoban passed.
+- Evidence: `SOKOBAN-LEVELS.md`, `tests/fixtures/sokoban-solutions.json`, scoped engine legality/counterexample/progression tests and bounded search CLI. Completed mechanics/design research identified the growth bug; reboot-cancelled late-stage design is NOT a review PASS, and recovered candidate routes were independently verified.
+- Save/version: no migration or release bump; existing Seeds and high records survive. First five static reward fields preserved, central reward replacement owned by sibling.
+- Preview: coordinator-owned `http://localhost:4173/test9/`; no server mutation or browser/computer automation.
+- Risks/integration: independent exact-tip coordinator review and combined reward tests remain required. No human/UI difficulty review; witnesses do not assert optimality. Snakebird shared-file changes are independent array hunks; tiny shared test/README fixture hunks need normal conflict care.
 - Last update: 2026-10-11.
