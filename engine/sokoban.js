@@ -80,10 +80,14 @@
     const head = state.snake[0];
     const nextHead = { x: head.x + vector.x, y: head.y + vector.y };
     const crate = crateAt(state, nextHead);
-    const snakeWithoutTail = state.snake.slice(0, -1);
+    const pelletIndex = state.pellets.findIndex((pellet) => pellet.x === nextHead.x && pellet.y === nextHead.y);
+    const grew = pelletIndex >= 0;
+    // Growth keeps the old tail occupied, including when a crate is pushed
+    // onto a pellet. Only a moving tail is available as a destination.
+    const occupiedSnake = grew ? state.snake : state.snake.slice(0, -1);
 
     if (!isOpen(state, nextHead)) return { accepted: false, state, events: [], won: false };
-    if (snakeWithoutTail.some((part) => part.x === nextHead.x && part.y === nextHead.y)) {
+    if (occupiedSnake.some((part) => part.x === nextHead.x && part.y === nextHead.y)) {
       return { accepted: false, state, events: [], won: false };
     }
 
@@ -93,7 +97,7 @@
         return { accepted: false, state, events: [], won: false };
       }
       nextCratePoint = { x: crate.x + vector.x, y: crate.y + vector.y };
-      const blockedBySnake = snakeWithoutTail.some((part) => part.x === nextCratePoint.x && part.y === nextCratePoint.y);
+      const blockedBySnake = occupiedSnake.some((part) => part.x === nextCratePoint.x && part.y === nextCratePoint.y);
       const blockedByOtherCrate = state.crates.some((c) => c !== crate && c.x === nextCratePoint.x && c.y === nextCratePoint.y);
       if (!isOpen(state, nextCratePoint) || blockedBySnake || blockedByOtherCrate) {
         return { accepted: false, state, events: [], won: false };
@@ -103,8 +107,6 @@
     state.previousSnake = clonePoints(state.snake);
     state.previousCrates = state.crates.map((c) => ({ ...c }));
     state.snake.unshift(nextHead);
-    const pelletIndex = state.pellets.findIndex((pellet) => pellet.x === nextHead.x && pellet.y === nextHead.y);
-    const grew = pelletIndex >= 0;
     const events = [{ type: "move" }];
     if (grew) { state.pellets.splice(pelletIndex, 1); events.push({ type: "pellet" }); }
     else state.snake.pop();

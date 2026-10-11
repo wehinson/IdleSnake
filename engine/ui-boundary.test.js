@@ -95,7 +95,7 @@ test("named minigames agree with engine launches and unlocks, including the Runn
 test("headless play uses the browser controls to solve and advance Sokoban", () => {
   const session = createGameSession({ now: 0 });
   session.dispatch({ type: "launchGame", mode: "sokoban" });
-  const moves = ["right", "right", "right", "up", "up", "up", "up", "right", "right", "right", "right"];
+  const moves = ["right", "right", "right"];
   const result = runHeadless(session, { steps: 50, controller: (_, step) => ({ type: "playDirection", direction: moves[step] }) });
   assert.equal(result.ended, true);
   assert.equal(result.steps, moves.length);

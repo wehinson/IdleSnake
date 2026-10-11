@@ -304,7 +304,7 @@ test("every shipped mode selects into a ready board and runs on first input", ()
     assert.equal(selected.snapshot.phase, "ready", mode);
     assert.ok(selected.snapshot.active, mode);
     assert.ok(selected.events.some((e) => e.type === "runReady"), mode);
-    const firstDirections = { duel: "left", maze: "left", crossing: "up", snakebird: "left", broodline: "up" };
+    const firstDirections = { duel: "left", maze: "left", crossing: "up", snakebird: "left", sokoban: "right", broodline: "up" };
     const started = game.dispatch({ type: "direction", direction: firstDirections[mode] || "up" });
     assert.equal(started.snapshot.phase, "running", mode);
     assert.doesNotThrow(() => game.tick(100), mode);
