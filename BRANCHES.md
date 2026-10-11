@@ -3,7 +3,7 @@
 ## task/colony-batch-20261011 — Nine-change integration and independent review
 
 - Agent: Codex, GPT 6.1 Sol, high effort, local Jimothy; T3 integration thread `mcp:4179fc65-6476-4132-ab6c-582e4df713e3`.
-- Status: Active; all round 1 independent reviews require changes and original workers are fixing. Includes recurring offline hatchling-production loss (P1), Seed input/safety (P2), progression position, effect/stat accuracy and stale existing browser expectations. Coordinator reproduced offline and both Seed defects. No candidate approved, feature merge or PR yet; full IDs/evidence in BATCH_REVIEW.md.
+- Status: Active; UI/Seed fixes returned and fresh round2 reviews running at `6cb9d3a`/`aabbea2`. Coordinator reruns passed335/355 tests and UI script. Economy still fixes recurring offline nursery production, progress location, capped Lake query and retained rate expectations. No candidate approved, feature merge or PR yet; full IDs/evidence in BATCH_REVIEW.md.
 - Base: local active working `31e773efee60c85d6781078803e4eae208911e4e`. Work only in this integration checkout; final delivery is one PR into working, with no working/main merge or deployment.
 - Scope and evidence: [BATCH_REVIEW.md](BATCH_REVIEW.md) records all nine acceptance conditions, worker threads/branches, interfaces, review steps and eventual reviewed commit/task IDs.
 - Verification: baseline `npm run check` passed 335 tests; individual reruns passed Seed 350, UI 335 and economy 346 with syntax/authority. UI VM acceptance script passed. Twelve HTTP assets each matched the frozen task tips; 27 protected unrelated root-file hashes remain unchanged. Independent review conclusions pending.

@@ -14,9 +14,9 @@ Updated: 2026-10-11. Coordinator: GPT 6.1 Sol, high effort, local Jimothy.
 
 | Scope | Branch | Thread | State | Reviewed commit / task IDs |
 | --- | --- | --- | --- | --- |
-| 1, 6, 7, 9 UI | task/colony-ui-20261011 | mcp:4ee92de7-753a-47f6-84bd-7027e32edf3e | Round 1 changes required; worker fixing | Rejected candidate 082ac59b7c46bb13be9dcd85e49b101af641def8 |
+| 1, 6, 7, 9 UI | task/colony-ui-20261011 | mcp:4ee92de7-753a-47f6-84bd-7027e32edf3e | Round 2 review running | New candidate 6cb9d3a9b186364fd0887ff8fbe9fee6628eecf5 |
 | 3, 4, 5, 8 economy | task/colony-economy-20261011 | mcp:fd026147-88dc-4aae-8b42-576f1e265fa6 | Round 1 changes required; worker fixing | Rejected candidate 3e8d01e58ed641999c9da6f2551fa9c7fcfdc4cc |
-| 2 Seed grace | task/seed-turn-grace-20261011 | mcp:57410d23-3950-46db-933b-7d760f1a72ce | Round 1 changes required; worker fixing | Rejected candidate e4032fe0677dd8b3401ac541255449c0c7049979 |
+| 2 Seed grace | task/seed-turn-grace-20261011 | mcp:57410d23-3950-46db-933b-7d760f1a72ce | Round 2 review running | New candidate aabbea2cc15edbcbb42290c09d7beb49a62a4d62 |
 
 Each checkout is a sibling under `C:/Users/wehin/.t3/worktrees/IdleSnake/`. Workers send completion here with stable request IDs `colony-ui-20261011-complete`, `colony-economy-20261011-complete`, `seed-turn-grace-20261011-complete`.
 
@@ -64,6 +64,8 @@ Each checkout is a sibling under `C:/Users/wehin/.t3/worktrees/IdleSnake/`. Work
 | Seed round 1 | colony-batch-seed-review-r1-20261011 | node:delegated-task:command%3Amcp%3Abcd63630-411c-4aec-8b6f-4afac57f78e2%3Adelegate-task%3Acolony-batch-seed-review-r1-20261011 | Changes required: two P2 defects |
 | UI round 1 | colony-batch-ui-review-r1-20261011 | node:delegated-task:command%3Amcp%3Abcd63630-411c-4aec-8b6f-4afac57f78e2%3Adelegate-task%3Acolony-batch-ui-review-r1-20261011 | Changes required: two UI fixes, two economy dependencies |
 | Economy round 1 | colony-batch-economy-review-r1-20261011 | node:delegated-task:command%3Amcp%3Abcd63630-411c-4aec-8b6f-4afac57f78e2%3Adelegate-task%3Acolony-batch-economy-review-r1-20261011 | Changes required: P1 offline scheduler, P2 progression and stats wording |
+| UI round 2 | colony-batch-ui-review-r2-20261011 | node:delegated-task:command%3Amcp%3Abcd63630-411c-4aec-8b6f-4afac57f78e2%3Adelegate-task%3Acolony-batch-ui-review-r2-20261011 | Running against 6cb9d3a |
+| Seed round 2 | colony-batch-seed-review-r2-20261011 | node:delegated-task:command%3Amcp%3Abcd63630-411c-4aec-8b6f-4afac57f78e2%3Adelegate-task%3Acolony-batch-seed-review-r2-20261011 | Running against aabbea2 |
 
 ### Seed round 1 findings and response
 
@@ -82,6 +84,12 @@ Each checkout is a sibling under `C:/Users/wehin/.t3/worktrees/IdleSnake/`. Work
 - Economy-owned P2: working-followup.spec.js HUD retains+0.1375/s/+0.1581/s against actual1.375/1.58125; adapt10x expectations preserving purchase/pause/death/narrow coverage. Browser scenarios remain CI-only.
 - UI review passed script,35 targeted tests,335 check tests and whitespace; candidate/service control behavior passes. All three original frozen candidates stayed clean/no drift during reviews.
 - Fix routing request IDs: `colony-batch-economy-r1-fixes-20261011`, `colony-batch-economy-ui-r1-findings-20261011`, `colony-batch-ui-contribution-r1-fix-20261011`, `colony-batch-ui-r1-fixes-20261011`. Original workers now fixing, no candidate approved/merged. Each changed tip needs fresh independent review round with original brief/findings/responses.
+
+### Seed/UI fixes and round 2 evidence
+
+- UI returned clean/pushed `6cb9d3a9b186364fd0887ff8fbe9fee6628eecf5`, after dcd4134 resource-neutral wording plus unchanged-total actual string checks. Smoke scenario retains controls/config/cards/cells/nursery/tail coverage and asserts current nonzero bylines with occupied legacy counts[0,2,3,4,0,0,0,0], independently deriving small-population rates from config. Parent inspected changed diff, reran actual UI script (all pass) and npm run check335/335 plus syntax/authority/whitespace. Lake cap and working-followup numerical adaptation remain economy-owned dependencies.
+- Seed returned clean/pushed `aabbea2cc15edbcbb42290c09d7beb49a62a4d62`. Buffered protected replay now uses original final buffered heading within34ms; on-time/delayed0/5/16/34ms snapshot/save/RNG/event regression added. Speculative future body forecast replaced saved optional queue-index guards that revalidate actual geometry when deferred turn executes, discard unsafe turn and revalidate dependent inputs without speculative RNG. Exact old food/body/RNG reproduction now3pickups/13segments/3draws, safely continues9,7. Multiple guards/core-step reload/session slices/saves covered; five new regressions retain prior15cases. Parent inspected changed diff and reran npm run check355/355 plus syntax/authority/whitespace.
+- Fresh UI and Seed delegate_task round2 prompts include original brief verbatim, prior worker/parent evidence, all findings and new responses, exact new frozen tips and unresolved economy dependencies. All same local codex/gpt-6.1-sol/high creation settings; task IDs above. Await automatic completion, no polling.
 
 ## Review and integration sequence
 
@@ -102,4 +110,4 @@ Each checkout is a sibling under `C:/Users/wehin/.t3/worktrees/IdleSnake/`. Work
 - Initial direct HTTP verification: 10 assets per route matched exact mapped checkout (HTML, game/CSS, session/queries, approved tongue engine/draw, theme kit/official CSS and image); primary game.js matches root working. Recheck after workers finish and integration merges.
 - Root preservation baseline: SHA-256 hashes for 27 unrelated modified/untracked root files saved locally in this worktree's git directory as `batch-root-preservation.json` (not committed).
 - All visual smoothness/layout/theme fit/accessibility by eye remain unverified until William tests. Direct engine/VM/HTTP checks cannot prove them.
-- PR: not created. All round 1 reviews require changes; original workers fixing. No feature branch integrated yet.
+- PR: not created. UI/Seed round2 reviews running; economy fixes pending. No feature branch integrated yet.
