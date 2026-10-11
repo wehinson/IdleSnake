@@ -434,7 +434,7 @@ test("Crossing owns its timed clear transition, rejects input, pauses, and reset
   assert.equal(first.snapshot.active.score, 100);
   assert.equal(first.snapshot.active.snakeLength, 4);
   assert.equal(first.snapshot.active.subphase, "clearing");
-  assert.equal(first.snapshot.active.transitionRemainingMs, 500);
+  assert.equal(first.snapshot.active.transitionRemainingMs, 1000);
   assert.equal(first.snapshot.records.crossingBest, 100);
   assert.equal(first.snapshot.seeds, 15);
 
@@ -442,13 +442,13 @@ test("Crossing owns its timed clear transition, rejects input, pauses, and reset
   assert.ok(rejected.events.some((item) => item.type === "actionRejected" && item.reason === "stageTransition"));
   assert.deepEqual(rejected.snapshot.active.directionQueue, []);
   const partial = game.tick(200).snapshot;
-  assert.equal(partial.active.transitionRemainingMs, 300);
+  assert.equal(partial.active.transitionRemainingMs, 800);
   assert.equal(partial.active.stage, 1);
   game.dispatch({ type: "pause" });
   const paused = game.tick(1000).snapshot;
-  assert.equal(paused.active.transitionRemainingMs, 300);
+  assert.equal(paused.active.transitionRemainingMs, 800);
   game.dispatch({ type: "resume" });
-  assert.equal(game.tick(299).snapshot.active.transitionRemainingMs, 1);
+  assert.equal(game.tick(799).snapshot.active.transitionRemainingMs, 1);
   const stageStarted = game.tick(1);
   const stageTwo = stageStarted.snapshot.active;
   assert.ok(stageStarted.events.some((item) => item.type === "stageStarted" && item.stage === 2));
@@ -461,8 +461,13 @@ test("Crossing owns its timed clear transition, rejects input, pauses, and reset
   assert.equal(stageTwo.snake.some((part) => part.y === 0), false);
   assert.deepEqual(stageTwo.directionQueue, []);
   assert.equal(stageTwo.direction, "up");
+  assert.equal(stageStarted.snapshot.phase, "ready");
+  assert.equal(stageTwo.awaitingStart, true);
   assert.ok(Math.abs(stageTwo.cars[0].speed - 0.14592) < 1e-10);
 
+  assert.ok(game.dispatch({ type: "direction", direction: "up" }).events.some((item) => item.reason === "explicitStartRequired"));
+  assert.equal(game.tick(1000).snapshot.phase, "ready");
+  game.dispatch({ type: "begin" });
   game.dispatch({ type: "direction", direction: "up" });
   const moved = game.tick(1);
   assert.ok(moved.events.some((item) => item.type === "move"));

@@ -32,7 +32,7 @@
 })(typeof window !== "undefined" ? window : globalThis, ({ puzzleLevels, config, notables, economy, migration, tradeRoutes, resupply, snake, duel, crossing, breakout, runner, battleship, centipede, broodline, maze, sokoban, snakebird }) => {
   const SAVE_VERSION = 5;
   const MAX_LIVE_DT = 100;
-  const CROSSING_STAGE_CLEAR_MS = 500;
+  const CROSSING_STAGE_CLEAR_MS = 1000;
   const slowedTick = (milliseconds) => Math.round(milliseconds / config.gameplaySpeed);
   const directions = new Set(["up", "down", "left", "right"]);
   const directionVectors = { up: { x: 0, y: -1 }, down: { x: 0, y: 1 }, left: { x: -1, y: 0 }, right: { x: 1, y: 0 } };
@@ -248,16 +248,7 @@
     state.active = active; state.mode = "snake"; state.phase = "ready"; state.modeAccumulatorMs = 0; state.elapsedMs = 0;
   }
   function buildCrossingCars(stage, grid) {
-    const cars = []; const carCount = stage >= 5 ? 3 : stage >= 3 ? 2 : 1;
-    const speedMultiplier = 1 + Math.min(1.25, (stage - 1) * 0.14);
-    for (let row = 1; row < grid.rows - 1; row += 1) {
-      const sign = row % 2 === 0 ? -1 : 1; const speed = (0.11 + (row % 3) * 0.018) * speedMultiplier * sign;
-      for (let index = 0; index < carCount; index += 1) {
-        const width = 1 + ((row + index + stage) % 3 === 0 ? 1 : 0); const start = (row * 2.7 + index * grid.columns / carCount + stage * 1.35) % grid.columns;
-        cars.push({ row, x: sign > 0 ? start - width : grid.columns - start, width, speed, direction: sign > 0 ? "right" : "left" });
-      }
-    }
-    return cars;
+    return crossing.buildCars(stage, grid);
   }
   function buildMaze(layoutIndex) {
     const open = new Set(); let seed = [0x1f123bb5, 0x72a4d91c, 0xc3e87a61, 0x9b4f20de][layoutIndex % 4];
@@ -737,8 +728,10 @@
           if (!modeNames.has(state.mode)) return reject("modeNotImplemented");
           {
             const active = state.active;
+            const crossingRequiresStart = state.mode === "crossing" && (state.phase === "gameover" || active?.awaitingStart);
             const setup = action.setup || (isPuzzleMode(state.mode) && active ? puzzleRestartSetup(active) : undefined);
             startMode(state, state.mode, setup); rememberPuzzle();
+            if (crossingRequiresStart) state.active.awaitingStart = true;
           } events.push(event("runReady", { mode: state.mode })); break;
         case "battleshipStart":
           if (state.mode !== "battleship") return reject("invalidMode");
@@ -747,6 +740,7 @@
           // Start a ready run without a turn (the host's Start button); the
           // snake keeps its current heading.
           if (!state.active || state.phase !== "ready") return reject("notReady");
+          if (state.mode === "crossing") state.active.awaitingStart = false;
           // The keypad Start gives classic Snake a brief moment to register
           // before the opening move. Directional starts bypass this action,
           // so they retain their normal first-tick timing.
@@ -881,6 +875,7 @@
         case "direction":
           if (!state.active || (state.phase !== "running" && state.phase !== "ready") || !directions.has(action.direction)) return reject("notRunning");
           if (state.mode === "crossing" && state.active.subphase === "clearing") return reject("stageTransition");
+          if (state.mode === "crossing" && state.active.awaitingStart) return reject("explicitStartRequired");
           if (state.mode === "battleship") {
             const vector = directionVectors[action.direction]; const active = state.active;
             if (active.phase === "placement" && battleship.FLEET[active.placement.index]) {
@@ -1194,10 +1189,10 @@
       return result(state, events);
     }
     function tickSlice(dtMs) {
-      // Classic Snake uses elapsed time even when frames stop in a hidden tab.
+      // Snake and fixed-step Breakout preserve elapsed time across long frames.
       // Other modes retain their existing live-frame limit.
       const rawDt = Math.max(0, Number(dtMs) || 0);
-      const dt = state.mode === "snake" ? rawDt : Math.min(MAX_LIVE_DT, rawDt);
+      const dt = ["snake", "breakout"].includes(state.mode) ? rawDt : Math.min(MAX_LIVE_DT, rawDt);
       const events = [];
       if (!rawDt) return events;
       events.push(...advanceSettlementWorld(rawDt));
@@ -1256,17 +1251,19 @@
             state.active.stage += 1; state.active.snake = crossing.buildEntrySnake(state.active.grid, state.active.entryColumn, state.active.snakeLength);
             state.active.direction = "up"; state.active.nextDirection = "up"; state.active.directionQueue = [];
             state.active.cars = buildCrossingCars(state.active.stage, state.active.grid); state.active.subphase = "playing"; state.modeAccumulatorMs = 0;
+            state.phase = "ready"; state.active.awaitingStart = true;
             events.push(event("stageStarted", { stage: state.active.stage }));
           }
         } else {
           state.modeAccumulatorMs += dt;
           while (state.modeAccumulatorMs >= state.active.tickMs && state.phase === "running" && state.active.subphase === "playing") {
             const stepped = crossing.stepCrossing(state.active); state.modeAccumulatorMs -= state.active.tickMs; events.push(...stepped.events);
-            if (!stepped.alive) { state.phase = "gameover"; state.records.crossingBest = Math.max(state.records.crossingBest, state.active.score); events.push(event("runEnded", { mode: "crossing" })); }
+            if (!stepped.alive) { state.phase = "gameover"; state.active.directionQueue = []; state.active.awaitingStart = true; state.records.crossingBest = Math.max(state.records.crossingBest, state.active.score); events.push(event("runEnded", { mode: "crossing" })); }
             const cleared = stepped.events.find((item) => item.type === "stageClear");
             if (cleared) {
               state.seeds += cleared.reward; state.records.crossingBest = Math.max(state.records.crossingBest, state.active.score);
               state.active.subphase = "clearing"; state.active.transitionRemainingMs = CROSSING_STAGE_CLEAR_MS; state.modeAccumulatorMs = 0;
+              state.active.directionQueue = [];
               events.push(event("reward", { amount: cleared.reward }));
             }
           }
@@ -1274,6 +1271,7 @@
       }
       if (state.phase === "running" && state.active && state.mode === "breakout") {
         const stepped = breakout.step(state.active, { deltaMs: dt, boardWidth: state.active.board.width, boardHeight: state.active.board.height, elapsedMs: state.elapsedMs, rng: () => state.rng() }); events.push(...stepped.events);
+        state.elapsedMs = Math.max(0, state.elapsedMs - (stepped.unconsumedMs || 0));
         const ballLost = stepped.events.find((item) => item.type === "ballLost");
         if (ballLost) { state.phase = "ready"; state.modeAccumulatorMs = 0; events.push(event("runReady", { mode: "breakout", reason: "ballLost", lives: ballLost.lives })); }
         else if (!stepped.alive || stepped.events.some((item) => item.type === "win")) { state.phase = "gameover"; const won = stepped.events.some((item) => item.type === "win"); const reward = won ? 500 : 0; state.seeds += reward; state.records.breakoutBest = Math.max(state.records.breakoutBest, state.active.score); events.push(event("runEnded", { mode: "breakout", reward })); }
