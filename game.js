@@ -636,7 +636,7 @@ function presentGameResult(result) {
   const ended = result.events.find((event) => event.type === "runEnded");
   if (ended && gameView.gameMode === "snakebird") showOverlay(ended.won ? "Level " + (gameView.snakebird.levelIndex + 1) + " Clear · +" + formatNumber(ended.reward) + " Seeds" : "Fell");
   if (ended && gameView.gameMode === "sokoban") showOverlay("Stage Clear · +" + formatNumber(ended.reward) + " Seeds");
-  if (gameView.gameMode === "sokoban") setScreenHint(gameView.state === "ready" ? "Arrow keys / D-pad: move · collect pellets · solve the crates" : sokobanStatusHint());
+  if (gameView.gameMode === "sokoban" && gameView.state !== "gameover") setScreenHint(gameView.state === "ready" ? "Arrow keys / D-pad: move · collect pellets · solve the crates" : sokobanStatusHint());
   if (gameView.gameMode === "battleship" && gameView.battleship?.phase === "placement") battleshipSetPlacementHint();
   if (gameView.gameMode === "broodline") syncBroodlineFormation();
   if (result.events.some((event) => event.type === "NOTABLE_GENERATED")) showNotablesMenu();
@@ -3691,7 +3691,7 @@ function syncHud() {
     setText(scoreLabelEl, "Progress"); setText(bestLabelEl, "Kills");
     scoreEl.textContent = padScore(gameView.broodline.pendingSeeds); bestEl.textContent = padScore(gameView.broodline.kills);
     gridLabelEl.textContent = `R${gameView.broodline.round}`; timerEl.textContent = formatTime(gameView.elapsedMs);
-    setScreenHint(`BODY ${gameView.broodline.chain.filter((part) => part.kind === "body").length} · ARMOR ${gameView.broodline.armor}/${gameView.broodline.maxArmor} · HATCH ${gameView.broodline.chain.filter((part) => ["garden", "cave", "electric", "lava", "rattle"].includes(part.kind)).length}`);
+    if (gameView.state !== "gameover") setScreenHint(`BODY ${gameView.broodline.chain.filter((part) => part.kind === "body").length} · ARMOR ${gameView.broodline.armor}/${gameView.broodline.maxArmor} · HATCH ${gameView.broodline.chain.filter((part) => ["garden", "cave", "electric", "lava", "rattle"].includes(part.kind)).length}`);
     return;
   }
   setText(scoreLabelEl, isSnakebird ? "Moves" : "Score");
