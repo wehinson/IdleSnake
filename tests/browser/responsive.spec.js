@@ -4,7 +4,7 @@ const viewports = [
   { width: 360, height: 740, single: true }, { width: 390, height: 844, single: true },
   { width: 430, height: 800, single: true }, { width: 500, height: 800, single: true },
   { width: 600, height: 800, single: true }, { width: 640, height: 800, single: true },
-  { width: 641, height: 800, single: false }, { width: 1024, height: 600, single: false }, { width: 1280, height: 720, single: false }
+  { width: 641, height: 800, single: true }, { width: 800, height: 800, single: true }, { width: 801, height: 800, single: false }, { width: 1024, height: 600, single: false }, { width: 1280, height: 720, single: false }
 ];
 
 for (const viewport of viewports) test(`layout fits ${viewport.width}x${viewport.height}`, async ({ page }) => {

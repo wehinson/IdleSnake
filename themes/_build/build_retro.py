@@ -111,6 +111,11 @@ html[data-theme="@ID@"] .screen-hint {
   letter-spacing: 0.04em;
 }
 
+/* Bezel shading is 25% weaker in fullscreen, as in the base game */
+html[data-theme="@ID@"] .is-fullscreen-mode .screen-bezel {
+  box-shadow: var(--s-lcd-glow-fullscreen);
+}
+
 html[data-theme="@ID@"] .egg-shape {
   background: var(--s-egg);
 }
@@ -217,6 +222,7 @@ def palette(font, lcd_font, lcd_size, lcd_label_size, lcd, ink, **values):
         "lcd-ink": ink,
         "lcd-dim": mix(ink, lcd, 0.3),
         "lcd-glow": "inset 0 1px 2px " + rgba(ink, 0.3),
+        "lcd-glow-fullscreen": "inset 0 1px 2px " + rgba(ink, 0.225),
         "seed": mix(ink, lcd, 0.12),
         "key-highlight": "transparent",
     }

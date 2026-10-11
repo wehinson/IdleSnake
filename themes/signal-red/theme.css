@@ -13,6 +13,7 @@ html[data-theme="signal-red"] {
   --s-lcd-ink: #24281f;
   --s-lcd-dim: #575b50;
   --s-lcd-glow: inset 0 1px 2px rgba(36, 40, 31, 0.3);
+  --s-lcd-glow-fullscreen: inset 0 1px 2px rgba(36, 40, 31, 0.225);
   --s-seed: #393d33;
   --s-key-highlight: transparent;
   --s-page: #110e0d;
@@ -771,6 +772,11 @@ html[data-theme="signal-red"] .screen-hint {
   font-size: var(--s-lcd-label-size);
   font-weight: 400;
   letter-spacing: 0.04em;
+}
+
+/* Bezel shading is 25% weaker in fullscreen, as in the base game */
+html[data-theme="signal-red"] .is-fullscreen-mode .screen-bezel {
+  box-shadow: var(--s-lcd-glow-fullscreen);
 }
 
 html[data-theme="signal-red"] .egg-shape {
