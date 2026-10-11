@@ -1,5 +1,13 @@
 # Branch status
 
+## task/minigame-snakebird-levels-20261011 — MINIGAME PR2 request5
+
+- Agent: Codex, GPT 6.1 Sol, local Jimothy, T3 isolated checkout; base `31e773efee60c85d6781078803e4eae208911e4e`.
+- Status: Active. Own exactly 15 sequenced Snakebird levels, engine replay/solver evidence, and safe board-record migration. Sokoban, central rewards, and generic rendering belong to sibling tasks.
+- Constraints: task-branch commits/push only; no working/main merge, individual PR, Colony commits, browser automation, or shared-server mutation. Coordinator `mcp:618042fc-9354-4fc9-906a-1b3ca5c689e4` owns combined review/PR and `/test8/` route allocation.
+- Research: two T3 read-only GPT 6.1 Sol medium design tasks (mechanics/progression and varied challenging layouts) active; exact IDs and results will be recorded with validation.
+- Last update: 2026-10-11.
+
 ## task/tongue-seed-return — Shorter tongue and smooth Seed placement experiment
 
 - Agent: Codex, GPT 6.1 Sol, medium effort, local Jimothy, T3-created checkout `C:/Users/wehin/.t3/worktrees/IdleSnake/task-tongue-seed-return`.
