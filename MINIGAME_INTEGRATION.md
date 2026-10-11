@@ -35,7 +35,7 @@ Pass1 retained four failures; pass2 retained one. They were compatibility expect
 
 Full logs are retained in the integration Git directory: minigame-combined-2a33d38-pass1.log, minigame-combined-pass2.log, minigame-combined-pass3.log. These logs are local evidence, not committed artifacts; the assertions and witnesses themselves are in the repository.
 
-Light direct HTTP audit: **79/81 asset checks matched exactly with no-store**, including every combined test12 script/stylesheet reference and official theme/puzzle assets. Shared PID14548, route-config hash and original mappings were unchanged; all27 unrelated root-file hashes matched. The only two failures were test1 index/game404: its approved tongue checkout is missing again. Operations was notified for the designated restoration owner; this coordinator does not recreate/remove/rebind it. No Minigame asset mismatch occurred. Audit JSON is retained in own Git directory minigame-final-http-e30f7c9.json.
+Light direct HTTP audit: **79/81 asset checks matched exactly with no-store**, including every combined test12 script/stylesheet reference and official theme/puzzle assets. Shared PID14548, route-config hash and original mappings were unchanged; all27 unrelated root-file hashes matched. The other two results were test1 index/game404. Home subsequently retired test1: its integrated tongue checkout is normally removed by T3 storage cleanup, and the approved code is already in working/root and shipped1.0.4. These404s are expected, not audit failures. Healthy previews are root plus test2–test12; no restoration, route-table edit or server restart is needed. No Minigame asset mismatch occurred. Audit JSON is retained in own Git directory minigame-final-http-e30f7c9.json.
 
 ## Acceptance limitations
 
