@@ -1,5 +1,18 @@
 # Branch status
 
+## Release 1.0.4 — Current committed working
+
+- Agent: local Jimothy / Codex, GPT 6.1 Sol, high effort, in the authorized T3 release checkout `task/release-working-20261011`.
+- Status: authorized release; local verification passed; main integration and live verification in progress. See `RELEASE_STATUS.md` for the release scope and evidence.
+- Authorization: William said "lets ship the current working branch" on 2026-10-11. Ship committed baseline `31e773efee60c85d6781078803e4eae208911e4e` plus release metadata only.
+- Included: approved tongue Seed return, existing Office Charcoal and retro themes, Notables pending indicator, and fullscreen availability. The entries below describe their historical verification.
+- Excluded: both unapproved Colony and Minigame batches, all other worker tips, archived tongue catch, and root uncommitted balance work. Preserve two independent review PRs targeting `working`.
+- Version: package.json and package-lock.json advance from 1.0.3 to 1.0.4; save format stays 5.
+- Verification: `npm run check` passed syntax, engine authority and all 335 Node tests in this clean checkout. All 20 focused tongue, drawing and Snake engine checks passed. The deterministic headless Snake command completed normally. `git diff --check` passed. Existing GitHub CI browser tests remain enabled; no local browser automation or computer use is authorized.
+- Deployment: existing GitHub Pages configuration publishes `main` from `/` at https://wehinson.github.io/IdleSnake/. Verify the deployment source commit and live bytes after pushing main.
+- Preservation: `working`, pending task branches/worktrees, root balance changes and the running shared preview server/routes are retained. No dirty root checkout switch or history rewrite is permitted.
+- Last update: 2026-10-11.
+
 ## task/tongue-seed-return — Shorter tongue and smooth Seed placement experiment
 
 - Agent: Codex, GPT 6.1 Sol, medium effort, local Jimothy, T3-created checkout `C:/Users/wehin/.t3/worktrees/IdleSnake/task-tongue-seed-return`.
