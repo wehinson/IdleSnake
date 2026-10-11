@@ -35,7 +35,7 @@ Before handing off a change, run `npm run check`. Run browser checks when needed
 
 ## Live release
 
-Version 1.0.3 includes all five working branches and a deterministic save boundary in the browser/engine parity test. GitHub Pages serves `main` at [Snake Forever](https://wehinson.github.io/IdleSnake/). The Original theme remains the default; five more themes are available in the theme picker.
+Version 1.0.3 includes all five working branches and a deterministic save boundary in the browser/engine parity test. GitHub Pages serves `main` at [Snake Forever](https://wehinson.github.io/IdleSnake/). Office Charcoal is the official theme and the default. The theme picker is removed; `?theme=<id>` shows another theme, for example `?theme=original`.
 
 ## Project map
 
@@ -117,7 +117,7 @@ Direction input uses its event timestamp. A turn pressed before a movement deadl
 
 Each hatchling consumes one Seed every 900 ms while feeding. It grows a second block at 5 minutes, a third block at 10 minutes, and graduates at 15 minutes after consuming 1,000 Seeds. Growth stops when Seeds run out. The nursery's Pause feeding button stops feeding and growth while keeping Seeds. This setting is saved and applies during offline progress. The nursery heading places the title on the left, the button in the middle, and capacity on the right.
 
-Fullscreen mode is available after the first board upgrade and is saved across reloads. It expands the play field and makes the side menu 25% wider, within the screen width. Its Minigames button sits between Start and Phone Mode and lists game names with their unlock state. The controls sit 10 px higher. Screen scanlines, tint, and bezel shading are 25% weaker in fullscreen. Returning after a background death shows a static Game Over screen. A death animation in progress is also cleared when the tab loses focus.
+Fullscreen mode is available from a new save, before any board upgrade, and is saved across reloads. Its button stays on the keypad beside 0. It expands the play field and makes the side menu 25% wider, within the screen width. Its Minigames button sits between Start and Phone Mode and lists game names with their unlock state. The controls sit 10 px higher. Screen scanlines, tint, and bezel shading are 25% weaker in fullscreen. Returning after a background death shows a static Game Over screen. A death animation in progress is also cleared when the tab loses focus.
 
 Fatal classic Snake collisions have a 120 ms grace period, set by snakeConfig.collisionGraceMs. The snake holds on its last safe square; a legal safe turn during this window completes the pending move and starts a full movement interval. Unsafe input does not extend the window. Pause freezes it and reset clears it. Shields keep their existing immediate rescue behavior.
 

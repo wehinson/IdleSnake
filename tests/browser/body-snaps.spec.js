@@ -53,7 +53,7 @@ test("all segments snap with one body shade, uniform body sizes, and a head-colo
       checks.push({
         direction,
         colors: initial.rects.map((rect) => rect.color),
-        expectedColors: [snakeColors.head, ...Array(6).fill(snakeColors.body), snakeColors.head],
+        expectedColors: [ThemeKit.color(snakeColors.head), ...Array(6).fill(ThemeKit.color(snakeColors.body)), ThemeKit.color(snakeColors.head)],
         cellsExact: initial.rects.every((rect, index) => exact(rect, moved.active.snake[index], index))
           && middle.rects.every((rect, index) => exact(rect, partial.active.snake[index], index)),
         moving: initial.rects.map((rect, index) => rect.x !== middle.rects[index].x || rect.y !== middle.rects[index].y),
@@ -81,7 +81,7 @@ test("all segments snap with one body shade, uniform body sizes, and a head-colo
     const paletteChecks = snakeColorChoices.body.map((choice) => {
       snakeColors = { ...snakeColors, body: choice.value };
       const colors = capture().rects.map((rect) => rect.color);
-      return colors.every((color, index) => color === (index === 0 || index === colors.length - 1 ? snakeColors.head
+      return colors.every((color, index) => color === ThemeKit.color(index === 0 || index === colors.length - 1 ? snakeColors.head
         : choice.value));
     });
     snakeColors = { ...snakeColors, body: originalBodyColor };
@@ -89,7 +89,7 @@ test("all segments snap with one body shade, uniform body sizes, and a head-colo
     const headPaletteChecks = snakeColorChoices.head.map((choice) => {
       snakeColors = { ...snakeColors, head: choice.value };
       const colors = capture().rects.map((rect) => rect.color);
-      return colors[0] === choice.value && colors.at(-1) === choice.value;
+      return colors[0] === ThemeKit.color(choice.value) && colors.at(-1) === ThemeKit.color(choice.value);
     });
     snakeColors = { ...snakeColors, head: originalHeadColor };
     startDeathAnimation();

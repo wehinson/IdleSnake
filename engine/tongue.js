@@ -176,8 +176,12 @@
   //   style:  style id
   //   t:      catch progress 0..1
   //   head:   head cell; direction: facing; seed: Seed cell
-  function catchFrame(styleId, t, head, direction, seed) {
-    const style = getStyle(styleId);
+  function catchFrame(styleId, t, head, direction, seed, outwardDurationScale = 1) {
+    const original = getStyle(styleId);
+    const duration = Math.max(0.01, Math.min(1, outwardDurationScale));
+    const style = { ...original, flickUntil: original.flickUntil * duration,
+      emergeUntil: (original.emergeUntil || 0) * duration,
+      grabAt: original.grabAt * duration, pullUntil: original.pullUntil * duration };
     const vector = vectors[direction] || vectors.right;
     const progress = clamp01(t);
     const mouth = {
@@ -264,19 +268,54 @@
     ];
   }
 
-  // Tracks one catch across frames. The only memory is how far away the Seed
-  // was when the catch began, so a Seed that appears next to the head (or a
-  // turn into one) still plays the whole timeline, only faster.
-  function createCatchTracker(styleId = styles[0].id) {
+  // Tracks one catch across frames. Optional experiment settings shorten the
+  // outward timeline and retain the last drawn Seed position for cancellation.
+  // A returning Seed finishes placement before another catch can start.
+  function createCatchTracker(styleId = styles[0].id, { outwardDurationScale = 1, returnOnCancel = false } = {}) {
     let current = null; // { key, startSteps }
     let style = getStyle(styleId).id;
 
-    function update({ head, direction, seeds, stepProgress = 0, running = true }) {
+    function update({ head, direction, seeds, stepProgress = 0, running = true, nowMs = 0, tickMs = 200, reducedMotion = false }) {
+      if (current && !(seeds || []).some(seed => `${seed.x},${seed.y}` === current.key)) current = null;
       if (!running || !head) {
         if (!running) return current?.frame || null;
         current = null;
         return null;
       }
+      // Existence is authoritative: a consumed/removed Seed must never be
+      // restored, even if its presentation was partway through a return.
+      const previous = current?.frame;
+      const continuing = current && stepsUntilSeed(head, direction, current.seed, stepProgress);
+      if (returnOnCancel && current && !current.returning && previous
+        && (reducedMotion || continuing === null || direction !== current.direction)) {
+        const home = { x: current.seed.x + 0.5, y: current.seed.y + 0.5 };
+        if (Math.hypot(previous.seed.x - home.x, previous.seed.y - home.y) > 1e-9) {
+          current.returning = { from: { ...previous.seed }, home, startedAt: nowMs,
+            duration: Math.max(80, Math.min(240, tickMs * 0.6)) };
+        } else current = null;
+      }
+      if (current?.returning) {
+        const placement = current.returning;
+        const progress = clamp01((nowMs - placement.startedAt) / placement.duration);
+        const amount = ease("inOutSine", progress / 0.75);
+        const seed = { x: placement.from.x + (placement.home.x - placement.from.x) * amount,
+          y: placement.from.y + (placement.home.y - placement.from.y) * amount,
+          scale: placement.from.scale + (1 - placement.from.scale) * amount, stretch: 1 };
+        const facing = vectors[direction] || vectors.right;
+        const mouth = { x: head.x + 0.5 + facing.x * MOUTH_OFFSET, y: head.y + 0.5 + facing.y * MOUTH_OFFSET };
+        const length = Math.hypot(seed.x - mouth.x, seed.y - mouth.y);
+        const retract = ease("inOutSine", (progress - 0.75) / 0.25);
+        // Aim the flexible tongue from the current mouth to the held Seed.
+        // Repeated turns move its root, never the Seed's world-space path.
+        current.frame = { ...previous, phase: progress < 0.75 ? "return" : "retract", t: progress, mouth, seed,
+          tip: { x: seed.x + (mouth.x - seed.x) * retract, y: seed.y + (mouth.y - seed.y) * retract },
+          direction: length > 1e-9 ? { x: (seed.x - mouth.x) / length, y: (seed.y - mouth.y) / length } : facing,
+          length: length * (1 - retract), showTongue: progress < 1, seedCell: { ...current.seed } };
+        const frame = current.frame;
+        if (progress === 1) current = null;
+        return frame;
+      }
+      if (reducedMotion) { current = null; return null; }
       let best = null;
       (seeds || []).forEach((seed) => {
         const steps = stepsUntilSeed(head, direction, seed, stepProgress);
@@ -288,10 +327,10 @@
       }
       const key = `${best.seed.x},${best.seed.y}`;
       if (!current || current.key !== key || best.steps > current.startSteps) {
-        current = { key, startSteps: Math.max(0.001, best.steps), frame: null };
+        current = { key, seed: { ...best.seed }, direction, startSteps: Math.max(0.001, best.steps), frame: null };
       }
       const t = 1 - best.steps / current.startSteps;
-      current.frame = { ...catchFrame(style, t, head, direction, best.seed), seedCell: best.seed };
+      current.frame = { ...catchFrame(style, t, head, direction, best.seed, outwardDurationScale), seedCell: { ...best.seed } };
       return current.frame;
     }
 

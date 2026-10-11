@@ -10,17 +10,12 @@ async function unlock(page, boardLevel = 6) {
   await page.goto("/", { waitUntil: "networkidle" });
 }
 
-test("fullscreen unlock follows the purchased board and expands without resetting play", async ({ page }) => {
+test("fullscreen is available before any board upgrade and expands without resetting play", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await unlock(page, 0);
   const button = page.locator("#fullscreenModeButton");
-  await expect(button).toBeHidden();
-  await page.evaluate(() => {
-    dispatchSession({ type: "addSeeds", amount: 1000000 });
-    dispatchSession({ type: "buyUpgrade", upgrade: "board" });
-    syncPanels();
-  });
   await expect(button).toBeVisible();
+  expect(await page.evaluate(() => session.snapshot().upgrades.boardLevel)).toBe(0);
   const before = await page.evaluate(() => session.snapshot().active);
   const small = await page.locator("#game").boundingBox();
   const normalMenu = await page.locator(".menu-panel").boundingBox();
@@ -95,7 +90,7 @@ test("fullscreen follow-up widens the menu, restores the mode, and finishes back
   expect(Math.abs(after.width - before.width * 1.25)).toBeLessThan(2);
   expect((await page.locator("#game").boundingBox()).width).toBeGreaterThan(small.width * 1.4);
   expect(await page.evaluate(() => screenEffectStrength())).toBe(0.75);
-  expect(await page.locator(".screen-bezel").evaluate((el) => getComputedStyle(el).boxShadow)).toContain("0.24");
+  expect(await page.locator(".screen-bezel").evaluate((el) => getComputedStyle(el).boxShadow)).toContain("0.22");
   await page.screenshot({ path: test.info().outputPath("fullscreen-follow-up.png") });
   await page.reload();
   await expect(page.locator("body")).toHaveClass(/is-fullscreen-mode/);

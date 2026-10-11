@@ -1,5 +1,89 @@
 # Branch status
 
+## Release 1.0.4 — Current committed working
+
+- Agent: local Jimothy / Codex, GPT 6.1 Sol, high effort, in the authorized T3 release checkout `task/release-working-20261011`.
+- Status: authorized release; local verification passed; main integration and live verification in progress. See `RELEASE_STATUS.md` for the release scope and evidence.
+- Authorization: William said "lets ship the current working branch" on 2026-10-11. Ship committed baseline `31e773efee60c85d6781078803e4eae208911e4e` plus release metadata only.
+- Included: approved tongue Seed return, existing Office Charcoal and retro themes, Notables pending indicator, and fullscreen availability. The entries below describe their historical verification.
+- Excluded: both unapproved Colony and Minigame batches, all other worker tips, archived tongue catch, and root uncommitted balance work. Preserve two independent review PRs targeting `working`.
+- Version: package.json and package-lock.json advance from 1.0.3 to 1.0.4; save format stays 5.
+- Verification: `npm run check` passed syntax, engine authority and all 335 Node tests in this clean checkout. All 20 focused tongue, drawing and Snake engine checks passed. The deterministic headless Snake command completed normally. `git diff --check` passed. Existing GitHub CI browser tests remain enabled; no local browser automation or computer use is authorized.
+- Deployment: existing GitHub Pages configuration publishes `main` from `/` at https://wehinson.github.io/IdleSnake/. Verify the deployment source commit and live bytes after pushing main.
+- Preservation: `working`, pending task branches/worktrees, root balance changes and the running shared preview server/routes are retained. No dirty root checkout switch or history rewrite is permitted.
+- Last update: 2026-10-11.
+
+## task/tongue-seed-return — Shorter tongue and smooth Seed placement experiment
+
+- Agent: Codex, GPT 6.1 Sol, medium effort, local Jimothy, T3-created checkout `C:/Users/wehin/.t3/worktrees/IdleSnake/task-tongue-seed-return`.
+- Status: Approved by William and merged into `working` on 2026-10-11. Awaiting a separate ship instruction for `main` and deployment.
+- Base: active `working` commit `af0c946`. Fresh implementation; the scrapped `task/tongue-catch` branch and `archive/tongue-catch-2026-10-10` were not revived or merged.
+- Changes: opt-in tracker experiment halves Goo Fork emergence/reach/pull phase durations, preserves its easing, shape and two-cell catch range, and keeps the Seed held until the engine consumes it. A cancelled pull places the Seed from its last drawn position back at its copied original cell, restores its size, then retracts the tongue. The flexible tongue connects the current mouth to the Seed through repeated turns. New catches wait for placement to finish. Seed coordinates, movement speed, rewards, consumption and saves remain authoritative and unchanged.
+- Timing: return lasts 60% of the cancellation-time movement interval, bounded to 80–240 ms, with placement in the first 75% and retraction afterward. Pause freezes display time. Reduced motion prevents fresh catches; an existing displaced Seed finishes one return instead of jumping home. Removal by the engine cancels presentation immediately, including during pause.
+- Preview: `http://localhost:4173/test1/` on Jimothy, using the existing shared server (PID 10940) and `.git/local-test-routes.json`. The previously available route now maps to this exact checkout. Other processes and the primary `/` route are preserved. Keep this mapping while William tests.
+- Verification: `npm run check` passed syntax, engine authority, and all 335 Node tests. New deterministic tests cover preserved pull geometry, halved duration, cancellation from pull/hold, repeated turns and re-approach, pause, reduced motion, fast/slow timing boundaries, actual session food/rewards and consumption, and the actual drawing functions drawing exactly one Seed. Direct HTTP byte comparisons passed for the route's HTML, game code, tongue engine/drawing, CSS and official theme assets; primary game code still matches the root checkout. `git diff --check` passed.
+- Caveat: no browser automation or computer use was authorized or performed. Canvas appearance, mouth connection through sharp turns, and perceived timing still need William's visual test.
+- Files: engine/tongue.js, engine/tongue-return.test.js, scripts/tongue-draw.js, scripts/tongue-integration.test.js, game.js, BRANCHES.md.
+- Integration: William requested the merge on 2026-10-11. Merged with a merge commit; unrelated uncommitted balance work in the primary checkout was preserved and excluded from commits (all file hashes match the pre-merge baseline). Combined `npm run check` passed syntax, authority, and all 379 Node tests, including the pre-existing local balance tests. Direct HTTP comparisons confirm the primary route serves the merged tongue code. The stable `/test1/` preview still serves the approved task checkout; the primary `/` route serves `working`.
+- Version impact: none. No `main` merge or deployment.
+- Last update: 2026-10-11.
+
+## working — Office Charcoal is the official theme
+
+- Category: display (themes) and controls.
+- Agent: Claude, in folder `IdleSnake-claude`, because Codex had an active claim on `working` when the work started. Started from `working` commit 4c7a5e1 and includes Codex's commits up to 80db136.
+- Status: Ready With Caveat.
+- Purpose: William chose Office Charcoal as the official theme and asked to remove the theme picker, with round default direction buttons and a rounder fullscreen button.
+- Changes: `ThemeKit.start` accepts `defaultTheme` and `picker`. index.html starts with Office Charcoal and no picker. A choice stored by the old picker is ignored. `?theme=<id>` still shows any theme, including `original`. In Office Charcoal, the default direction keys are circles (the large D-pad is unchanged) and the fullscreen key is a full circle. The retro themes now make the bezel shading 25% weaker in fullscreen, as the base game does.
+- Files: themes/theme-kit.js, index.html, themes/_build/build_retro.py, the five retro theme.css files, themes/themes.test.js, themes/README.md, tests/browser/release-integration.spec.js, tests/browser/body-snaps.spec.js, tests/browser/fullscreen-mode.spec.js, tests/browser/responsive.spec.js, BRANCHES.md.
+- Tests: `npm run check` passed syntax, authority checks, and all 328 Node tests in this folder. The existing CI browser suite ran on GitHub with Office Charcoal as the default. The first run passed 84 of 87 checks; the three failures were two specs that assumed the Original palette or layout and the missing fullscreen bezel shading. After the corrections, the CI run on commit 7168f1f passed all 89 browser checks.
+- Caveat: no browser check by eye was done; browser automation on this computer was not authorized. The shape of the round keys and the look of the official theme are not verified by eye. themes/theme-kit.js is shared with IdleSweep; the two new options are off by default there.
+- Notes: merged into `working` by fast-forward on 2026-10-10. The root README.md now names Office Charcoal as the default.
+- Version impact: none; no save format change.
+- Last update: 2026-10-10.
+
+## working — Notables pending indicator
+
+- Category: display only.
+- Agent: Codex, GPT 6.1 Sol, low reasoning effort, on Jimothy in the T3-managed thread.
+- Status: Ready With Caveat.
+- Changes: the main Colony Notables button shows the actual queue length as `X Pending` when at least one candidate is pending, including `1 Pending`; it hides the indicator only at zero. The retained/capacity label, Over Capacity warning, and internal panel summary are retained. Full session snapshots refresh the summary immediately for generation, decisions, loading, and settlement context changes. At William's follow-up request, the small indicator has a rounded pill outline, black background, and white text in Original and all ten themes, including the five Nokia themes.
+- Follow-up verification: CSS diff reviewed and `git diff --check` passed for the rounded black/white indicator. No behavior code changed; prior checks below remain applicable.
+- Files: index.html, game.js, styles.css, BRANCHES.md.
+- Verification: `npm run check` passed syntax, authority checks, and all 371 Node tests. Direct Node VM checks of the actual summary and snapshot functions passed queue transitions (0, 1, 4, 3, 1, 0, 2, 0), capacity warnings, and a changed settlement count/capacity. `git diff --check` passed. No new persistent tests were added for this small presentation change.
+- Caveat: no browser or computer automation was used or authorized. Appearance and layout have not been verified by eye.
+- Version impact: none; gameplay, save behavior, and save format are unchanged. No main merge or deployment requested.
+- Notes: unrelated uncommitted balance work is preserved and excluded from this task commit, as explicitly instructed. Back up this task to origin/working.
+- Last update: 2026-10-10.
+
+## working — Fullscreen button always available
+
+- Category: engine and controls.
+- Agent: Claude.
+- Status: Ready With Caveat.
+- Purpose: William asked: "make it so the button is there the entire time" for Snake Forever fullscreen.
+- Changes: fullscreen no longer depends on the Board size upgrade. The engine query `fullscreenAvailable` is always true, and `setFullscreenMode` no longer rejects at board level 0 (the `fullscreenLocked` reason is removed). The Fullscreen button is not hidden in index.html, and the layout has the fullscreen option class from the first paint. Enter and exit behavior, the saved preference, and gameplay are unchanged.
+- Files: engine/queries.js, engine/session.js, engine/snake-batch.test.js, index.html, tests/browser/fullscreen-mode.spec.js, README.md, BRANCHES.md.
+- Tests: `npm run check` passed syntax, authority checks, and all 371 Node tests. One new engine test enters fullscreen on a new save at board level 0 during a run, checks that the run, upgrades, and Seeds do not change, saves, reloads, exits, and reloads again. The existing fullscreen test no longer expects `fullscreenLocked`.
+- Caveat: no browser check was done, because browser automation was not authorized. The button's visibility and the fullscreen layout on the smallest board are not verified by eye in Original or in the ten themes. tests/browser/fullscreen-mode.spec.js now expects the button at board level 0 but was not run locally.
+- Notes: with the large D-pad control layout, the button stays in the keypad that opens from the minimized keypad button, as before. On screens 800 px wide or less, a new save now has the phone above the menu, which was the layout after the first board upgrade.
+- Version impact: none; no save format change. A save with fullscreen on and board level 0 now opens in fullscreen.
+- Last update: 2026-10-10.
+
+## working — Five retro handset themes
+
+- Category: display (themes).
+- Agent: Claude.
+- Status: Ready With Caveat.
+- Purpose: William asked for five new themes from Clear Cover II that are "less shiney and techno more retro nokia".
+- Changes: five new selectable themes: Brick Navy, Office Charcoal, Signal Red, Pebble, and Taxi Yellow. Each one has matte plastic, flat rubber keys, a two-tone dot-matrix LCD with no glow, and its own body shape, key shapes, LCD tone, and menu treatment. The five round 3 themes and Original are unchanged. The themes change presentation only; they do not change the engine, saves, or the snake colours that the player selects.
+- Files: themes/brick-navy/, themes/office-charcoal/, themes/signal-red/, themes/pebble/, themes/taxi-yellow/, themes/_build/build_retro.py, themes/themes.test.js, themes/README.md, index.html, tests/browser/release-integration.spec.js, BRANCHES.md.
+- Tests: `npm run check` passed syntax, authority checks, and all 370 Node tests. Two new theme tests check registration in index.html, contrast of menu, key, and LCD colour pairs (4.5:1 or more), snake colours on each LCD, the absence of gloss and glow, and the fullscreen and keypad focus rules. Each overlay painter ran against a mock canvas.
+- Caveat: no browser check was done, because browser automation was not authorized. The appearance, layout from 360 px to 1920 px, fullscreen appearance, and web font loading of the five themes are not verified by eye. The browser test list in tests/browser/release-integration.spec.js includes the five themes but was not run locally.
+- Version impact: none; no release requested.
+- Last update: 2026-10-10.
+- Notes: the balance simulation changes in the checkout (ci.yml, README.md, package.json, balance.yml, BALANCE_TESTING_BRIEF.md, scripts/balance.js, simulation/) are from another session. They have no agent claim and are not in this commit.
+
 ## Release 1.0.3 — CI save-boundary correction
 
 - Agent: Codex.

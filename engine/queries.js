@@ -120,8 +120,9 @@
     return { notable, cost, success, adultRate: migration.attritionRate("adults", success) * 100, provisionRate: migration.attritionRate("provisions", success) * 100,
       canDepart: home?.status === "established" && Boolean(notable) && destinationAvailable && manifest.adults >= config.migrationConfig.requirements.adults && manifest.provisions >= config.migrationConfig.requirements.provisions && cost <= m.availablePoints };
   }
-  function fullscreenAvailable(snapshot) {
-    return snapshot.upgrades.boardLevel >= 1;
+  // Fullscreen is a display preference. It is available from a new save, without an upgrade.
+  function fullscreenAvailable() {
+    return true;
   }
   function minigameOptions(snapshot) {
     return config.minigameCatalog.map((game, index) => {

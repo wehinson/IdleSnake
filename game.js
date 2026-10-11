@@ -374,6 +374,8 @@ const colonyProvisionConsumptionRateEl = document.querySelector("#colonyProvisio
 const habitatListEl = document.querySelector("#habitatList");
 const colonyOverviewEl = document.querySelector("#colonyOverview");
 const notablesButtonEl = document.querySelector("#notablesButton");
+const notablesButtonLabelEl = document.querySelector("#notablesButtonLabel");
+const notablesPendingIndicatorEl = document.querySelector("#notablesPendingIndicator");
 const notablesPanelEl = document.querySelector("#notablesPanel");
 const notablesSummaryEl = document.querySelector("#notablesSummary");
 const notablesRosterEl = document.querySelector("#notablesRoster");
@@ -504,6 +506,8 @@ function acceptSnapshot(snapshot) {
   }
   if (snapshot.nursery) latestSnapshot = snapshot;
   latestFrameSnapshot = snapshot;
+  // Full snapshots include candidate decisions, generation, loads, and settlement changes.
+  if (snapshot.nursery) syncNotablesSummary();
 }
 function dispatchSession(action) {
   const tracing = snakeTiming.enabled;
@@ -534,7 +538,7 @@ let deathAnimation = null;
 // tongue grabs it and pulls it to the mouth before the head arrives. Display
 // only; the engine still eats the Seed when the head enters its cell.
 const TONGUE_STYLE = "gooFork";
-const tongueTracker = window.IdleSnakeTongue.createCatchTracker(TONGUE_STYLE);
+const tongueTracker = window.IdleSnakeTongue.createCatchTracker(TONGUE_STYLE, { outwardDurationScale: 0.5, returnOnCancel: true });
 let tongueFrame = null;
 
 const activeDirectionKeys = new Set();
@@ -1644,7 +1648,11 @@ function syncNotablesSummary() {
   const capacity = latestSnapshot?.notableCapacity ?? window.IdleSnakeNotables.capacity(gameView.notablesState, gameView.habitats.counts);
   const over = gameView.notablesState.retained.length > capacity;
   const label = `Notables: ${gameView.notablesState.retained.length} / ${capacity}${over ? " · Over Capacity" : ""}`;
-  notablesButtonEl.textContent = label; if (notablesSummaryEl) notablesSummaryEl.textContent = label;
+  setText(notablesButtonLabelEl, label);
+  const pendingCount = gameView.notablesState.pending.length;
+  setText(notablesPendingIndicatorEl, pendingCount ? `${pendingCount} Pending` : "");
+  setHidden(notablesPendingIndicatorEl, pendingCount === 0);
+  if (notablesSummaryEl) setText(notablesSummaryEl, label);
   return over;
 }
 
@@ -3599,8 +3607,7 @@ function drawSnack(snack, rect, foodType) {
 function updateTongueFrame() {
   const active = gameView.gameMode === "snake"
     && (gameView.state === "running" || gameView.state === "paused")
-    && gameView.snake?.length
-    && !effectiveReducedMotion();
+    && gameView.snake?.length;
   if (!active) {
     tongueTracker.reset();
     tongueFrame = null;
@@ -3610,6 +3617,10 @@ function updateTongueFrame() {
     head: gameView.snake[0],
     direction: pendingHeadDirection(),
     seeds: gameView.foods.filter((snack) => snack.kind !== "egg"),
+    running: gameView.state === "running",
+    nowMs: snakeAnimationNow(),
+    tickMs: gameView.tickMs,
+    reducedMotion: effectiveReducedMotion(),
     stepProgress: Math.max(0, Math.min(1, gameView.stepAccumulatorMs / Math.max(1, gameView.tickMs)))
   });
 }

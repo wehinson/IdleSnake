@@ -5,22 +5,32 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Snake Forever</title>
     <link rel="stylesheet" href="styles.css">
-    <!-- Theme redesigns: ThemeKit plus one scoped stylesheet and one data file per theme. -->
+    <!-- Themes: Office Charcoal is the official theme. The others load only with ?theme=<id>. -->
     <script src="themes/theme-kit.js"></script>
     <link rel="stylesheet" href="themes/clear-cover-2/theme.css">
     <link rel="stylesheet" href="themes/amber-graphite/theme.css">
     <link rel="stylesheet" href="themes/night-green/theme.css">
     <link rel="stylesheet" href="themes/oxblood/theme.css">
     <link rel="stylesheet" href="themes/carbon/theme.css">
+    <link rel="stylesheet" href="themes/brick-navy/theme.css">
+    <link rel="stylesheet" href="themes/office-charcoal/theme.css">
+    <link rel="stylesheet" href="themes/signal-red/theme.css">
+    <link rel="stylesheet" href="themes/pebble/theme.css">
+    <link rel="stylesheet" href="themes/taxi-yellow/theme.css">
     <script src="themes/clear-cover-2/theme.js"></script>
     <script src="themes/amber-graphite/theme.js"></script>
     <script src="themes/night-green/theme.js"></script>
     <script src="themes/oxblood/theme.js"></script>
     <script src="themes/carbon/theme.js"></script>
-    <script>ThemeKit.start({ storageKey: "idlesnake.theme.v1" });</script>
+    <script src="themes/brick-navy/theme.js"></script>
+    <script src="themes/office-charcoal/theme.js"></script>
+    <script src="themes/signal-red/theme.js"></script>
+    <script src="themes/pebble/theme.js"></script>
+    <script src="themes/taxi-yellow/theme.js"></script>
+    <script>ThemeKit.start({ storageKey: "idlesnake.theme.v1", defaultTheme: "office-charcoal", picker: false });</script>
   </head>
   <body>
-    <div class="app-layout">
+    <div class="app-layout has-fullscreen-option">
       <aside class="menu-panel" aria-label="Menu">
         <h1>Menu</h1>
         <div class="menu-stat">
@@ -197,7 +207,7 @@
               <strong id="colonyCount">000</strong>
               <p>snakes ready to place in a habitat.</p>
             </article>
-            <button class="notables-open-button" id="notablesButton" type="button">Notables: 0 / 1</button>
+            <button class="notables-open-button" id="notablesButton" type="button"><span id="notablesButtonLabel">Notables: 0 / 1</span> <span class="notables-pending-indicator" id="notablesPendingIndicator" hidden></span></button>
             <div class="colony-income-summary">
               <div class="colony-summary-assigned">
                 <span>Assigned <strong id="colonyPlacedCount">000</strong></span>
@@ -437,7 +447,7 @@
               <button class="phone-key minigame-key" type="button" data-minigame="8" aria-label="Venom Strike battleship" title="Venom Strike">8</button>
               <button class="phone-key minigame-key" type="button" data-minigame="9" aria-label="Minigame 9">9</button>
               <button class="phone-key minigame-key personalization-key" type="button" data-minigame="0" aria-label="Personalization">0</button>
-              <button id="fullscreenModeButton" class="phone-key fullscreen-mode-button" type="button" aria-pressed="false" aria-label="Fullscreen" hidden><span aria-hidden="true">⛶</span></button>
+              <button id="fullscreenModeButton" class="phone-key fullscreen-mode-button" type="button" aria-pressed="false" aria-label="Fullscreen"><span aria-hidden="true">⛶</span></button>
             </div>
             <button class="minimized-keypad-button" id="minimizedKeypadButton" type="button" aria-expanded="false" aria-controls="minigameKeypad">Games</button>
             <button class="large-dpad-personalize-button" id="largeDpadPersonalizeButton" type="button">Personalize</button>

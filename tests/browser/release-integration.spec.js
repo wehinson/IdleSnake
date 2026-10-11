@@ -1,6 +1,7 @@
 const { test, expect } = require("@playwright/test");
 
-for (const theme of ["original", "clear-cover-2", "amber-graphite", "night-green", "oxblood", "carbon"]) {
+for (const theme of ["original", "clear-cover-2", "amber-graphite", "night-green", "oxblood", "carbon",
+  "brick-navy", "office-charcoal", "signal-red", "pebble", "taxi-yellow"]) {
   test(`merged release preserves Snake display and controls in ${theme}`, async ({ page }) => {
     const errors = [];
     page.on("pageerror", (error) => errors.push(error.message));
@@ -31,8 +32,8 @@ for (const theme of ["original", "clear-cover-2", "amber-graphite", "night-green
     });
     const before = await page.evaluate(() => ({ tongue: tongueFrame, save: session.serialize() }));
     expect(before.tongue).not.toBeNull();
-    await page.locator(".themekit-picker select").selectOption("original");
-    await page.locator(".themekit-picker select").selectOption(theme);
+    await expect(page.locator(".themekit-picker")).toHaveCount(0);
+    await page.evaluate((id) => { ThemeKit.apply("original"); ThemeKit.apply(id); }, theme);
     expect(await page.evaluate(() => ({ tongue: tongueFrame, save: session.serialize() }))).toEqual(before);
     await page.locator('[data-minigame="0"]').focus();
     expect(await page.locator('[data-minigame="0"]').evaluate((el) => getComputedStyle(el).outlineStyle)).toBe("none");
