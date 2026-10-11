@@ -465,3 +465,15 @@ The entries below record prior checks and decisions. All intended work is includ
 - Version impact: none; the impact state exists only during the active run and is not saved.
 - Last update: 2026-09-09.
 - Notes: a held shield shows a small blue arc ahead of the head. A collision consumes one shield immediately, freezes the body for three movement intervals, accepts valid queued turns behind the forced redirect, and pauses cleanly. No commit or release was made.
+
+
+## task/minigame-sokoban-levels-20261011 ? MINIGAME PR2 request 6
+
+- Agent: local Codex, GPT 6.1 Sol; isolated T3 task branch from `31e773efee60c85d6781078803e4eae208911e4e`.
+- Status: Active; content/design verification in progress.
+- Scope: fifteen total Sokoban stages requiring actual pellet growth and wall-backed heavy pushes; only the Sokoban array, its engine legality and scoped tests/docs. Snakebird, payouts and connectors belong to sibling tasks.
+- Checks: initial engine-search witnesses found for twelve draft stages; remaining layouts being revised. Read-only T3 design research completed; confirmed retained-tail collision bug, now corrected pending regression tests.
+- Save/version: existing rewards/records retained; no schema change or release bump.
+- Preview: coordinator-owned `http://localhost:4173/test9/`; no server mutation or browser automation.
+- Delivery: task branch backup only; no PR, merge, deployment, working/main or Colony changes.
+- Last update: 2026-10-11.
