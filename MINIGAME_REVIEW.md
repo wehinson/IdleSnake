@@ -1,11 +1,11 @@
 # Minigame PR2 integration and review record
 
-Updated 2026-10-11. This branch is documentation only; no worker implementation has been merged and no PR exists.
+Updated 2026-10-11. Four individually reviewed gameplay tips are merged only into this integration branch. Arcade and Rewards integration remain pending; no PR exists.
 
 ## Current state
 
-- Integration: `task/minigame-batch-20261011`, coordinator `mcp:618042fc-9354-4fc9-906a-1b3ca5c689e4`; base `31e773efee60c85d6781078803e4eae208911e4e`. Commit at the start of this checkpoint: `bde8842`.
-- Individually accepted: Snake exact `53bd059`, Brick/Crossing exact `0f6aafc`, Snakebird exact `715ac20` and Sokoban exact `c664c56`. Arcade independent R1 REQUEST_CHANGES: ordinary Broodline combat does not refresh its new HUD; original worker froze scoped fix087fea5; exact-tip R2 running source/small. Rewards independent R1 ACCEPT exact707e51f (docs-only aftereaef), six selected tests +one actual-session probe PASS; full356 reused. No implementation merged.
+- Integration: `task/minigame-batch-20261011`, coordinator `mcp:618042fc-9354-4fc9-906a-1b3ca5c689e4`; base `31e773efee60c85d6781078803e4eae208911e4e`. Four gameplay merge commits: `9b58aee`, `f31336d`, `fb2224d`, `410c429`; review checkpoint before merges `81f0ea6`.
+- Individually accepted: Snake exact `53bd059`, Brick/Crossing exact `0f6aafc`, Snakebird exact `715ac20` and Sokoban exact `c664c56`. Arcade independent R1 REQUEST_CHANGES: ordinary Broodline combat does not refresh its new HUD; original worker froze scoped fix087fea5; exact-tip R2 running source/small. Rewards independent R1 ACCEPT exact707e51f (docs-only aftereaef), six selected tests +one actual-session probe PASS; full356 reused. Snake53bd059, Brick0f6aafc, Bird715ac20 and Sokc664c56 merged with four explicit merge commits; no working/main merge. Rewards707e51f remains unmerged until Arcade R2 completes, then shared payout integration.
 - Heavy lock is released after ONE coordinator exact087fea5 pass: npm357/syntax123/authority11 canonical and independent diff check PASS, clean frozenHEAD before/after (8.65sec). OIKOS next READY remains priority; its STYLE-1 asset proof passed and server is idle at4318/PID17032, manual visual/hydration acceptance pending. Current authoritative owner is own Git directory MINIGAME_HEAVY_LOCK.json. SharedSnake4173/PID14548/data/routes preserved.
 - Colony parent exact `b3ed476` full370 passed and released; Colony source/small independent Seed R7 may proceed without a full-suite repeat. This is coordination evidence only, never imported into Minigame PR2.
 - Shared preview: home restored original dynamic route config/PID14548 on4173 after the second reboot and reports root/test1-test12 plus52 exact asset checks passed. Our coordinator performs no restoration, restart, route reassignment or checkout cleanup.
@@ -17,10 +17,10 @@ Updated 2026-10-11. This branch is documentation only; no worker implementation 
 
 | Requests | Owner / final branch | Exact frozen tip | Exact-code evidence | Coordinator gate |
 |---|---|---|---|---|
-|1,2,12,13|Snake UI / task/minigame-snake-ui-20261011|53bd0593a3ab2dae37b0eec0c65275d902692413|Parent exact full354/syntax122/authority11 once8.1sec, cleanHEAD unchanged; independent R2 47 checks.|ACCEPT individual gate, unmerged. R1 REQUEST_CHANGES retained oldtip.|
-|3,4|Brick/Crossing / task/minigame-brick-crossing-20261011|0f6aafc43caf3125d21f26d02df1f65c8b2a23f1|Parent exact full356; independent19 tests +6 actual input/renderer probes.|ACCEPT exact tip, unmerged.|
-|5|Snakebird / task/minigame-snakebird-levels-20261011|715ac205c0dc00e9fdf4e351723d0aea2ee1f840|Parent exact full359/all15 actual BFS witnesses; independent9 selected tests +mechanics/migration probes.|ACCEPT exact tip, unmerged.|
-|6|Sokoban / task/minigame-sokoban-levels-20261011|c664c56f63a55ace76b8ff6e17f036c1bcac0e83|Parent exact full363; independent15witnesses/363moves/39wall+lengthcontrols/sixplateprobes/nineselectedtests.|ACCEPT exacttip, unmerged; searchproofsourceaudited/reused.|
+|1,2,12,13|Snake UI / task/minigame-snake-ui-20261011|53bd0593a3ab2dae37b0eec0c65275d902692413|Parent exact full354/syntax122/authority11 once8.1sec, cleanHEAD unchanged; independent R2 47 checks.|ACCEPT; merged via9b58aee. R1 REQUEST_CHANGES retained oldtip.|
+|3,4|Brick/Crossing / task/minigame-brick-crossing-20261011|0f6aafc43caf3125d21f26d02df1f65c8b2a23f1|Parent exact full356; independent19 tests +6 actual input/renderer probes.|ACCEPT; merged viaf31336d.|
+|5|Snakebird / task/minigame-snakebird-levels-20261011|715ac205c0dc00e9fdf4e351723d0aea2ee1f840|Parent exact full359/all15 actual BFS witnesses; independent9 selected tests +mechanics/migration probes.|ACCEPT; merged viafb2224d.|
+|6|Sokoban / task/minigame-sokoban-levels-20261011|c664c56f63a55ace76b8ff6e17f036c1bcac0e83|Parent exact full363; independent15witnesses/363moves/39wall+lengthcontrols/sixplateprobes/nineselectedtests.|ACCEPT; merged via410c429; searchproofsourceaudited/reused.|
 |8,9,10|Arcade / task/minigame-brood-strike-centipede-20261011|087fea5174137dfef42ce71b1358a96daaa5454e|One scoped liveHUD fix after rejectedcca751ca; parent exact357/syntax123/authority11 canonical/diff PASS; actual frame/HUD VM1 PASS. Prior356 remains pre-delta evidence.|Coordinator R1 remains REQUEST_CHANGES; NEW exact-tip R2 running source/small; exact-code full gate passed, no acceptance until review result.|
 |11|Rewards / task/minigame-rewards-20261011|707e51f475aa47ed434f4ab0c112014cc78f60a8|Final two docs only after codeeaef9a5; exact code full356/worker R5 PASS; parent full355f802 +2eaef pipeline VMs; math/engines unchanged since21-trace sim.|ACCEPT individual gate, unmerged: complete scope/payout-path review, six selected checks +one actual-session probe; mapped full evidence reused.|
 
