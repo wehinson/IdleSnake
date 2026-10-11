@@ -16,7 +16,7 @@ Updated: 2026-10-11. Coordinator: GPT 6.1 Sol, high effort, local Jimothy.
 | --- | --- | --- | --- | --- |
 | 1, 6, 7, 9 UI | task/colony-ui-20261011 | mcp:4ee92de7-753a-47f6-84bd-7027e32edf3e | Round 2 PASS owned scope; economy integration condition pending | Accepted UI tip 6cb9d3a9b186364fd0887ff8fbe9fee6628eecf5 |
 | 3, 4, 5, 8 economy | task/colony-economy-20261011 | mcp:fd026147-88dc-4aae-8b42-576f1e265fa6 | Round 2 changes required; freeze released, worker fixing | Rejected candidate 7f75b34116ae2763aeecd7b36f99d82f132482b8 |
-| 2 Seed grace | task/seed-turn-grace-20261011 | mcp:57410d23-3950-46db-933b-7d760f1a72ce | Round 3 changes required; worker fixing | Rejected candidate e9818bb723f2e61310c85e3dfb1b631f162a947c |
+| 2 Seed grace | task/seed-turn-grace-20261011 | mcp:57410d23-3950-46db-933b-7d760f1a72ce | Round 4 independent review running | New candidate 1c87b034f023783bd3683d00af9f04b3265541ff |
 
 Each checkout is a sibling under `C:/Users/wehin/.t3/worktrees/IdleSnake/`. Workers send completion here with stable request IDs `colony-ui-20261011-complete`, `colony-economy-20261011-complete`, `seed-turn-grace-20261011-complete`.
 
@@ -68,6 +68,7 @@ Each checkout is a sibling under `C:/Users/wehin/.t3/worktrees/IdleSnake/`. Work
 | Seed round 2 | colony-batch-seed-review-r2-20261011 | node:delegated-task:command%3Amcp%3Abcd63630-411c-4aec-8b6f-4afac57f78e2%3Adelegate-task%3Acolony-batch-seed-review-r2-20261011 | Changes required: P2 request-time progress across speed/pause |
 | Economy round 2 | colony-batch-economy-review-r2-20261011 | node:delegated-task:command%3Amcp%3Abcd63630-411c-4aec-8b6f-4afac57f78e2%3Adelegate-task%3Acolony-batch-economy-review-r2-20261011 | Changes required: funded scheduler, authoritative Lake, fractional deadlines |
 | Seed round 3 | colony-batch-seed-review-r3-20261011 | node:delegated-task:command%3Amcp%3Abcd63630-411c-4aec-8b6f-4afac57f78e2%3Adelegate-task%3Acolony-batch-seed-review-r3-20261011 | Changes required: hydrated pause and epoch boundary P2s, two related P3s |
+| Seed round 4 | colony-batch-seed-review-r4-20261011 | node:delegated-task:command%3Amcp%3Abcd63630-411c-4aec-8b6f-4afac57f78e2%3Adelegate-task%3Acolony-batch-seed-review-r4-20261011 | Running against 1c87b03 |
 
 ### Seed round 1 findings and response
 
@@ -134,6 +135,12 @@ Each checkout is a sibling under `C:/Users/wehin/.t3/worktrees/IdleSnake/`. Work
 - Related P3s: redundant paused unchanged-speed timing segments grow without bound (10,002 after10,000 ticks/dispatches); coalesce. Optional turnTimingEnabled queue mutation changes interval without recording it, causing85ms of100ms interval to classify pre-grace and lose latest legal request; preserve supported optional timing semantics.
 - Complete findings sent to original Seed worker with `colony-batch-seed-r3-fixes-20261011`, edit freeze released. Both P2s and related P3s require narrow fixes/regressions; stable pushed tip then fresh independent round4 with original brief and all prior objections/responses. No merge of e9818bb.
 
+### Seed fixes and round 4 evidence
+
+- Seed returned clean/pushed exact `1c87b034f023783bd3683d00af9f04b3265541ff`. Parent inspected full baseline scope and e9818bb fix delta: initialize clock history on restore, authoritative same-frame progress and timestamp-scale historical85% precision tolerance, coalesce redundant constant/frozen timing segments, record optional queue-induced interval changes. Only session.js/test/BRANCHES changed this round.
+- Worker adds five groups:36 hydrated ontime/delayed pairs,108 epoch pairs across clocks/presets/scores84.9/85/99% and delivery paths, actual private closure history10,000 paused ticks and1,000 paused speed changes retaining2segments, optional cadence/replay regressions. All29grace/70focused/364full worker tests passed. The earlier independent256-case buffer matrix is historical reviewer evidence, not a new worker rerun; retained buffered cases were rerun.
+- Coordinator independently reran npm run check364/364 plus syntax/authority/whitespace, clean exact local/remote tip confirmed. New localcodex/gpt-6.1-sol/high round4 delegate_task includes original brief and complete R1/R2/R3 findings/responses, current fixes and explicit boundary/history/optional cadence scrutiny. Exact taskId above; full prompt persisted in this checkout gitdir as batch-review-seed-round4-prompt.json. Await automatic completion; no polling.
+
 ### Economy depletion integration steering
 
 - Worker fixes in progress share actual production planning between income and egg/depletion thresholds, share recurring egg reduction between engine/development/query and snap known nursery deadlines within8 floating-point ULPs. Original funded fixture now matches1adult/4eggs and fractional fixture2adults, but remaining after-depletion cadence changes egg progress and currency, so not accepted as mere rounding.
@@ -169,4 +176,4 @@ Each checkout is a sibling under `C:/Users/wehin/.t3/worktrees/IdleSnake/`. Work
 - Initial direct HTTP verification: 10 assets per route matched exact mapped checkout (HTML, game/CSS, session/queries, approved tongue engine/draw, theme kit/official CSS and image); primary game.js matches root working. Recheck after workers finish and integration merges.
 - Root preservation baseline: SHA-256 hashes for 27 unrelated modified/untracked root files saved locally in this worktree's git directory as `batch-root-preservation.json` (not committed).
 - All visual smoothness/layout/theme fit/accessibility by eye remain unverified until William tests. Direct engine/VM/HTTP checks cannot prove them.
-- PR: not created. UI owned scope accepted at6cb9d3a; economy round2 fixes underway; Seed round3 changes required at e9818bb, worker fixing. No feature branch integrated yet. Minigame and baseline release remain separate.
+- PR: not created. UI owned scope accepted at6cb9d3a; economy round2 fixes underway; Seed round4 running at1c87b03. No feature branch integrated yet. Minigame and baseline release remain separate.
