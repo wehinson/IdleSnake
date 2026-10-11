@@ -26,7 +26,7 @@
   function drawForkLasso(ctx, view, catchFrame, options) {
     const CELL = view.cell;
     inMouthFrame(ctx, view, catchFrame, (tip, seed) => {
-      const pulling = catchFrame.phase === "pull";
+      const pulling = catchFrame.phase === "pull" || catchFrame.phase === "return";
       const reach = Math.max(0, tip.x);
       const stretch = Math.min(1, reach / (CELL * 2));
       const thickness = CELL * options.thickness * (1 - stretch * 0.4);
