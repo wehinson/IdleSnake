@@ -3,14 +3,14 @@
 ## Release 1.0.4 — Current committed working
 
 - Agent: local Jimothy / Codex, GPT 6.1 Sol, high effort, in the authorized T3 release checkout `task/release-working-20261011`.
-- Status: authorized release; local verification passed; main integration and live verification in progress. See `RELEASE_STATUS.md` for the release scope and evidence.
+- Status: Shipped as 1.0.4. Main integration `0f148ad1af6b6d288cb67d956f3d9a6e851fa003`, GitHub CI, Pages deployment and live HTTP verification succeeded. See `RELEASE_STATUS.md` for evidence; this record is a release documentation followup.
 - Authorization: William said "lets ship the current working branch" on 2026-10-11. Ship committed baseline `31e773efee60c85d6781078803e4eae208911e4e` plus release metadata only.
 - Included: approved tongue Seed return, existing Office Charcoal and retro themes, Notables pending indicator, and fullscreen availability. The entries below describe their historical verification.
 - Excluded: both unapproved Colony and Minigame batches, all other worker tips, archived tongue catch, and root uncommitted balance work. Preserve two independent review PRs targeting `working`.
 - Version: package.json and package-lock.json advance from 1.0.3 to 1.0.4; save format stays 5.
-- Verification: `npm run check` passed syntax, engine authority and all 335 Node tests in this clean checkout. All 20 focused tongue, drawing and Snake engine checks passed. The deterministic headless Snake command completed normally. `git diff --check` passed. Existing GitHub CI browser tests remain enabled; no local browser automation or computer use is authorized.
-- Deployment: existing GitHub Pages configuration publishes `main` from `/` at https://wehinson.github.io/IdleSnake/. Verify the deployment source commit and live bytes after pushing main.
-- Preservation: `working`, pending task branches/worktrees, root balance changes and the running shared preview server/routes are retained. No dirty root checkout switch or history rewrite is permitted.
+- Verification: `npm run check` passed syntax, engine authority and all 335 Node tests in this clean checkout. All 20 focused tongue, drawing and Snake engine checks passed. The deterministic headless Snake command completed normally. `git diff --check` passed. [Main CI run 38119224810](https://github.com/wehinson/IdleSnake/actions/runs/38119224810) passed 335 Node tests and all 89 existing browser tests. No local browser automation or computer use was performed.
+- Deployment: GitHub Pages publishes `main` from `/` at https://wehinson.github.io/IdleSnake/. [Pages run 38119224754](https://github.com/wehinson/IdleSnake/actions/runs/38119224754) and deployment 6992096324 succeeded from `0f148ad1af6b6d288cb67d956f3d9a6e851fa003`. On 2026-10-11 at 06:50 UTC, live package version 1.0.4 and all 66 checked runtime assets matched that commit by SHA-256 at ordinary and cache-busted URLs. Final documentation publication receives its own source/ref checks at handoff.
+- Preservation: `working` stays at `31e773e`. Pending task branches/worktrees, root balance changes and the running shared preview server/routes are retained. All 27 original modified/untracked root file hashes match their pre-release values. Root remains dirty by explicit instruction. PID 10940 and `/test1` through `/test12` remain intact. No branch/worktree cleanup was safe within the active bindings; none was removed. No dirty root checkout switch or history rewrite occurred.
 - Last update: 2026-10-11.
 
 ## task/tongue-seed-return — Shorter tongue and smooth Seed placement experiment
