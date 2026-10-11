@@ -418,3 +418,120 @@ test("discarding an unsafe guarded turn revalidates later inputs against the ret
   assert.deepEqual(state.snake[0], { x: 18, y: 9 });
   assert.equal(state.seedTurnQueueGuards, undefined);
 });
+
+function assertTimingResultsEqual(actual, expected) {
+  const copy = structuredClone(actual);
+  for (const path of [["snapshot", "elapsedMs"], ["snapshot", "modeAccumulatorMs"],
+    ["snapshot", "hud", "elapsedMs"], ["saved", "savedAt"],
+    ["saved", "session", "elapsedMs"], ["saved", "session", "modeAccumulatorMs"]]) {
+    const key = path.at(-1);
+    const actualParent = path.slice(0, -1).reduce((value, item) => value[item], copy);
+    const expectedParent = path.slice(0, -1).reduce((value, item) => value[item], expected);
+    assert.ok(Math.abs(actualParent[key] - expectedParent[key]) < 1e-9, `${path.join(".")} clock parity`);
+    actualParent[key] = expectedParent[key];
+  }
+  assert.deepEqual(copy, expected);
+}
+
+function transformedInputRun({ progress, initialSpeed = "snake", nextSpeed, pauseMs, lateMs, delayed }) {
+  const game = gameAt({ speed: initialSpeed });
+  const interval = game.snapshot().active.tickMs;
+  const requestDelta = interval * progress;
+  const inputAt = 1000 + requestDelta;
+  game.tick(requestDelta);
+  let request = delayed ? null : turn(game, "up", inputAt);
+  game.tick(interval * 0.875 - requestDelta);
+  if (nextSpeed) game.dispatch({ type: "setSnakeSpeed", snakeSpeed: nextSpeed });
+  if (pauseMs) {
+    game.dispatch({ type: "pause" });
+    game.tick(pauseMs);
+    game.dispatch({ type: "resume" });
+  }
+  const current = game.snapshot();
+  const untilStep = current.active.tickMs - current.modeAccumulatorMs;
+  game.tick(lateMs == null ? 5 : untilStep + lateMs);
+  if (delayed) request = turn(game, "up", inputAt);
+  const held = progress >= 0.85;
+  assert.equal(rejected(request), false);
+  assert.equal(deferred(request), held);
+  assert.equal(request.events.some(e => e.type === "eat"), false, "delivery must not duplicate the pickup");
+  assert.equal(request.events.some(e => e.type === "movementCorrected"), delayed && lateMs != null && !held);
+  // Rejected late reversal must not replace the latest legal grace request.
+  if (held && lateMs == null) {
+    assert.equal(rejected(turn(game, "left", inputAt + 0.1)), true);
+    assert.equal(game.snapshot().active.deferredSeedTurn, "up");
+  }
+  const beforeStep = game.serialize();
+  assert.equal(validateSaveCandidate(beforeStep).ok, true);
+  const restored = createGameSession({ save: beforeStep, now: beforeStep.savedAt, rng: () => 0.5 });
+  assert.deepEqual(restored.snapshot().active, game.snapshot().active);
+  if (lateMs == null) {
+    const remaining = game.snapshot().active.tickMs - game.snapshot().modeAccumulatorMs;
+    game.tick(remaining); restored.tick(remaining);
+    assert.deepEqual(restored.snapshot().active, game.snapshot().active);
+  }
+  assert.deepEqual(game.snapshot().active.snake[0], held ? { x: 11, y: 10 } : { x: 10, y: 9 },
+    JSON.stringify({ progress, initialSpeed, nextSpeed, pauseMs, lateMs, delayed }));
+  assert.equal(game.snapshot().active.score, held ? 1 : 0);
+  assert.equal(game.snapshot().seeds, held ? 1 : 0);
+  assert.deepEqual(game.snapshot().active.directionQueue, held ? ["up"] : []);
+  return { snapshot: game.snapshot(), saved: game.serialize() };
+}
+
+test("request-time 84.9/85/85.5% progress is invariant under faster and slower speed changes", () => {
+  for (const [initialSpeed, nextSpeed] of [["snake", "rabbit"], ["snake", "turtle"],
+    ["rabbit", "snake"], ["turtle", "snake"], ["rabbit", "turtle"], ["turtle", "rabbit"]]) {
+    for (const progress of [0.849, 0.85, 0.855]) {
+      const options = { progress, initialSpeed, nextSpeed };
+      assertTimingResultsEqual(transformedInputRun({ ...options, delayed: true }),
+        transformedInputRun({ ...options, delayed: false }));
+    }
+  }
+});
+
+test("pause/resume preserves original request progress without subtracting frozen clock time", () => {
+  for (const pauseMs of [10, 1000]) {
+    for (const progress of [0.849, 0.85, 0.855]) {
+      const options = { progress, pauseMs };
+      assertTimingResultsEqual(transformedInputRun({ ...options, delayed: true }),
+        transformedInputRun({ ...options, delayed: false }));
+    }
+  }
+});
+
+test("34 ms late correction uses request-time progress before a speed change or pause", () => {
+  for (const transformation of [{ nextSpeed: "rabbit" }, { nextSpeed: "turtle" }, { pauseMs: 10 }]) {
+    for (const progress of [0.849, 0.85, 0.855]) {
+      for (const lateMs of [0, 16, 34]) {
+        const options = { ...transformation, progress, lateMs };
+        assertTimingResultsEqual(transformedInputRun({ ...options, delayed: true }),
+          transformedInputRun({ ...options, delayed: false }));
+      }
+    }
+  }
+});
+
+test("multiple rate and pause segments preserve delayed latest input behind the original buffer", () => {
+  function run(delayed) {
+    const game = gameAt({ foods: [{ x: 10, y: 9, kind: "seed" }] });
+    game.tick(100); turn(game, "up"); turn(game, "left");
+    game.tick(70); turn(game, "down", 1170);
+    game.tick(1);
+    if (!delayed) turn(game, "up", 1171);
+    game.tick(4); game.dispatch({ type: "setSnakeSpeed", snakeSpeed: "rabbit" });
+    game.tick(2); game.dispatch({ type: "pause" });
+    game.tick(10); game.dispatch({ type: "setSnakeSpeed", snakeSpeed: "turtle" });
+    game.dispatch({ type: "resume" }); game.tick(3);
+    if (delayed) {
+      assert.equal(deferred(turn(game, "up", 1171)), true);
+      assert.equal(rejected(turn(game, "right", 1172)), true);
+    }
+    const before = game.snapshot();
+    game.tick(before.active.tickMs - before.modeAccumulatorMs + 5);
+    assert.equal(game.snapshot().active.score, 1);
+    assert.deepEqual(game.snapshot().active.directionQueue, ["left", "up"]);
+    assert.deepEqual(game.snapshot().active.seedTurnQueueGuards, [1]);
+    return { snapshot: game.snapshot(), saved: game.serialize() };
+  }
+  assertTimingResultsEqual(run(true), run(false));
+});
