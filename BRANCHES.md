@@ -487,3 +487,11 @@ The entries below record prior checks and decisions. All intended work is includ
 - Changed only the two contribution labels to "bonus resources" and "resources during shortages"; saved totals, engine effects, and mechanics unchanged.
 - Extended node scripts/check-colony-ui.js to assert the actual UI contribution and service strings for both power types and preserve numeric totals. Direct VM acceptance and npm run check (335 tests, syntax/authority) passed; no browser executed.
 - Status: correction ready for independent review; UI round 1 and integration acceptance remain coordinator-owned.
+
+
+### UI round 1 correction - retained habitat smoke coverage (2026-10-11)
+
+- Updated smoke.spec.js current-effect assertions for Lake/Forest/River instead of removed static output descriptions. Preserved basic controls, configuration/card/cell counts, nursery status, and tail-shape coverage.
+- Current effects use an occupied legacy fixture [0,2,3,4] that remains visible after economy preceding-chain gates hide fresh locked habitats. Populations stay below milestones/natural capacity; expected rates derive independently from shared base rate, production multiplier, and habitat coefficients. Checks include visible cards and nonzero current hatch/Seed/Branch/Provision effects.
+- Contribution wording P2 was already corrected at dcd4134; actual UI contribution/service string assertions remain in the committed direct acceptance script. Saved totals unchanged.
+- Validation: node scripts/check-colony-ui.js and npm run check (335 tests plus syntax/authority) passed; git diff --check clean. Browser scenarios adapted only; no browser executed. Capped Lake query and working-followup numerical expectations remain economy-owned.
