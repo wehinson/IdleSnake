@@ -465,3 +465,17 @@ The entries below record prior checks and decisions. All intended work is includ
 - Version impact: none; the impact state exists only during the active run and is not saved.
 - Last update: 2026-09-09.
 - Notes: a held shield shows a small blue arc ahead of the head. A collision consumes one shield immediately, freezes the body for three movement intervals, accepts valid queued turns behind the forced redirect, and pauses cleanly. No commit or release was made.
+
+
+## task/colony-ui-20261011 ? Colony and Notables UI batch
+
+- Agent: Codex, GPT 6.1 Sol; isolated T3 task worktree based on active working (31e773e).
+- Status: Ready for individual review, with visual verification caveat. Integration target: task/colony-batch-20261011 only; no individual PR or working/main merge.
+- Scope: adjacent Income/Length Bonus HUD with yellow multiplier; current habitat Effect bylines; single sequential candidate card with Keep/Reject below; top-left Colony back control and top-right plain retained/capacity count; side-by-side roster actions and red removal controls; in-place service label refresh; consumption tracking and obsolete nursery feeding presentation removal.
+- Compatibility: pending queue, acceptance capacity, replacement, assignments, hold confirmation, served Retire versus unused Dismiss, saved state, and adult provision mechanics preserved. No engine, workflow, package, or root-checkout balance files changed.
+- Interface: habitatPanel seedRate/branchRate/provisionRate/foragerRate/eggHatchReduction; economy branch provides production scaling and active length bonus. Byline sums producer and Forager provisions. Lake uses hatch seconds per egg, never production per second. Economy owns habitat progression and current overview Seed total.
+- Acceptance: node scripts/check-colony-ui.js passes actual renderer plus engine/query VM checks for 7?6?5?4?3?0 pending, capacity blocking without loss, Reject/Keep, Dismiss queue preservation, Unassign, served replacement archive, badge/count, hidden zero state, service/control identity, current habitat rates and Lake zero/active effects. Minimal DOM only; no browser launched.
+- Tests: 35 targeted tests passed (node --test engine/notables.test.js engine/length-bonus.test.js engine/ui-boundary.test.js); npm run check passed all 335 tests, syntax, and authority checks; git diff --check passed. Existing candidate browser tests adapted for sequential Keep/Reject coverage, not executed. Economy owns feeding-control browser expectation adaptations.
+- Preview: http://localhost:4173/test3/ serves this exact checkout through the coordinator-owned shared server. Page, game.js, and styles.css return HTTP 200; routes/server left untouched.
+- Visual gaps: no browser/computer use authorized; small-layout geometry, card squareness with long content, contrast across themes, focus/accessibility interaction, and browser scenarios need user/approved review. Combined economy/progression/current-rate acceptance belongs to integration review.
+- Version impact: none; no save schema or release bump. Last update: 2026-10-11.
