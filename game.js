@@ -1299,7 +1299,7 @@ function renderHabitats() {
 
   habitatCardRefs.forEach((ref, index) => {
     const habitat = habitatConfig.habitats[index];
-    const { count, unlocked, multiplier, nextMilestone, overCapacity, idleSnakes, eggHatchReduction, seedRate, branchRate, provisionRate, provisionsUse, notable, hardCapacity, upgradeCost, canAssign, canUpgrade } = panel.habitats[index];
+    const { count, unlocked, multiplier, nextMilestone, overCapacity, idleSnakes, idleSnakesAreAverage, eggHatchReduction, seedRate, branchRate, provisionRate, provisionsUse, notable, hardCapacity, upgradeCost, canAssign, canUpgrade } = panel.habitats[index];
 
     ref.card.classList.toggle("is-locked", !unlocked);
     ref.card.hidden = !panel.habitats[index].visible;
@@ -1333,7 +1333,9 @@ function renderHabitats() {
     ref.overCapacityRow.hidden = overCapacity === 0;
     ref.provisionsUse.textContent = `Consumes ${formatProvisions(provisionsUse)}/sec`;
     ref.idleSnakes.hidden = idleSnakes === 0;
-    ref.idleSnakes.textContent = `${formatNumber(idleSnakes)} idle snake${idleSnakes === 1 ? "" : "s"}`;
+    ref.idleSnakes.textContent = idleSnakesAreAverage
+      ? `Idle on average: ${formatNumber(idleSnakes)} snake${idleSnakes === 1 ? "" : "s"}`
+      : `${formatNumber(idleSnakes)} idle snake${idleSnakes === 1 ? "" : "s"}`;
     ref.bonus.textContent = `×${formatDecimal(multiplier, 2)} habitat bonus${nextMilestone ? ` (next at ${formatNumber(nextMilestone.score)} snakes)` : ""}`;
     ref.card.classList.toggle("is-hard-over-capacity", count > hardCapacity);
     ref.button.disabled = !canAssign;

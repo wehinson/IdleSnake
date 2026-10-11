@@ -3,6 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const vm = require("node:vm");
 const queries = require("../engine/queries.js");
+const economy = require("../engine/economy.js");
 const { createGameSession } = require("../engine/session.js");
 const { habitatConfig } = require("../engine/config.js");
 
@@ -28,7 +29,7 @@ class Element {
   addEventListener() {}
 }
 
-test("actual habitat rendering places progress after the last unlocked card before preserved legacy cards", () => {
+function habitatRenderer() {
   const source = fs.readFileSync(require.resolve("../game.js"), "utf8");
   const list = new Element();
   const context = vm.createContext({
@@ -41,8 +42,14 @@ test("actual habitat rendering places progress after the last unlocked card befo
     formatNumber: String, formatWholeNumber: String, formatDecimal: String, formatProvisions: String, padScore: String,
     setText: (element, value) => { element.textContent = value; }, placeSnakeInHabitat() {}, upgradeHabitat() {}
   });
-  vm.runInContext(source.slice(source.indexOf("function buildHabitatList()"), source.indexOf("function placeSnakeInHabitat(")), context);
+  vm.runInContext(source.slice(source.indexOf("const numberFormatCache ="), source.indexOf("// Write to a text node"))
+    + source.slice(source.indexOf("function buildHabitatList()"), source.indexOf("function placeSnakeInHabitat(")), context);
   vm.runInContext("buildHabitatList()", context);
+  return { context, list };
+}
+
+test("actual habitat rendering places progress after the last unlocked card before preserved legacy cards", () => {
+  const { context, list } = habitatRenderer();
   const progress = list.children.at(-1);
   const cards = [...context.habitatCardRefs];
   function render(counts) {
@@ -65,6 +72,59 @@ test("actual habitat rendering places progress after the last unlocked card befo
   assert.deepEqual(render([5, 5, 5, 5, 5, 5, 5, 0]), habitatConfig.habitats.map((item) => item.name));
   assert.equal(progress.hidden, true);
   assert.equal(list.children.filter((item) => item.id === "next-habitat-progress").length, 1);
+});
+
+test("actual habitat labels distinguish averaged idle activity from physical idle counts across funding changes", () => {
+  const { context } = habitatRenderer();
+  const cards = context.habitatCardRefs;
+  const counts = [55, 60, 5, 1];
+  function session(populations, bank = 0) {
+    return createGameSession({ now: 0, rng: () => 0.99, save: {
+      currencies: { provisions: bank }, habitats: { counts: populations, upgradeLevels: populations.map(() => 2) }
+    } });
+  }
+  function render(game) {
+    context.latestSnapshot = game.snapshot();
+    vm.runInContext("renderHabitats()", context);
+    return queries.habitatPanel(context.latestSnapshot);
+  }
+  let panel = render(session(counts));
+  assert.equal(panel.habitats[0].idleSnakesAreAverage, true);
+  assert.equal(panel.habitats[1].idleSnakesAreAverage, true);
+  assert.equal(panel.habitats[2].idleSnakesAreAverage, false, "unchanged allocations remain ordinary counts");
+  assert.equal(cards[0].idleSnakes.textContent, "Idle on average: 2.809 snakes");
+  assert.equal(cards[1].idleSnakes.textContent, "Idle on average: 3.7453 snakes");
+  assert.equal(cards[0].assignedCount.textContent, "55");
+  assert.equal(cards[1].assignedCount.textContent, "60");
+  assert.equal(cards[0].idleSnakes.hidden, false);
+  assert.equal(cards[2].idleSnakes.hidden, true);
+  assert.equal(panel.habitats[0].count, 55);
+  assert.equal(panel.habitats[1].count, 60);
+  assert.ok(panel.habitats[0].idleSnakes > 2 && panel.habitats[0].idleSnakes < 3, "no integer rounding of the query average");
+  const plan = economy.habitatProductionPlan(context.latestSnapshot, 1);
+  assert.equal(panel.habitats[0].idleSnakes, plan.currentActivation.idleCounts[0]);
+  assert.equal(panel.habitats[0].seedRate, plan.currentActivation.habitatSeedOutputs[0]);
+
+  const funded = session(counts, 1);
+  panel = render(funded);
+  assert.equal(panel.habitats[0].idleSnakesAreAverage, false);
+  assert.equal(cards[0].idleSnakes.hidden, true);
+  const untilDepleted = economy.habitatProductionPlan(funded.snapshot(), 1).bankedSeconds * 1000;
+  funded.tick(untilDepleted + 1);
+  assert.equal(funded.snapshot().provisions, 0);
+  panel = render(funded);
+  assert.equal(panel.habitats[0].idleSnakesAreAverage, true);
+  assert.equal(cards[0].idleSnakes.textContent, "Idle on average: 2.809 snakes");
+  assert.equal(cards[1].idleSnakes.textContent, "Idle on average: 3.7453 snakes");
+
+  for (const [population, text] of [[26, "1 idle snake"], [27, "2 idle snakes"]]) {
+    panel = render(session([population]));
+    assert.equal(panel.habitats[0].idleSnakesAreAverage, false);
+    assert.equal(cards[0].idleSnakes.textContent, text);
+  }
+  panel = render(session([25]));
+  assert.equal(panel.habitats[0].idleSnakesAreAverage, false);
+  assert.equal(cards[0].idleSnakes.hidden, true);
 });
 
 test("actual HUD rate formatting matches the tenfold length-bonus browser expectations", () => {

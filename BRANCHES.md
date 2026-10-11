@@ -1,5 +1,15 @@
 # Branch status
 
+## task/colony-economy-20261011 - Independent round 3 query/renderer correction
+
+- Agent: Codex, GPT 6.1 Sol, existing isolated task branch. Round 3 at262cbaa resolved all prior production, reserve, scheduler, Lake and deadline findings, but required one P3 average-activity label correction. No rejected tip merged; correction complete and ready for fresh independent round 4.
+- Query contract: habitatPanel now exposes per-habitat idleSnakesAreAverage. It is true only when the current depleted reserve time-sharing plan changes that habitat's full/renewable idle allocation. idleSnakes retains the exact effective average without integer rounding. Ordinary allocations expose false; physical count/capacity/placement/progression fields retain their existing values. No engine production, reserve, recurring incubation, contribution or service policy changes.
+- Consumer response: the narrow renderHabitats destructure and idle label show 'Idle on average: X snakes' for average activity, and retain 'X idle snake(s)' for ordinary actual idle counts. Existing zero-idle hiding is retained. Accepted UI6cb9d3a remains frozen; UI owner acknowledged no duplicate edit. Integration must preserve this metadata/label in the shared renderHabitats region while retaining UI byline producer+Forager rates, capped Lake effect, consumption presentation removal, HUD and candidate/service controls.
+- Direct acceptance: actual build/render functions plus actual number formatter executed in Node VM. Counts[55,60,5,1], upgrades2, bank0 show 'Idle on average: 2.809 snakes'/'Idle on average: 3.7453 snakes' and assigned55/60; raw fractional query values remain intact. Funded bank1 hides idle and metadata is false; true depletion restores average labels. Ordinary26/27 show '1 idle snake'/'2 idle snakes'; zero/unaffected allocation hides correctly. Existing legacy progress order and HUD cases remain covered.
+- Verification: direct VM3/3 passes, queries/game syntax and git diff --check pass. The single allocated npm run check passed360/360 tests, syntax120JS files and authority11modes. Previous frozen262cbaa independently passed768 activation comparisons; this correction changes no engine formula. Full check ran only after coordinator granted the serial slot; no stress or repeat suite was run.
+- Scope: engine/queries.js, narrow game.js idle consumer, scripts/colony-progression-ui.test.js and this log only. Physical populations, gates, production/contributions, saves, approved bank-zero policy and all prior engine tests remain unchanged. No workflow/package/version/root balance/minigame edits, browser automation, PR, working/main merge, server/route/worktree/binding cleanup. Browser layout/themes/accessibility remain unverified; existing browser expectations remain CI/manual-only.
+- Last update: 2026-10-11.
+
 ## task/colony-economy-20261011 - Independent round 2 corrections / round 3 evidence
 
 - Agent: Codex, GPT 6.1 Sol, existing isolated task branch. Rejected tips 3e8d01e and 7f75b34 were not merged. Status: stable corrections ready for fresh independent round 3 review; no working/main merge, PR or deployment.

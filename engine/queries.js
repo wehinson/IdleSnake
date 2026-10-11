@@ -41,6 +41,8 @@
           multiplier: economy.habitatMultiplier(habitat, count),
           nextMilestone: habitat.milestones.find((item) => count < item.score),
           overCapacity: Math.max(0, count - habitat.naturalCapacity), idleSnakes: activation.idleCounts[index],
+          idleSnakesAreAverage: activation === productionPlan.depletedActivation && productionPlan.depletedFullDuty > 0
+            && productionPlan.baselineActivation.idleCounts[index] !== fullActivation.idleCounts[index],
           eggHatchReduction: habitat.eggHatchReductionSeconds ? eggHatchReduction : 0,
           seedRate: activation.habitatSeedOutputs[index] * seedIncomeMultiplier, branchRate: activation.habitatBranchOutputs[index],
           provisionRate: activation.habitatProvisionOutputs[index],
