@@ -19,6 +19,7 @@ Updated: 2026-10-11. Status: implementation in progress; no implementation accep
 
 Final tips pending; WIP checkpoints are not acceptance. Coordinator-owned independent review task IDs pending.
 
+- Snake UI pushed checkpoint `1f41e16`; worker reports syntax/authority and352 Node tests passed plus direct exact HTTP checks on test6 index/game/styles/session/duel/config/helper/appearance. Worker review1 found P2 default shield1.18-cell neck connector missing and stale lifecycle names; both fixed with regressions. Worker review2 active; final regression commit pending. No external research needed for specified local behavior. Integration review must retain approved tongue and default shield neck appearance behavior.
 - Brick/Crossing pushed WIP `b1950ef` (not completion). Worker reports full check344 tests + syntax/authority and9 engine acceptance tests passed. Five actual scoped renderer/input VM tests were added after checkpoint and pass (circle/square palette, fractures, tail alpha, clipped rails, Start pointer/Enter-repeat). Research complete; worker-owned high-effort review round1 active. Guarded connector calls await sibling wrapper/helper integration. Crossing win lock1000ms, then ready/awaitingStart; queue flushed on win; payout lines untouched. Require final committed VM tests, exact reviewed final tip, and integration helper verification before acceptance.
 
 | Owner / requests | Branch | Thread | Reserved preview | Completion gate |
@@ -45,6 +46,8 @@ Final tips pending; WIP checkpoints are not acceptance. Coordinator-owned indepe
 
 | Owner | Research request key / task ID | State |
 |---|---|---|
+| Snake UI worker review1 | actual task ID requested | found P2 default shield1.18-cell neck and lifecycle naming; fixed/regression-tested |
+| Snake UI worker review2 | minigame-snake-ui-readonly-review-r2-20261011 / node:delegated-task:command%3Amcp%3Aabe8ed05-7277-4fea-9051-3f26c9838f0e%3Adelegate-task%3Aminigame-snake-ui-readonly-review-r2-20261011 | pending; worker-owned, not coordinator final acceptance |
 | Brick/crossing research | brick-crossing-research-20261011 / node:delegated-task:command%3Amcp%3Afcb04b09-0c64-4e54-b229-5ca419397a16%3Adelegate-task%3Abrick-crossing-research-20261011 | completed, findings/report pending final worker evidence |
 | Brick/crossing worker review | brick-crossing-review-round1-20261011 / node:delegated-task:command%3Amcp%3Afcb04b09-0c64-4e54-b229-5ca419397a16%3Adelegate-task%3Abrick-crossing-review-round1-20261011 | active, GPT6.1Sol high; worker-owned, not coordinator final acceptance |
 | Arcade | minigame-8910-research-20261011 / node:delegated-task:command%3Amcp%3A93dc784f-daa8-41f9-bb77-f0df835d0be8%3Adelegate-task%3Aminigame-8910-research-20261011 | running |
