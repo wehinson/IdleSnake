@@ -22,3 +22,9 @@ Brick post-reboot reviewr2 actual returned ID: node:delegated-task:command%3Amcp
 
 Known results: Snake UIr1 twoP2s, r2 key2 stale accessible nameP2; Brickr1 death restartP1/timer-agingP2/HUDP2; Arcade r1cancelled/r2PASS on working diff (final-tip mapping pending); Rewardsr1 idle-input payoutP1FAIL; Sokoban design2 cancelled with partial witness research; Bird both required medium design tasks completed. Full-context follow-up reviews must retain prior findings/fixes/unresolved objections.
 
+## Subsequent worker rounds (not coordinator acceptance)
+
+- Sokoban exact c664c56 review `node:delegated-task:command%3Amcp%3Af4158bb8-9700-42e5-ac9c-4151aec616a4%3Adelegate-task%3Asokoban-frozen-c664c56-review-1`: completed PASS, no blockers,17 focused replay/regression checks. Cancelled design2 remains cancelled, never PASS.
+- Brick R3 `node:delegated-task:command%3Amcp%3A9f18fde2-9520-41e6-8d74-33d51423ae9e%3Adelegate-task%3Abrick-crossing-review-round3-20261011`: completed REQUESTCHANGES at3f77531, fresh Pause/center could not resume clearing after Space pause.
+- Brick R4 `node:delegated-task:command%3Amcp%3A9f18fde2-9520-41e6-8d74-33d51423ae9e%3Adelegate-task%3Abrick-crossing-review-round4-20261011`: completed ACCEPT exact0f6aafc,8 actual VM checks, no material findings. Final exact-tip fullcheck pending slot.
+- Rewards R2 completed FAIL exactd5db0a3: cancelled Maze queue right/up latched engagement on unchanged autoplay. Actual returned task ID requested from owner. New bounded R3 pending fixes; no passing acceptance inferred.

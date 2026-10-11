@@ -8,8 +8,8 @@
 - Scope: requests 1–6 and 8–13 (numbering skips 7): duel/Nibbler/switching/shared connectors; Brick Breaker/Snakeger; 15 Snake Bird and 15 Sokoban puzzles; Broodline/strike/Centipede polish; authoritative calibrated Seed rewards.
 - Evidence and resume state: `MINIGAME_REVIEW.md`; full original brief: `MINIGAME_BRIEF.md`. Each final exact worker tip requires coordinator inspection/checks and independent T3 read-only review before integration.
 - Baseline verification: `npm run check` passed syntax, authority and all335 Node tests. No browser automation authorized; visual/layout/control feel remains for William to test.
-- Previews: shared port4173/PID10940; `/test6/`–`/test11/` reserved for workers and `/test12/` for this integration. Existing root and `/test1/`–`/test5/` preserved. Direct HTTP byte checks recorded in review file.
-- Release coordination: baseline-only1.0.4 release is on main `0f148ad1af6b6d288cb67d956f3d9a6e851fa003`; `working` remains31e773e. Only release metadata differs from baseline; no pending batch entered main. Release thread reports live64 runtime asset hashes match, CI/deployment completion pending. This batch stays based on31e773e, unapproved, without importing release/batch commits or bumping its version.
+- Previews: shared port4173/current PID29492 (restored by home after reboot); `/test6/`–`/test11/` reserved for workers and `/test12/` for this integration. Existing root and `/test1/`–`/test5/` preserved. Direct HTTP byte checks recorded in review file.
+- Release coordination: baseline-only1.0.4 release completed on main `618abc8c5968306488096aaca7cdd46819f256eb`, CI/Pages success; `working` remains31e773e. Only release metadata differs from baseline; no pending batch entered main. This batch stays based on31e773e, unapproved, without importing release/batch commits or bumping its version.
 - Version impact: no release bump for this PR; save migrations documented by owners and reviewed on integration.
 - Last update: 2026-10-11.
 
