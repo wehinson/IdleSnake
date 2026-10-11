@@ -16,7 +16,7 @@ Updated: 2026-10-11. Coordinator: GPT 6.1 Sol, high effort, local Jimothy.
 | --- | --- | --- | --- | --- |
 | 1, 6, 7, 9 UI | task/colony-ui-20261011 | mcp:4ee92de7-753a-47f6-84bd-7027e32edf3e | Round 2 PASS owned scope; economy integration condition pending | Accepted UI tip 6cb9d3a9b186364fd0887ff8fbe9fee6628eecf5 |
 | 3, 4, 5, 8 economy | task/colony-economy-20261011 | mcp:fd026147-88dc-4aae-8b42-576f1e265fa6 | Round 2 changes required; freeze released, worker fixing | Rejected candidate 7f75b34116ae2763aeecd7b36f99d82f132482b8 |
-| 2 Seed grace | task/seed-turn-grace-20261011 | mcp:57410d23-3950-46db-933b-7d760f1a72ce | Round 3 review running | New candidate e9818bb723f2e61310c85e3dfb1b631f162a947c |
+| 2 Seed grace | task/seed-turn-grace-20261011 | mcp:57410d23-3950-46db-933b-7d760f1a72ce | Round 3 changes required; worker fixing | Rejected candidate e9818bb723f2e61310c85e3dfb1b631f162a947c |
 
 Each checkout is a sibling under `C:/Users/wehin/.t3/worktrees/IdleSnake/`. Workers send completion here with stable request IDs `colony-ui-20261011-complete`, `colony-economy-20261011-complete`, `seed-turn-grace-20261011-complete`.
 
@@ -67,7 +67,7 @@ Each checkout is a sibling under `C:/Users/wehin/.t3/worktrees/IdleSnake/`. Work
 | UI round 2 | colony-batch-ui-review-r2-20261011 | node:delegated-task:command%3Amcp%3Abcd63630-411c-4aec-8b6f-4afac57f78e2%3Adelegate-task%3Acolony-batch-ui-review-r2-20261011 | PASS owned scope at 6cb9d3a; economy Lake dependency |
 | Seed round 2 | colony-batch-seed-review-r2-20261011 | node:delegated-task:command%3Amcp%3Abcd63630-411c-4aec-8b6f-4afac57f78e2%3Adelegate-task%3Acolony-batch-seed-review-r2-20261011 | Changes required: P2 request-time progress across speed/pause |
 | Economy round 2 | colony-batch-economy-review-r2-20261011 | node:delegated-task:command%3Amcp%3Abcd63630-411c-4aec-8b6f-4afac57f78e2%3Adelegate-task%3Acolony-batch-economy-review-r2-20261011 | Changes required: funded scheduler, authoritative Lake, fractional deadlines |
-| Seed round 3 | colony-batch-seed-review-r3-20261011 | node:delegated-task:command%3Amcp%3Abcd63630-411c-4aec-8b6f-4afac57f78e2%3Adelegate-task%3Acolony-batch-seed-review-r3-20261011 | Running against e9818bb |
+| Seed round 3 | colony-batch-seed-review-r3-20261011 | node:delegated-task:command%3Amcp%3Abcd63630-411c-4aec-8b6f-4afac57f78e2%3Adelegate-task%3Acolony-batch-seed-review-r3-20261011 | Changes required: hydrated pause and epoch boundary P2s, two related P3s |
 
 ### Seed round 1 findings and response
 
@@ -126,6 +126,28 @@ Each checkout is a sibling under `C:/Users/wehin/.t3/worktrees/IdleSnake/`. Work
 - P3 fractional deadline: counts[5,5,5,11],currencies0,nest/nurserylevel2,twohatchlings0,900one-secondticks produce2adults;single900000ms offline produces0,progress899999.9999999998each, persistsreload thennext1msgraduates. Parent independently reproduced. Snap known consumed timer boundaries, meaningful fractionaldeadline regression.
 - Freeze explicitly released with complete findings via requestID `colony-batch-economy-r2-fixes-release-20261011`. Original economy worker owns all3fixes, must retain prior regressions, rerunchecks/pushnewtip/report. Fresh round3 originalbrief+allfindings/responses review required. UI accepted tip remains6cb9d3a; Seed round3 runninge9818bb. No feature merges.
 
+### Seed round 3 findings and response
+
+- Reviewer passed 359 Node tests, syntax/authority, 62 targeted tests, 96 independent buffered replacement pairs, 24 speed/pause pairs and prior exact three-pickup/13-segment/three-RNG safety case. Frozen tip remained clean; six HTTP resources matched.
+- P2 hydrated running session: first pause creates initial timing segment after phase becomes paused, misclassifying earlier timestamps. Reload running save at1000, 200ms tick, head(10,10) right, Seed(11,10); up input1169.8 (84.9%), pause1175, paused tick10, resume, delayed delivery. On-time turns(10,9)/score0; delayed consumes(11,10)/score1. Reviewer reproduced12 pairs; coordinator independently reproduced.
+- P2 epoch precision: now1791741600000, Rabbit interval133.33333333333334ms; tick exactly85%, timestamp up with serialized savedAt. Timestamped input turns/misses while untimestamped correctly holds/picks up. Coordinator independently reproduced both results. Fix relative progress/absolute timestamp precision without extending grace to84.9%.
+- Related P3s: redundant paused unchanged-speed timing segments grow without bound (10,002 after10,000 ticks/dispatches); coalesce. Optional turnTimingEnabled queue mutation changes interval without recording it, causing85ms of100ms interval to classify pre-grace and lose latest legal request; preserve supported optional timing semantics.
+- Complete findings sent to original Seed worker with `colony-batch-seed-r3-fixes-20261011`, edit freeze released. Both P2s and related P3s require narrow fixes/regressions; stable pushed tip then fresh independent round4 with original brief and all prior objections/responses. No merge of e9818bb.
+
+### Economy depletion integration steering
+
+- Worker fixes in progress share actual production planning between income and egg/depletion thresholds, share recurring egg reduction between engine/development/query and snap known nursery deadlines within8 floating-point ULPs. Original funded fixture now matches1adult/4eggs and fractional fixture2adults, but remaining after-depletion cadence changes egg progress and currency, so not accepted as mere rounding.
+- Coordinator authorized analytic integration of existing funded/full and renewable/fair modes at zero reserve: when renewableNetSurplus>0 and fullDeficit>0, fullDuty=renewableNetSurplus/(fullDeficit+renewableNetSurplus). Preserve raw rates/modifiers/costs, fair allocation, positive initial banks until actual depletion, recurring egg-duration mechanics and service eligibility. Integrate weighted gross outputs/contributions/thresholds/current rate queries consistently; service elapsed time credited once.
+- Explicit compatibility adjustment: zero reserve immediately spends renewable surplus funding the corresponding fraction of full activity, ending at zero rather than a frame-sized residual. This may change small residual-bank purchase availability and must be disclosed with measured parity limits. No generated/discarded resources or new balance coefficients authorized. Require zero-surplus/self-funded-full/positive-bank/depletion/Forager/Rationer cases and live/sliced/offline/persisted gameplay parity; only pre-existing4dp currency quantization may have justified bounded differences.
+- Steering IDs: `colony-batch-economy-depletion-steer-20261011`, `colony-batch-economy-analytic-duty-approval-20261011`. Await stable tip and fresh economy round3; partial working changes are not approved.
+
+### Separate Minigame batch and baseline release
+
+- William clarified exactly TWO separate review PRs: this Colony batch and Minigame batch. Minigame coordinator `mcp:618042fc-9354-4fc9-906a-1b3ca5c689e4`, branch task/minigame-batch-20261011, independently based on31e773e. No commits imported across batches; home watches both independently.
+- Minigame reserves /test6 Snake, /test7 Brick/Crossing, /test8 Bird, /test9 Sokoban, /test10 Arcade, /test11 Rewards, /test12 combined. Route-write baton handed to its coordinator to append atomically while preserving /test1-/test5/root/PID10940; this coordinator makes no concurrent route writes. Shared server/config paths and dynamic request semantics sent via `colony-minigame-preview-routing-handoff-20261011`.
+- Separate authorized baseline release thread `mcp:cb15038f-28e9-4ad5-a277-102c5f64b247`, branch task/release-working-20261011, ships committed working31e773e only, expected patch1.0.4. Our batch remains unapproved, no working/main merge, version bump or release import. Scope/preview coordination sent via `colony-release-scope-coordination-20261011`; final release ancestry outcome pending.
+- Minigame coordinator confirmed atomic route append complete, old /test1-/test5 values/root/PID preserved,65 exact HTTP comparisons across root/all12 routes and slash redirects passed; its integration /test12 also baseline-only. No pending route writer. Release agent confirmed only31e773e plus1.0.4 metadata, root/worktrees/previews preserved, no batch version bump needed; final main/ancestry evidence follows.
+
 ## Review and integration sequence
 
 1. Wait for all three worker completions; end turns while waiting (no polling monitors).
@@ -145,4 +167,4 @@ Each checkout is a sibling under `C:/Users/wehin/.t3/worktrees/IdleSnake/`. Work
 - Initial direct HTTP verification: 10 assets per route matched exact mapped checkout (HTML, game/CSS, session/queries, approved tongue engine/draw, theme kit/official CSS and image); primary game.js matches root working. Recheck after workers finish and integration merges.
 - Root preservation baseline: SHA-256 hashes for 27 unrelated modified/untracked root files saved locally in this worktree's git directory as `batch-root-preservation.json` (not committed).
 - All visual smoothness/layout/theme fit/accessibility by eye remain unverified until William tests. Direct engine/VM/HTTP checks cannot prove them.
-- PR: not created. UI owned scope accepted at6cb9d3a; economy round2 fixes underway; Seed round3 running ate9818bb. No feature branch integrated yet.
+- PR: not created. UI owned scope accepted at6cb9d3a; economy round2 fixes underway; Seed round3 changes required at e9818bb, worker fixing. No feature branch integrated yet. Minigame and baseline release remain separate.

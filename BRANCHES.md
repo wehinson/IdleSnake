@@ -3,13 +3,13 @@
 ## task/colony-batch-20261011 — Nine-change integration and independent review
 
 - Agent: Codex, GPT 6.1 Sol, high effort, local Jimothy; T3 integration thread `mcp:4179fc65-6476-4132-ab6c-582e4df713e3`.
-- Status: Active; UI owned scope PASS at `6cb9d3a`. Seed `e9818bb` round3 running after359localtests. Economy round2 requires funded-output scheduler, bank-supported Lake query and exact fractional graduation fixes; parent reproduced all, edit freeze released to original worker. No feature merge or PR; full IDs/evidence in BATCH_REVIEW.md.
+- Status: Active; UI owned scope PASS at `6cb9d3a`. Seed round3 rejected `e9818bb` for hydrated-pause and epoch-boundary defects; parent reproduced both, original worker fixing these and related timing-history issues. Economy round2 fixes include actual funded/depletion scheduling, recurring Lake query and fractional graduation; continuous existing-mode allocation authorized to remove depleted-bank cadence dependence. Stable new tips and fresh reviews pending. No feature merge or PR; full IDs/evidence in BATCH_REVIEW.md.
 - Base: local active working `31e773efee60c85d6781078803e4eae208911e4e`. Work only in this integration checkout; final delivery is one PR into working, with no working/main merge or deployment.
 - Scope and evidence: [BATCH_REVIEW.md](BATCH_REVIEW.md) records all nine acceptance conditions, worker threads/branches, interfaces, review steps and eventual reviewed commit/task IDs.
 - Verification: baseline `npm run check` passed 335 tests; individual reruns passed Seed 350, UI 335 and economy 346 with syntax/authority. UI VM acceptance script passed. Twelve HTTP assets each matched the frozen task tips; 27 protected unrelated root-file hashes remain unchanged. Independent review conclusions pending.
-- Preview: shared Jimothy port 4173, unchanged server PID 10940. `/test2/` Seed grace; `/test3/` UI; `/test4/` economy; `/test5/` this integration checkout (currently baseline). Coordinator owns route changes; `/test1/` and `/` preserved.
+- Preview: shared Jimothy port 4173, unchanged server PID 10940. `/test2/` Seed grace; `/test3/` UI; `/test4/` economy; `/test5/` this integration checkout (currently baseline). `/test1/` and `/` preserved. Separate Minigame coordinator owns current atomic append of reserved `/test6/`–`/test12/`; no concurrent route writes.
 - Caveat: no browser automation/computer use authorized or performed; visual smoothness, narrow layouts and theme appearance await William's test. Root unrelated balance files remain excluded; local hash record preserves their baseline.
-- Version impact: none. Home thread owns PR babysitting and review-ready notification after final handoff.
+- Version impact: none. Separate authorized release ships committed31e773e as expected1.0.4; no release/minigame commits imported here. Exactly two independent final review PRs, Colony and Minigame. Home thread owns PR babysitting and review-ready notification after final handoff.
 - Last update: 2026-10-11.
 
 ## task/tongue-seed-return — Shorter tongue and smooth Seed placement experiment
