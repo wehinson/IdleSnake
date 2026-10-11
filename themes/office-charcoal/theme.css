@@ -1,0 +1,1000 @@
+/* Office Charcoal (Claude)
+   The business phone of 1998: a tall charcoal slab with a stub antenna, dark oval keys,
+   blue-grey function keys, and a yellow-green LCD with pixel rows. The menu is a pocket
+   reference card: underlined tabs, small capitals, and pale solid buttons. */
+
+html[data-theme="office-charcoal"] {
+  --s-font: "IBM Plex Sans", "Helvetica Neue", Arial, sans-serif;
+  --s-lcd-font: "DotGothic16", "Courier New", monospace;
+  --s-lcd-size: clamp(0.8rem, 3.6vw, 0.95rem);
+  --s-lcd-label-size: 0.625rem;
+  --s-grid: transparent;
+  --s-lcd: #c8d5a8;
+  --s-lcd-ink: #222c14;
+  --s-lcd-dim: #545f40;
+  --s-lcd-glow: inset 0 1px 2px rgba(34, 44, 20, 0.3);
+  --s-seed: #364026;
+  --s-key-highlight: transparent;
+  --s-page: #111213;
+  --s-menu: #1a1c1d;
+  --s-raise: #26292b;
+  --s-raise-2: #303436;
+  --s-line: #2e3133;
+  --s-line-strong: #4a4f52;
+  --s-text: #eceeed;
+  --s-muted: #a8adad;
+  --s-faint: #6a7071;
+  --s-accent: #9fb4c7;
+  --s-accent-ink: #111a22;
+  --s-accent-text: #b4c7d8;
+  --s-button: #d9dddc;
+  --s-button-ink: #16191a;
+  --s-button-hover: #f2f4f3;
+  --s-radius-panel: 2px;
+  --s-radius-box: 2px;
+  --s-radius-pill: 2px;
+  --s-radius-button: 2px;
+  --s-c1: #d8b96a;
+  --s-c2: #c8d5a8;
+  --s-c3: #9fb4c7;
+  --s-stop: #c9584a;
+  --s-stop-text: #eb8b7d;
+  --s-go: #6fa85f;
+  --s-egg: #e9ecd9;
+  --s-nursery-bg: #c8d5a8;
+  --s-nursery-ink: #222c14;
+  --s-nursery-frame: #303436;
+  --s-lens: #0e0f10;
+  --s-hint: #a8adad;
+  --s-brand: #b8bdbd;
+  --s-key-bg: #2a2d2f;
+  --s-key-border: #0c0d0e;
+  --s-key-base: #08090a;
+  --s-key-ink: #eceeed;
+  --s-nav-bg: #9fb4c7;
+  --s-nav-ink: #111a22;
+  --s-key-locked: #1f2223;
+  --s-key-locked-border: #101112;
+  --s-key-locked-ink: #6f7576;
+  --s-dpad-well: #1c1e20;
+}
+
+/* ---------- shared round 3 system ----------
+   A dark, flat, minimal menu: a faint grid behind it, a grotesk for every word and number,
+   open ruled rows instead of cards, solid high-contrast buttons, and pill tabs.
+   The phone is the only 3D object: rounded keys, Start and Reset with coloured underlines,
+   and an LCD with horizontal scanlines and a soft glow. */
+
+html[data-theme="office-charcoal"] {
+  color-scheme: dark;
+  --screen: var(--s-lcd);
+  --screen-ink: var(--s-lcd-ink);
+  --paper: var(--s-text);
+  --font-body: var(--s-font);
+  --font-ui: var(--s-font);
+}
+
+html[data-theme="office-charcoal"] body {
+  background: var(--s-page);
+  color: var(--s-text);
+  font-family: var(--s-font);
+  font-variant-numeric: tabular-nums;
+}
+
+html[data-theme="office-charcoal"] .app-layout {
+  grid-template-columns: minmax(280px, 360px) minmax(300px, 330px);
+  gap: clamp(24px, 7vw, 80px);
+  align-items: center;
+}
+
+@media (max-width: 800px) {
+  html[data-theme="office-charcoal"] .app-layout {
+    grid-template-columns: minmax(0, 360px);
+  }
+}
+
+/* ---------- the menu ---------- */
+
+html[data-theme="office-charcoal"] .menu-panel {
+  padding: 20px 20px 16px;
+  border: 1px solid var(--s-line);
+  border-radius: var(--s-radius-panel);
+  background:
+    linear-gradient(var(--s-grid) 1px, transparent 1px) 0 0 / 16px 16px,
+    linear-gradient(90deg, var(--s-grid) 1px, transparent 1px) 0 0 / 16px 16px,
+    var(--s-menu);
+  background-attachment: local;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
+  color: var(--s-text);
+  scrollbar-color: var(--s-line-strong) var(--s-menu);
+}
+
+html[data-theme="office-charcoal"] .menu-panel h1 {
+  margin: 0 0 16px;
+  color: var(--s-text);
+  font-family: var(--s-font);
+  font-size: 1.75rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  text-transform: none;
+}
+
+html[data-theme="office-charcoal"] .menu-section-heading {
+  color: var(--s-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+html[data-theme="office-charcoal"] .menu-section-mark {
+  color: var(--s-accent);
+}
+
+html[data-theme="office-charcoal"] .menu-stat {
+  padding: 16px;
+  border: 0;
+  border-radius: var(--s-radius-box);
+  background: var(--s-raise);
+  box-shadow: none;
+  color: var(--s-text);
+}
+
+html[data-theme="office-charcoal"] .menu-stat span {
+  color: var(--s-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+}
+
+html[data-theme="office-charcoal"] .menu-stat strong {
+  font-family: var(--s-font);
+  font-size: clamp(2.25rem, 8vw, 3rem);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+html[data-theme="office-charcoal"] .menu-tabs {
+  gap: 4px;
+  margin-top: 16px;
+  padding: 4px;
+  border: 0;
+  border-radius: var(--s-radius-pill);
+  background: var(--s-raise);
+}
+
+html[data-theme="office-charcoal"] .menu-tab {
+  padding: 8px 4px;
+  border: 0;
+  border-radius: var(--s-radius-pill);
+  background: transparent;
+  color: var(--s-muted);
+  font-family: var(--s-font);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  text-transform: none;
+}
+
+html[data-theme="office-charcoal"] .menu-tab.is-active,
+html[data-theme="office-charcoal"] .menu-tab[aria-selected="true"] {
+  border-color: transparent;
+  background: var(--s-accent);
+  box-shadow: none;
+  color: var(--s-accent-ink);
+}
+
+html[data-theme="office-charcoal"] .menu-tab:disabled {
+  color: var(--s-faint);
+}
+
+html[data-theme="office-charcoal"] .menu-tab-notification {
+  background: var(--s-text);
+  color: var(--s-menu);
+}
+
+/* Open ruled rows instead of boxes */
+html[data-theme="office-charcoal"] :is(.upgrade-card, .nursery-goal-card, .nest-card, .nursery-yard-card, .nursery-currency, .migration-summary-card, .migration-builder, .migration-expedition-card, .trade-route-builder, .trade-direction-card, .colony-placeholder, .colony-income-summary, .habitat-card, .notable-card, .hatchling-row, .candidate-decision, .notable-candidates) {
+  padding: 12px 0 16px;
+  border: 0;
+  border-bottom: 1px solid var(--s-line);
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--s-text);
+}
+
+html[data-theme="office-charcoal"] .menu-panel :is(strong, h2, h3, h4, .habitat-name, .upgrade-card-heading strong, .nursery-card-heading strong, .notable-card > strong) {
+  color: var(--s-text) !important;
+  font-family: var(--s-font);
+  font-weight: 600;
+}
+
+html[data-theme="office-charcoal"] .menu-panel :is(.upgrade-card-heading strong, .nursery-card-heading strong, .habitat-name) {
+  font-size: 1.0625rem;
+}
+
+html[data-theme="office-charcoal"] .menu-panel :is(p, li, label, .upgrade-current, .nursery-timer, .nursery-meta, .nursery-meta span, .colony-note, .colony-income-summary, .habitat-notable, .habitat-production, .habitat-bonus, .habitat-primary-row, .habitat-over-capacity-row, .habitat-idle-snakes, .notable-card, .notable-service, .hatchling-row, .hatchling-row-heading span, .migration-field, .migration-cargo-note, .migration-required, .migration-founding, .migration-attrition, .trade-direction-derived, .trade-direction-fields label, .trade-worker-row, .nursery-currency, .nest-visual span) {
+  color: var(--s-muted) !important;
+  font-family: var(--s-font);
+}
+
+html[data-theme="office-charcoal"] .menu-panel :is(.upgrade-label, .habitat-output-types, .colony-summary-heading) {
+  color: var(--s-muted) !important;
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+html[data-theme="office-charcoal"] .menu-panel :is(.upgrade-next, .egg-progress-rate) {
+  color: var(--s-accent-text) !important;
+  font-weight: 600;
+}
+
+html[data-theme="office-charcoal"] .menu-panel :is(.migration-error, .habitat-max-count.is-at-maximum, .habitat-natural-count.is-over-natural, .habitat-idle-snakes) {
+  color: var(--s-stop-text) !important;
+}
+
+html[data-theme="office-charcoal"] .upgrade-level,
+html[data-theme="office-charcoal"] .egg-progress-rate {
+  padding: 2px 8px;
+  border: 0;
+  border-radius: var(--s-radius-pill);
+  background: var(--s-raise);
+  color: var(--s-muted) !important;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+html[data-theme="office-charcoal"] .upgrade-card.is-maxed .upgrade-level {
+  background: var(--s-accent);
+  color: var(--s-accent-ink) !important;
+}
+
+/* Colony: the habitat type is a coloured rule on the left of an open row */
+html[data-theme="office-charcoal"] .habitat-card:not(.is-locked) {
+  padding-left: 12px;
+  box-shadow: inset 3px 0 0 var(--s-line-strong);
+}
+
+html[data-theme="office-charcoal"] .habitat-card.produces-provisions:not(.is-locked) {
+  box-shadow: inset 3px 0 0 var(--s-c1);
+}
+
+html[data-theme="office-charcoal"] .habitat-card.produces-branches:not(.is-locked) {
+  box-shadow: inset 3px 0 0 var(--s-c2);
+}
+
+html[data-theme="office-charcoal"] .habitat-card.speeds-egg-hatch:not(.is-locked) {
+  box-shadow: inset 3px 0 0 var(--s-c3);
+}
+
+html[data-theme="office-charcoal"] .habitat-card.produces-provisions:not(.is-locked) :is(.habitat-production, .habitat-output-types) {
+  color: var(--s-c1) !important;
+}
+
+html[data-theme="office-charcoal"] .habitat-card.produces-branches:not(.is-locked) :is(.habitat-production, .habitat-output-types) {
+  color: var(--s-c2) !important;
+}
+
+html[data-theme="office-charcoal"] .habitat-card.speeds-egg-hatch:not(.is-locked) :is(.habitat-production, .habitat-output-types) {
+  color: var(--s-c3) !important;
+}
+
+html[data-theme="office-charcoal"] .habitat-card.is-locked {
+  opacity: 0.5;
+}
+
+/* Flat solid buttons with sharp contrast */
+html[data-theme="office-charcoal"] .menu-panel :is(button:not(.menu-tab):not(.candidate-list-item), .upgrade-button) {
+  min-height: 36px;
+  border: 0;
+  border-radius: var(--s-radius-button);
+  background: var(--s-button);
+  box-shadow: none;
+  color: var(--s-button-ink);
+  font-family: var(--s-font);
+  font-size: 0.875rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+html[data-theme="office-charcoal"] .menu-panel :is(button:not(.menu-tab):not(.candidate-list-item), .upgrade-button):not(:disabled):hover {
+  background: var(--s-button-hover);
+}
+
+html[data-theme="office-charcoal"] .menu-panel :is(button:not(.menu-tab):not(.candidate-list-item), .upgrade-button):not(:disabled):active {
+  transform: translateY(1px);
+}
+
+html[data-theme="office-charcoal"] .menu-panel :is(button:not(.menu-tab), .upgrade-button):disabled {
+  background: var(--s-raise);
+  color: var(--s-faint);
+  filter: none;
+}
+
+html[data-theme="office-charcoal"] .menu-panel :is(button, select, input):focus-visible {
+  outline: 2px solid var(--s-accent);
+  outline-offset: 2px;
+}
+
+html[data-theme="office-charcoal"] .trade-open-button.is-ready {
+  background: var(--s-accent) !important;
+  color: var(--s-accent-ink) !important;
+}
+
+html[data-theme="office-charcoal"] .menu-panel :is(.migration-expedition-actions button.is-danger, .reset-progress-button) {
+  background: transparent !important;
+  box-shadow: inset 0 0 0 1.5px var(--s-stop) !important;
+  color: var(--s-stop-text) !important;
+}
+
+html[data-theme="office-charcoal"] .reset-progress {
+  border-top: 1px solid var(--s-line);
+}
+
+html[data-theme="office-charcoal"] .reset-progress-fill {
+  background: var(--s-stop);
+  opacity: 0.3;
+}
+
+html[data-theme="office-charcoal"] .menu-panel :is(select, input, .upgrade-select) {
+  min-height: 32px;
+  border: 1px solid var(--s-line-strong);
+  border-radius: var(--s-radius-box);
+  background: var(--s-raise);
+  color: var(--s-text);
+  font-family: var(--s-font);
+  font-size: 0.875rem;
+}
+
+html[data-theme="office-charcoal"] .growth-bar {
+  height: 6px;
+  border: 0;
+  border-radius: var(--s-radius-pill);
+  background: var(--s-raise);
+}
+
+html[data-theme="office-charcoal"] .growth-bar span {
+  border-radius: var(--s-radius-pill);
+  background: var(--s-accent);
+}
+
+html[data-theme="office-charcoal"] .nursery-feeding-button[aria-pressed="true"] {
+  background: var(--s-accent) !important;
+  color: var(--s-accent-ink) !important;
+}
+
+html[data-theme="office-charcoal"] .nest-visual {
+  border: 1px dashed var(--s-line-strong);
+  border-radius: var(--s-radius-box);
+  background: transparent;
+  color: var(--s-muted);
+}
+
+html[data-theme="office-charcoal"] .nest-visual.has-egg {
+  border-style: solid;
+  background: transparent;
+}
+
+html[data-theme="office-charcoal"] .egg-shape {
+  border: 1.5px solid var(--s-text);
+  background: radial-gradient(circle at 35% 30%, #ffffff, var(--s-egg));
+  box-shadow: none;
+}
+
+/* The nursery is its own small LCD, in a second colour */
+html[data-theme="office-charcoal"] .nursery-grid {
+  border: 6px solid var(--s-nursery-frame);
+  border-radius: var(--s-radius-box);
+  background: var(--s-nursery-bg);
+  box-shadow: inset 0 0 12px rgba(0, 0, 0, 0.35);
+}
+
+html[data-theme="office-charcoal"] .nursery-cell,
+html[data-theme="office-charcoal"] .nursery-cell:nth-child(odd) {
+  background: transparent;
+}
+
+html[data-theme="office-charcoal"] .nursery-cell.is-body::after,
+html[data-theme="office-charcoal"] .nursery-cell.is-tail::after,
+html[data-theme="office-charcoal"] .nursery-cell.is-head::after {
+  background: var(--s-nursery-ink);
+}
+
+html[data-theme="office-charcoal"] .nursery-cell.is-head::before {
+  background: var(--s-nursery-bg);
+}
+
+html[data-theme="office-charcoal"] .habitat-capacity-tooltip {
+  border: 1px solid var(--s-line-strong);
+  border-radius: var(--s-radius-box);
+  background: var(--s-raise-2);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.45);
+  color: var(--s-text);
+}
+
+html[data-theme="office-charcoal"] .habitat-capacity-tooltip :is(strong, li) {
+  color: var(--s-text) !important;
+}
+
+html[data-theme="office-charcoal"] .candidate-list-item {
+  border: 0;
+  border-radius: var(--s-radius-box);
+  background: transparent;
+  color: var(--s-text);
+  font-family: var(--s-font);
+}
+
+html[data-theme="office-charcoal"] .candidate-list-item[aria-pressed="true"] {
+  background: var(--s-raise);
+  box-shadow: inset 3px 0 0 var(--s-accent);
+  color: var(--s-text);
+}
+
+html[data-theme="office-charcoal"] .trade-network-edge {
+  stroke: var(--s-line-strong);
+}
+
+html[data-theme="office-charcoal"] .trade-network-edge.is-selected {
+  stroke: var(--s-accent);
+}
+
+html[data-theme="office-charcoal"] .trade-network-node circle {
+  fill: var(--s-raise);
+  stroke: var(--s-text);
+}
+
+html[data-theme="office-charcoal"] .trade-network-node text {
+  fill: var(--s-text);
+  font-family: var(--s-font);
+}
+
+/* ---------- the phone: the LCD ---------- */
+
+html[data-theme="office-charcoal"] .phone-shell::before,
+html[data-theme="office-charcoal"] .phone-shell::after {
+  content: none;
+}
+
+html[data-theme="office-charcoal"] .phone-brand {
+  min-width: 0;
+  padding: 4px 0 0;
+  background: transparent;
+  color: var(--s-brand);
+  font-family: var(--s-font);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+}
+
+html[data-theme="office-charcoal"] .screen-frame {
+  padding: 12px;
+  border: 1px solid #000000;
+  border-radius: 14px 14px 20px 20px;
+  background: var(--s-lens);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.1), 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+html[data-theme="office-charcoal"] .status-strip {
+  gap: 0;
+  margin-bottom: 0;
+  padding: 4px 4px 0;
+  border-radius: 4px 4px 0 0;
+  background: var(--s-lcd);
+}
+
+html[data-theme="office-charcoal"] .status-strip div {
+  padding: 4px 2px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--s-lcd-ink);
+}
+
+html[data-theme="office-charcoal"] .status-strip div + div {
+  background: linear-gradient(var(--s-lcd-dim), var(--s-lcd-dim)) left center / 1px 60% no-repeat;
+}
+
+html[data-theme="office-charcoal"] .stat-label {
+  color: var(--s-lcd-dim);
+  font-family: var(--s-font);
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+html[data-theme="office-charcoal"] .status-strip strong {
+  font-family: var(--s-font);
+  font-size: clamp(0.8rem, 3.8vw, 1rem);
+  letter-spacing: -0.01em;
+  font-weight: 700;
+  text-shadow: none;
+}
+
+html[data-theme="office-charcoal"] .grid-select {
+  border: 1px solid var(--s-lcd-dim);
+  border-radius: 4px;
+  background: var(--s-lcd);
+  color: var(--s-lcd-ink);
+  font-family: var(--s-font);
+}
+
+html[data-theme="office-charcoal"] .screen-bezel {
+  padding: 4px;
+  border: 0;
+  border-radius: 0 0 4px 4px;
+  background: var(--s-lcd);
+  box-shadow: var(--s-lcd-glow);
+}
+
+/* The canvas background shows through the hollow centre of a seed */
+html[data-theme="office-charcoal"] #game {
+  border: 0;
+  border-radius: 0;
+  background: var(--s-seed);
+  image-rendering: auto;
+}
+
+html[data-theme="office-charcoal"] .screen-plate {
+  padding: 8px 12px;
+  border: 2px solid var(--s-lcd-ink);
+  border-radius: 6px;
+  background: var(--s-lcd);
+  box-shadow: none;
+  color: var(--s-lcd-ink);
+}
+
+html[data-theme="office-charcoal"] #stateText,
+html[data-theme="office-charcoal"] .ready-start-prompt {
+  color: var(--s-lcd-ink);
+  font-family: var(--s-font);
+  font-weight: 700;
+  text-transform: none;
+}
+
+html[data-theme="office-charcoal"] .screen-hint {
+  color: var(--s-hint);
+  font-family: var(--s-font);
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-transform: none;
+}
+
+html[data-theme="office-charcoal"] .personalization-screen,
+html[data-theme="office-charcoal"] .broodline-screen {
+  border: 0;
+  border-radius: 0;
+  background: var(--s-lcd);
+  box-shadow: none;
+  color: var(--s-lcd-ink);
+  font-family: var(--s-font);
+}
+
+html[data-theme="office-charcoal"] .personalization-heading {
+  border-bottom: 1px solid var(--s-lcd-dim);
+}
+
+html[data-theme="office-charcoal"] .color-swatch {
+  border: 1px solid var(--s-lcd-dim);
+  border-radius: 999px;
+  box-shadow: none;
+}
+
+html[data-theme="office-charcoal"] .color-swatch::after {
+  border-radius: 999px;
+}
+
+html[data-theme="office-charcoal"] .color-swatch[aria-pressed="true"] {
+  outline: 2px solid var(--s-lcd-ink);
+  outline-offset: 2px;
+}
+
+html[data-theme="office-charcoal"] :is(.personalization-back, .mobile-control-toggle, .broodline-card) {
+  border: 1px solid var(--s-lcd-dim);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--s-lcd-ink);
+  font-family: var(--s-font);
+  font-weight: 600;
+  text-transform: none;
+}
+
+html[data-theme="office-charcoal"] .broodline-card {
+  border-radius: 8px;
+}
+
+html[data-theme="office-charcoal"] :is(.mobile-control-toggle[aria-pressed="true"], .broodline-card.is-selected) {
+  background: var(--s-lcd-ink);
+  color: var(--s-lcd);
+}
+
+html[data-theme="office-charcoal"] .save-data-area {
+  border: 1px solid var(--s-lcd-dim);
+  border-radius: 4px;
+  background: var(--s-lcd);
+  color: var(--s-lcd-ink);
+  font-family: var(--s-font);
+}
+
+/* ---------- the phone: keys ---------- */
+
+html[data-theme="office-charcoal"] :is(.nav-key, .action-key, .phone-key) {
+  border: 1px solid var(--s-key-border);
+  background: var(--s-key-bg);
+  box-shadow: inset 0 1px 0 var(--s-key-highlight), 0 2px 0 var(--s-key-base);
+  color: var(--s-key-ink);
+  font-family: var(--s-font);
+  font-weight: 700;
+}
+
+html[data-theme="office-charcoal"] :is(.nav-key, .action-key, .phone-key):focus-visible {
+  outline: 2px solid var(--s-accent);
+  outline-offset: 2px;
+  box-shadow: inset 0 1px 0 var(--s-key-highlight), 0 2px 0 var(--s-key-base);
+}
+
+html[data-theme="office-charcoal"] .phone-key {
+  min-height: 26px;
+  border-radius: 999px;
+  font-size: 0.875rem;
+}
+
+/* Rounded navigation keys: a pill rocker for up and down, rounded ovals left and right */
+html[data-theme="office-charcoal"] .nav-key {
+  background: var(--s-nav-bg);
+  color: var(--s-nav-ink);
+}
+
+html[data-theme="office-charcoal"] .nav-up {
+  border-radius: 28px 28px 14px 14px;
+}
+
+html[data-theme="office-charcoal"] .nav-down {
+  border-radius: 14px 14px 28px 28px;
+}
+
+html[data-theme="office-charcoal"] .nav-left {
+  border-radius: 22px 14px 14px 22px;
+}
+
+html[data-theme="office-charcoal"] .nav-right {
+  border-radius: 14px 22px 22px 14px;
+}
+
+html[data-theme="office-charcoal"] .action-key {
+  min-height: 34px;
+  border-radius: 10px;
+  font-size: 0.8125rem;
+  letter-spacing: 0.02em;
+  text-transform: none;
+}
+
+/* Start and Reset carry a short coloured underline */
+html[data-theme="office-charcoal"] #startButton {
+  box-shadow: inset 0 1px 0 var(--s-key-highlight), inset 0 -4px 0 -1px var(--s-go), 0 2px 0 var(--s-key-base);
+}
+
+html[data-theme="office-charcoal"] #resetButton {
+  box-shadow: inset 0 1px 0 var(--s-key-highlight), inset 0 -4px 0 -1px var(--s-stop), 0 2px 0 var(--s-key-base);
+}
+
+html[data-theme="office-charcoal"] :is(.nav-key:active, .nav-key.is-pressed, .action-key:active, .action-key.is-active) {
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.45);
+  filter: brightness(0.92);
+}
+
+html[data-theme="office-charcoal"] .minigame-key.is-locked {
+  border-color: var(--s-key-locked-border);
+  background: var(--s-key-locked);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
+  color: var(--s-key-locked-ink);
+  filter: none;
+}
+
+html[data-theme="office-charcoal"] .grid-key[aria-pressed="true"] {
+  background: var(--s-accent);
+  color: var(--s-accent-ink);
+}
+
+html[data-theme="office-charcoal"] .phone-nav.is-large-dpad {
+  border: 1px solid var(--s-key-border);
+  background: var(--s-dpad-well);
+  box-shadow: inset 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+html[data-theme="office-charcoal"] .phone-nav.is-large-dpad .nav-key {
+  border-color: var(--s-key-border);
+  border-radius: 18px;
+  background: var(--s-nav-bg);
+  box-shadow: 0 2px 0 var(--s-key-base);
+}
+
+html[data-theme="office-charcoal"] .phone-nav.is-large-dpad .nav-chevron {
+  color: var(--s-nav-ink);
+}
+
+html[data-theme="office-charcoal"] .is-fullscreen-mode .phone-shell {
+  width: 100%;
+  border-radius: 24px;
+}
+
+/* Keep the current keypad focus and fullscreen menu rules in every theme. */
+html[data-theme="office-charcoal"] .phone-key:focus,
+html[data-theme="office-charcoal"] .phone-key:focus-visible { outline: none; }
+@media (min-width: 801px) {
+  html[data-theme="office-charcoal"] body.is-fullscreen-mode .app-layout.has-fullscreen-option {
+    grid-template-columns: minmax(0, 450px) minmax(0, 1fr);
+  }
+}
+
+/* ---------- retro handset: matte plastic, plain controls, dot-matrix LCD ---------- */
+
+html[data-theme="office-charcoal"] .menu-panel {
+  background: var(--s-menu);
+  box-shadow: none;
+}
+
+html[data-theme="office-charcoal"] .screen-frame {
+  box-shadow: none;
+}
+
+/* The LCD face is for the things the phone itself would draw */
+html[data-theme="office-charcoal"] :is(.stat-label, .status-strip strong, .grid-select, #stateText, .ready-start-prompt, .screen-hint) {
+  font-family: var(--s-lcd-font);
+}
+
+html[data-theme="office-charcoal"] .stat-label {
+  font-size: var(--s-lcd-label-size);
+  font-weight: 400;
+  letter-spacing: 0.04em;
+}
+
+html[data-theme="office-charcoal"] .status-strip strong {
+  font-size: var(--s-lcd-size);
+  font-weight: 400;
+  letter-spacing: 0.02em;
+}
+
+html[data-theme="office-charcoal"] #stateText,
+html[data-theme="office-charcoal"] .ready-start-prompt {
+  font-weight: 400;
+}
+
+html[data-theme="office-charcoal"] .screen-plate {
+  border-width: 1px;
+  border-radius: 2px;
+}
+
+html[data-theme="office-charcoal"] .screen-hint {
+  font-size: var(--s-lcd-label-size);
+  font-weight: 400;
+  letter-spacing: 0.04em;
+}
+
+html[data-theme="office-charcoal"] .egg-shape {
+  background: var(--s-egg);
+}
+
+html[data-theme="office-charcoal"] .nursery-grid {
+  border-width: 4px;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3);
+}
+
+html[data-theme="office-charcoal"] .habitat-capacity-tooltip {
+  box-shadow: 0 2px 0 rgba(0, 0, 0, 0.4);
+}
+
+/* Rubber keys: one flat colour, a hard edge below, no highlight */
+html[data-theme="office-charcoal"] :is(.nav-key, .action-key, .phone-key),
+html[data-theme="office-charcoal"] :is(.nav-key, .action-key, .phone-key):focus-visible {
+  box-shadow: 0 2px 0 var(--s-key-base);
+}
+
+html[data-theme="office-charcoal"] #startButton {
+  box-shadow: inset 0 -4px 0 -1px var(--s-go), 0 2px 0 var(--s-key-base);
+}
+
+html[data-theme="office-charcoal"] #resetButton {
+  box-shadow: inset 0 -4px 0 -1px var(--s-stop), 0 2px 0 var(--s-key-base);
+}
+
+html[data-theme="office-charcoal"] :is(.nav-key:active, .nav-key.is-pressed, .action-key:active, .action-key.is-active) {
+  box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.4);
+  filter: brightness(0.9);
+  transform: translateY(1px);
+}
+
+html[data-theme="office-charcoal"] .minigame-key.is-locked {
+  box-shadow: none;
+}
+
+html[data-theme="office-charcoal"] .phone-nav.is-large-dpad {
+  box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.35);
+}
+
+html[data-theme="office-charcoal"] .phone-brand {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+}
+
+/* ---------- the charcoal slab with a stub antenna ---------- */
+
+html[data-theme="office-charcoal"] .phone-shell {
+  padding: 20px 18px 22px;
+  border: 2px solid #1a1c1d;
+  border-radius: 34px 34px 26px 26px / 28px 28px 22px 22px;
+  background: linear-gradient(90deg, #36393b, #44484a 14% 86%, #36393b);
+  box-shadow: 0 14px 0 -8px rgba(0, 0, 0, 0.4), 0 18px 28px -14px rgba(0, 0, 0, 0.65);
+}
+
+html[data-theme="office-charcoal"] .phone-shell::before {
+  content: "";
+  top: -18px;
+  right: 34px;
+  width: 22px;
+  height: 58px;
+  border: 2px solid #1a1c1d;
+  border-radius: 8px 8px 4px 4px;
+  background: #36393b;
+  box-shadow: none;
+}
+
+html[data-theme="office-charcoal"] .speaker-slot {
+  width: 52px;
+  height: 10px;
+  border-radius: 5px;
+  background: repeating-linear-gradient(90deg, #111213 0 4px, transparent 4px 8px);
+  filter: none;
+}
+
+html[data-theme="office-charcoal"] .screen-frame {
+  padding: 10px;
+  border: 2px solid #5a5f62;
+  border-radius: 6px;
+}
+
+/* Oval number keys; the function keys are the one pale colour on the phone */
+html[data-theme="office-charcoal"] .phone-key {
+  border-radius: 999px / 70%;
+}
+
+html[data-theme="office-charcoal"] .action-key {
+  border-radius: 6px;
+  background: var(--s-nav-bg);
+  color: var(--s-nav-ink);
+}
+
+html[data-theme="office-charcoal"] :is(.nav-up, .nav-down, .nav-left, .nav-right) {
+  border-radius: 6px;
+}
+
+/* The menu is a pocket reference card */
+html[data-theme="office-charcoal"] .menu-panel {
+  border: 1px solid var(--s-line-strong);
+  border-top: 4px solid var(--s-accent);
+}
+
+html[data-theme="office-charcoal"] .menu-panel h1 {
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--s-muted);
+}
+
+html[data-theme="office-charcoal"] .menu-stat {
+  padding: 0 0 12px;
+  border-bottom: 1px solid var(--s-line-strong);
+  background: transparent;
+}
+
+html[data-theme="office-charcoal"] .menu-stat strong {
+  font-weight: 500;
+}
+
+html[data-theme="office-charcoal"] .menu-tabs {
+  gap: 0;
+  padding: 0;
+  border-bottom: 1px solid var(--s-line-strong);
+  background: transparent;
+}
+
+html[data-theme="office-charcoal"] .menu-tab {
+  padding: 8px 4px 10px;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+html[data-theme="office-charcoal"] .menu-tab.is-active,
+html[data-theme="office-charcoal"] .menu-tab[aria-selected="true"] {
+  background: transparent;
+  box-shadow: inset 0 -3px 0 var(--s-accent);
+  color: var(--s-text);
+}
+
+html[data-theme="office-charcoal"] .color-swatch,
+html[data-theme="office-charcoal"] .color-swatch::after {
+  border-radius: 2px;
+}
+
+html[data-theme="office-charcoal"] :is(.personalization-back, .mobile-control-toggle) {
+  border-radius: 2px;
+}
+
+/* Swatch previews show the colour the LCD draws */
+html[data-theme="office-charcoal"] .color-swatch[data-color="#29391f"] {
+  background: #29391f;
+}
+
+html[data-theme="office-charcoal"] .color-swatch[data-color="#32204f"] {
+  background: #32204f;
+}
+
+html[data-theme="office-charcoal"] .color-swatch[data-color="#16465a"] {
+  background: #16465a;
+}
+
+html[data-theme="office-charcoal"] .color-swatch[data-color="#176052"] {
+  background: #176052;
+}
+
+html[data-theme="office-charcoal"] .color-swatch[data-color="#843b2f"] {
+  background: #843b2f;
+}
+
+html[data-theme="office-charcoal"] .color-swatch[data-color="#a55b25"] {
+  background: #a55b25;
+}
+
+html[data-theme="office-charcoal"] .color-swatch[data-color="#702c57"] {
+  background: #702c57;
+}
+
+html[data-theme="office-charcoal"] .color-swatch[data-color="#252a32"] {
+  background: #252a32;
+}
+
+html[data-theme="office-charcoal"] .color-swatch[data-color="#182413"] {
+  background: #222c14;
+}
+
+html[data-theme="office-charcoal"] .color-swatch[data-color="#583b83"] {
+  background: #583b83;
+}
+
+html[data-theme="office-charcoal"] .color-swatch[data-color="#267b91"] {
+  background: #267b91;
+}
+
+html[data-theme="office-charcoal"] .color-swatch[data-color="#2d8b68"] {
+  background: #2d8b68;
+}
+
+html[data-theme="office-charcoal"] .color-swatch[data-color="#b3483d"] {
+  background: #b3483d;
+}
+
+html[data-theme="office-charcoal"] .color-swatch[data-color="#b0802d"] {
+  background: #b0802d;
+}
+
+html[data-theme="office-charcoal"] .color-swatch[data-color="#9b477e"] {
+  background: #9b477e;
+}
+
+html[data-theme="office-charcoal"] .color-swatch[data-color="#596474"] {
+  background: #596474;
+}
+
+/* Keep the current keypad focus and fullscreen menu rules in every theme. */
+html[data-theme="office-charcoal"] .phone-key:focus,
+html[data-theme="office-charcoal"] .phone-key:focus-visible { outline: none; }
+@media (min-width: 801px) {
+  html[data-theme="office-charcoal"] body.is-fullscreen-mode .app-layout.has-fullscreen-option {
+    grid-template-columns: minmax(0, 450px) minmax(0, 1fr);
+  }
+}

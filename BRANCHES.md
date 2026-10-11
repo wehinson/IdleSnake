@@ -1,5 +1,19 @@
 # Branch status
 
+## working — Five retro handset themes
+
+- Category: display (themes).
+- Agent: Claude.
+- Status: Ready With Caveat.
+- Purpose: William asked for five new themes from Clear Cover II that are "less shiney and techno more retro nokia".
+- Changes: five new selectable themes: Brick Navy, Office Charcoal, Signal Red, Pebble, and Taxi Yellow. Each one has matte plastic, flat rubber keys, a two-tone dot-matrix LCD with no glow, and its own body shape, key shapes, LCD tone, and menu treatment. The five round 3 themes and Original are unchanged. The themes change presentation only; they do not change the engine, saves, or the snake colours that the player selects.
+- Files: themes/brick-navy/, themes/office-charcoal/, themes/signal-red/, themes/pebble/, themes/taxi-yellow/, themes/_build/build_retro.py, themes/themes.test.js, themes/README.md, index.html, tests/browser/release-integration.spec.js, BRANCHES.md.
+- Tests: `npm run check` passed syntax, authority checks, and all 370 Node tests. Two new theme tests check registration in index.html, contrast of menu, key, and LCD colour pairs (4.5:1 or more), snake colours on each LCD, the absence of gloss and glow, and the fullscreen and keypad focus rules. Each overlay painter ran against a mock canvas.
+- Caveat: no browser check was done, because browser automation was not authorized. The appearance, layout from 360 px to 1920 px, fullscreen appearance, and web font loading of the five themes are not verified by eye. The browser test list in tests/browser/release-integration.spec.js includes the five themes but was not run locally.
+- Version impact: none; no release requested.
+- Last update: 2026-10-10.
+- Notes: the balance simulation changes in the checkout (ci.yml, README.md, package.json, balance.yml, BALANCE_TESTING_BRIEF.md, scripts/balance.js, simulation/) are from another session. They have no agent claim and are not in this commit.
+
 ## Release 1.0.3 — CI save-boundary correction
 
 - Agent: Codex.

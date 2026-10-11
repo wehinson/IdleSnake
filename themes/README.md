@@ -1,6 +1,6 @@
 # Theme redesigns
 
-The release includes five themes (round 3) of Snake Forever. Use the
+Snake Forever has ten themes: five from round 3 and five retro handsets from round 4. Use the
 theme picker at the bottom-left of the page to switch between them. You can also
 open `?theme=<id>`. **Original** is the default, and it is unchanged.
 
@@ -11,8 +11,23 @@ open `?theme=<id>`. **Original** is the default, and it is unchanged.
 | `night-green` | Night Green | Claude |
 | `oxblood` | Oxblood | Codex |
 | `carbon` | Carbon | Codex |
+| `brick-navy` | Brick Navy | Claude |
+| `office-charcoal` | Office Charcoal | Claude |
+| `signal-red` | Signal Red | Claude |
+| `pebble` | Pebble | Claude |
+| `taxi-yellow` | Taxi Yellow | Claude |
 
 Round 3 (William's feedback: dark, minimal menus with strong contrast, snake colours that work, scanlines instead of a pixel grid). Clear Cover II improves his favourite (Clear Cover); the other four are new: Amber Graphite and Night Green (Claude), and Oxblood and Carbon (Codex). Claude's three come from one template in `themes/_build`. `contrastingEyeColor` now reads the themed palette. The round 2 designs were removed. Every design keeps the game's words. See `DESIGN-BRIEF.md` for the rules against slop.
+
+Round 4 (William's feedback: "less shiney and techno more retro nokia"). Five retro handsets start from Clear Cover II and replace its gloss with matte plastic, flat rubber keys, and a two-tone dot-matrix LCD with no glow. Each one is a different period handset with its own body shape, key shapes, LCD tone, and menu treatment:
+
+- **Brick Navy**: a thick navy brick with a silver-grey screen surround, pale grey keys, and a mint LCD. The menu is the phone's own menu screen.
+- **Office Charcoal**: a tall charcoal slab with a stub antenna, oval keys, blue-grey function keys, and a yellow-green LCD. The menu is a pocket reference card with underlined tabs.
+- **Signal Red**: a matte red swap cover with round black keys and a plain grey LCD. The menu is warm black with one red rule.
+- **Pebble**: a small stone-coloured pebble with square graphite keys and a cool grey LCD. The menu has outlined tabs and sand buttons.
+- **Taxi Yellow**: a square-shouldered yellow body with black keys and a cream LCD. The menu is black with a yellow band and block tabs.
+
+The retro themes come from `themes/_build/build_retro.py` and the same template. They do not remap the snake colours that the player selects. `themes/themes.test.js` checks their contrast, the absence of gloss and glow, and their registration in `index.html`.
 
 ## How a theme works
 

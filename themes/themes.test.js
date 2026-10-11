@@ -50,8 +50,8 @@ test("mapColor keeps alpha and ignores unknown colours", () => {
 
 test("every theme is valid, unique, and scoped", () => {
   const themes = loadThemes();
-  assert.equal(themes.length, 5, "five redesign themes are registered");
-  assert.equal(new Set(themes.map((theme) => theme.id)).size, 5);
+  assert.equal(themes.length, 10, "ten redesign themes are registered");
+  assert.equal(new Set(themes.map((theme) => theme.id)).size, 10);
   for (const theme of themes) {
     const errors = kit.validateTheme(theme);
     assert.equal(errors.length, 0, `${theme.id}: ${errors.join("; ")}`);
@@ -79,5 +79,62 @@ test("every theme keeps the game's words and follows the no-slop rules", () => {
     const css = readFileSync(join(themesDir, theme.id, "theme.css"), "utf8");
     assert.doesNotMatch(css, /backdrop-filter/, `${theme.id} must not use backdrop-filter`);
     assert.doesNotMatch(css, /\p{Extended_Pictographic}/u, `${theme.id} must not use emoji`);
+  }
+});
+
+const RETRO_THEMES = ["brick-navy", "office-charcoal", "signal-red", "pebble", "taxi-yellow"];
+const SNAKE_COLORS = [
+  "#29391f", "#32204f", "#16465a", "#176052", "#843b2f", "#a55b25", "#702c57", "#252a32",
+  "#182413", "#583b83", "#267b91", "#2d8b68", "#b3483d", "#b0802d", "#9b477e", "#596474"
+];
+
+function luminance(hex) {
+  const channels = [1, 3, 5].map((start) => parseInt(hex.slice(start, start + 2), 16) / 255)
+    .map((value) => (value <= 0.03928 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4));
+  return 0.2126 * channels[0] + 0.7152 * channels[1] + 0.0722 * channels[2];
+}
+
+function contrast(a, b) {
+  const [light, dark] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (light + 0.05) / (dark + 0.05);
+}
+
+test("every theme is loaded by index.html", () => {
+  const html = readFileSync(join(themesDir, "..", "index.html"), "utf8");
+  for (const theme of loadThemes()) {
+    assert.ok(html.includes(`href="themes/${theme.id}/theme.css"`), `${theme.id} stylesheet is linked`);
+    assert.ok(html.includes(`src="themes/${theme.id}/theme.js"`), `${theme.id} script is loaded`);
+  }
+});
+
+test("retro handset themes stay matte, readable, and keep the chosen snake colours", () => {
+  const themes = loadThemes().filter((theme) => RETRO_THEMES.includes(theme.id));
+  assert.equal(themes.length, RETRO_THEMES.length);
+  for (const theme of themes) {
+    const css = readFileSync(join(themesDir, theme.id, "theme.css"), "utf8");
+    const vars = Object.fromEntries([...css.matchAll(/--s-([a-z0-9-]+):\s*([^;]+);/g)].map((match) => [match[1], match[2].trim()]));
+    for (const [ink, surface] of [
+      ["text", "menu"], ["muted", "menu"], ["muted", "raise"], ["button-ink", "button"], ["accent-ink", "accent"],
+      ["accent-text", "menu"], ["stop-text", "menu"], ["lcd-ink", "lcd"], ["key-ink", "key-bg"], ["nav-ink", "nav-bg"],
+      ["hint", "lens"], ["nursery-ink", "nursery-bg"]
+    ]) {
+      const ratio = contrast(vars[ink], vars[surface]);
+      assert.ok(ratio >= 4.5, `${theme.id}: ${ink} on ${surface} is ${ratio.toFixed(2)}:1`);
+    }
+    // No gloss or glow: no radial highlights on the phone, no blurred light shadows, no neon overlay.
+    assert.doesNotMatch(css, /\.phone-shell \{[^}]*radial-gradient/, `${theme.id} shell must not have a gloss highlight`);
+    assert.equal(vars["key-highlight"], "transparent", `${theme.id} keys must not have a highlight`);
+    assert.doesNotMatch(String(theme.canvas.overlay), /Gradient/, `${theme.id} LCD must not glow`);
+    assert.equal(theme.canvas.scanlines, false);
+    // Player colours are drawn as chosen; only the default head is the LCD ink.
+    const lcd = theme.canvas.colors["#9cac77"];
+    assert.equal(vars.lcd, lcd, `${theme.id} CSS and canvas use one LCD colour`);
+    for (const color of SNAKE_COLORS) {
+      if (color !== "#182413") assert.equal(theme.canvas.colors[color], undefined, `${theme.id} must not remap ${color}`);
+      const ratio = contrast(theme.canvas.colors[color] || color, lcd);
+      assert.ok(ratio >= 2.2, `${theme.id}: snake colour ${color} on the LCD is ${ratio.toFixed(2)}:1`);
+    }
+    assert.match(css, /body\.is-fullscreen-mode \.app-layout\.has-fullscreen-option/, `${theme.id} keeps the fullscreen menu rule`);
+    assert.match(css, /\.phone-key:focus-visible \{ outline: none; \}/, `${theme.id} keeps the keypad focus rule`);
   }
 });

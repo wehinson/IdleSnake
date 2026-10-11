@@ -1,6 +1,7 @@
 const { test, expect } = require("@playwright/test");
 
-for (const theme of ["original", "clear-cover-2", "amber-graphite", "night-green", "oxblood", "carbon"]) {
+for (const theme of ["original", "clear-cover-2", "amber-graphite", "night-green", "oxblood", "carbon",
+  "brick-navy", "office-charcoal", "signal-red", "pebble", "taxi-yellow"]) {
   test(`merged release preserves Snake display and controls in ${theme}`, async ({ page }) => {
     const errors = [];
     page.on("pageerror", (error) => errors.push(error.message));
