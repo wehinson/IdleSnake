@@ -1357,6 +1357,9 @@ function renderHabitats() {
     nextHabitat.textContent = panel.nextHabitat
       ? `Next habitat in ${formatNumber(panel.nextHabitat.snakesNeeded)} Snakes`
       : "";
+    if (panel.nextHabitat) {
+      habitatCardRefs[panel.nextHabitat.previousIndex].card.after(nextHabitat);
+    }
   }
 }
 
