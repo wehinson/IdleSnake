@@ -1273,6 +1273,24 @@ canvas {
   image-rendering: pixelated;
 }
 
+/* Venom Strike gets a tall phone field, or two square boards side by side in
+   wide fullscreen space. Canvas cells retain the same aspect as their backing. */
+#game[data-layout="strike-stack"] { aspect-ratio: 504 / 1040; height: auto; }
+#game[data-layout="strike-wide"] { aspect-ratio: 1040 / 504; height: auto; }
+body.has-strike-board:not(.is-fullscreen-mode) .phone-shell { height: auto; }
+.is-fullscreen-mode #game[data-layout="strike-stack"] {
+  width: min(100cqw, calc(100cqh * 504 / 1040)); height: auto;
+}
+.is-fullscreen-mode #game[data-layout="strike-wide"] {
+  width: min(100cqw, calc(100cqh * 1040 / 504)); height: auto;
+}
+.strike-feedback {
+  margin: 5px 4px 0; color: var(--screen-ink); background: var(--screen);
+  padding: 4px 6px; border-radius: 3px; white-space: pre-line;
+  font: 700 .68rem/1.35 "Courier New", monospace; overflow-wrap: anywhere;
+}
+.strike-feedback[hidden] { display: none; }
+
 .screen-overlay {
   position: absolute;
   inset: 10px;
@@ -1490,9 +1508,9 @@ canvas {
 
 .broodline-screen { position: absolute; inset: 0; z-index: 4; padding: 18px; background: rgba(211, 218, 167, 0.97); color: var(--screen-ink); overflow: auto; }
 .broodline-chain { display: grid; gap: 5px; margin: 12px 0; }
-.broodline-card { display: flex; align-items: center; gap: 8px; padding: 7px; border: 2px solid var(--screen-ink); background: rgba(255,255,255,.18); font: 700 .64rem/1.1 "Courier New", monospace; text-align: left; cursor: pointer; }
+.broodline-card { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; padding: 7px; border: 2px solid var(--screen-ink); background: rgba(255,255,255,.18); font: 700 .64rem/1.1 "Courier New", monospace; text-align: left; cursor: pointer; }
 .broodline-card.is-selected { background: var(--screen-ink); color: #dbe5ad; }
-.broodline-card small { margin-left: auto; opacity: .75; }
+.broodline-card small { flex-basis: 100%; line-height: 1.3; opacity: .85; }
 .broodline-formation-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 
 .controls {

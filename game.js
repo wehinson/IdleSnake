@@ -471,6 +471,8 @@ const snakeTiming = window.IdleSnakeTiming;
 const engineQueries = window.IdleSnakeQueries;
 const gameView = window.IdleSnakeStateReader.createStateReader(() => latestSnapshot, () => latestFrameSnapshot);
 let broodlineCamera = null;
+let strikeShots = {};
+const battleshipFeedbackEl = document.querySelector("#battleshipFeedback");
 function snakeTimingState(snapshot) {
   if (snapshot?.mode !== "snake" || !snapshot.active) return null;
   const active = snapshot.active;
@@ -500,9 +502,14 @@ function acceptSnapshot(snapshot) {
       if (!old || old.stage !== a.stage || old.subphase !== a.subphase) previousCrossingSnake = a.snake;
       else if (snakeStepped(old.snake, a.snake)) previousCrossingSnake = old.snake;
     }
-    if (snapshot.mode === "broodline" && (!old || !broodlineCamera))
+    if (snapshot.mode === "broodline" && (!old || !broodlineCamera || (snapshot.phase === "ready" && before.phase !== "ready")))
       broodlineCamera = { x: a.head.x - broodlineView / 2, y: a.head.y - broodlineView / 2 };
   }
+  if (snapshot.mode !== "battleship" || !old || (a?.phase === "placement" && old.phase !== "placement")) {
+    strikeShots = {};
+    if (battleshipFeedbackEl) battleshipFeedbackEl.textContent = "";
+  }
+  if (battleshipFeedbackEl) battleshipFeedbackEl.hidden = snapshot.mode !== "battleship";
   if (snapshot.nursery) latestSnapshot = snapshot;
   latestFrameSnapshot = snapshot;
   // Full snapshots include candidate decisions, generation, loads, and settlement changes.
@@ -1125,7 +1132,7 @@ function broodlineSpeciesLabel(kind) {
   return ({ garden: "Garden Snake", cave: "Cave Snake", electric: "Electric Snake", lava: "Lava Snake", rattle: "Rattle Snake", body: "Body segment", egg: "Egg" })[kind] || kind;
 }
 function launchBroodline(force = false) { return launchMode("broodline", force); }
-function showBroodlineFormation() { syncBroodlineFormation(); broodlineScreen.hidden = false; broodlineFormationStatusEl.textContent = `Round ${gameView.broodline.round} clear · ${gameView.broodline.pendingSeeds} Seeds pending`; setScreenHint("Arrange the chain, then continue"); }
+function showBroodlineFormation() { syncBroodlineFormation(); broodlineScreen.hidden = false; broodlineFormationStatusEl.textContent = `Round ${gameView.broodline.round} clear · ${gameView.broodline.pendingSeeds} progress points · Next round restores HP and armor`; setScreenHint("Arrange the chain, then continue or collect Seeds"); }
 function hideBroodlineFormation() { if (broodlineScreen) broodlineScreen.hidden = true; }
 function dispatchBroodlineFormation(action) {
   const result = dispatchSession(action);
@@ -1136,7 +1143,21 @@ function dispatchBroodlineFormation(action) {
   syncHud();
   return true;
 }
-function syncBroodlineFormation() { if (!broodlineChainEl || !gameView.broodline) return; broodlineChainEl.replaceChildren(...gameView.broodline.chain.map((part, index) => { const button = document.createElement("button"); button.className = `broodline-card${index === gameView.broodline.selected ? " is-selected" : ""}`; button.type = "button"; button.innerHTML = `<span>${broodlineSpeciesLabel(part.kind).toUpperCase()}</span><small>${part.kind === "egg" ? `${Math.ceil(part.hatchAt / 1000)}s` : "slot " + (index + 1)}</small>`; button.addEventListener("click", () => dispatchBroodlineFormation({ type: "broodlineSelect", index })); return button; })); }
+function syncBroodlineFormation() {
+  if (!broodlineChainEl || !gameView.broodline) return;
+  const active = gameView.broodline;
+  broodlineChainEl.replaceChildren(...active.chain.map((part, index) => {
+    const button = document.createElement("button");
+    button.className = `broodline-card${index === active.selected ? " is-selected" : ""}`;
+    button.type = "button";
+    button.setAttribute("aria-pressed", String(index === active.selected));
+    button.innerHTML = `<span>${index + 1}. ${broodlineSpeciesLabel(part.kind).toUpperCase()}</span><small>${window.IdleSnakeMinigameFeedback.segmentDescription(part)}</small>`;
+    button.addEventListener("click", () => dispatchBroodlineFormation({ type: "broodlineSelect", index }));
+    return button;
+  }));
+  broodlineMoveUpButton.disabled = !active.chain.length || active.selected <= 0;
+  broodlineMoveDownButton.disabled = !active.chain.length || active.selected >= active.chain.length - 1;
+}
 
 function startGame() {
   if (gameView.gameMode === "crossing" && (Date.now() < directionInputLockedUntil || gameView.crossingPhase === "clearing")) return false;
@@ -1869,11 +1890,10 @@ function interpretSessionEvents(events) {
         }
         break;
       case "battleshipShot":
-        if (event.actor === "player") {
-          setScreenHint(event.result === "sunk" ? `Venom sank the enemy ${event.ship}!` : event.result === "hit" ? "Direct venom hit!" : "Venom splashed the water — miss");
-        } else {
-          setScreenHint(event.result === "sunk" ? `Enemy venom sank your ${event.ship}!` : event.result === "hit" ? "Enemy venom hit your snake!" : "Enemy venom missed you");
-        }
+        strikeShots[event.actor] = { ...event, at: snakeAnimationNow() };
+        if (battleshipFeedbackEl) battleshipFeedbackEl.textContent = [strikeShots.player, strikeShots.ai]
+          .filter(Boolean).map(window.IdleSnakeMinigameFeedback.shotLabel).join("\n");
+        setScreenHint(window.IdleSnakeMinigameFeedback.shotLabel(event));
         break;
       case "runReady":
         if (event.mode === "breakout" && event.reason === "ballLost") {
@@ -1886,7 +1906,7 @@ function interpretSessionEvents(events) {
 
           syncHud();
           showOverlay(`Broodline · Round ${event.round}`);
-          setScreenHint("Steer · attacks are automatic");
+          setScreenHint("Clear 5 waves · Steer; attacks are automatic · Avoid walls");
         }
         break;
       case "roundClear":
@@ -1982,7 +2002,8 @@ function gameLoop(now) {
     syncPanels(wallNow);
   }
 
-  if (gameView.gameMode === "snake" && gameView.state === "running") syncHud();
+  if (gameView.state === "running" && (gameView.gameMode === "snake"
+    || (gameView.gameMode === "broodline" && gameView.broodline?.phase === "combat"))) syncHud();
 
   ;
   render();
@@ -2112,8 +2133,9 @@ function drawBroodline() {
   const maxCam = broodlineGrid.columns - broodlineView;
   const targetX = Math.max(0, Math.min(maxCam, head.x - broodlineView / 2));
   const targetY = Math.max(0, Math.min(maxCam, head.y - broodlineView / 2));
-  camera.x += (targetX - camera.x) * 0.2;
-  camera.y += (targetY - camera.y) * 0.2;
+  const easing = gameView.state === "paused" ? 0 : effectiveReducedMotion() || gameView.state !== "running" ? 1 : .2;
+  camera.x += (targetX - camera.x) * easing;
+  camera.y += (targetY - camera.y) * easing;
   if (Math.abs(targetX - camera.x) < 0.002) camera.x = targetX;
   if (Math.abs(targetY - camera.y) < 0.002) camera.y = targetY;
   ctx.fillStyle = "#16231d"; ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -2122,12 +2144,28 @@ function drawBroodline() {
   ctx.strokeStyle = "#d5df9d"; ctx.lineWidth = 3; ctx.strokeRect((1 - camera.x) * cell, (1 - camera.y) * cell, 28 * cell, 28 * cell);
   gameView.broodline.pickups.forEach((drop) => { const x = (drop.pos.x - camera.x + .5) * cell, y = (drop.pos.y - camera.y + .5) * cell; drawBroodlinePickup(drop, x, y, cell); });
   gameView.broodline.enemies.forEach((enemy) => { const x = (enemy.pos.x - camera.x + .5) * cell, y = (enemy.pos.y - camera.y + .5) * cell; ctx.fillStyle = enemy.type === "ranged" ? "#d58964" : "#c4574e"; ctx.beginPath(); enemy.type === "ranged" ? ctx.arc(x, y, cell * .3, 0, Math.PI * 2) : ctx.rect(x - cell * .3, y - cell * .3, cell * .6, cell * .6); ctx.fill(); ctx.fillStyle = "#f4d39a"; ctx.fillRect(x - cell * .25, y - cell * .48, cell * .5 * Math.max(0, enemy.hp / enemy.maxHp), 2); });
+  if (typeof drawSnakeConnectors === "function") drawSnakeConnectors([head, ...gameView.broodline.chain.map((part) => part.pos)], "#91b957", { cellSize: cell, x: -camera.x * cell, y: -camera.y * cell, columns: 30, rows: 30 });
   gameView.broodline.chain.slice().reverse().forEach((part) => { const x = (part.pos.x - camera.x) * cell + cell * .1, y = (part.pos.y - camera.y) * cell + cell * .1, size = cell * .8; const colors = { body: "#91b957", garden: "#67c993", cave: "#8fa6d6", electric: "#d9d45a", lava: "#e37a47", rattle: "#b996cf", egg: "#f2e9ba" }; ctx.fillStyle = colors[part.kind] || "#91b957"; ctx.strokeStyle = "#132218"; ctx.lineWidth = 2; if (part.kind === "egg") { ctx.beginPath(); ctx.ellipse(x + size / 2, y + size / 2, size * .32, size * .4, 0, 0, Math.PI * 2); ctx.fill(); ctx.stroke(); } else { ctx.beginPath(); ctx.roundRect(x, y, size, size, size * .18); ctx.fill(); ctx.stroke(); } });
   const headX = (head.x - camera.x) * cell + cell * .1, headY = (head.y - camera.y) * cell + cell * .1, headSize = cell * .8;
   ctx.fillStyle = snakeColors.head; ctx.strokeStyle = "#132218"; ctx.lineWidth = 2; ctx.beginPath(); ctx.roundRect(headX, headY, headSize, headSize, headSize * .18); ctx.fill(); ctx.stroke();
   ctx.fillStyle = "#1b2b20"; ctx.fillRect(headX + headSize * .26, headY + headSize * .3, 3, 3); ctx.fillRect(headX + headSize * .62, headY + headSize * .3, 3, 3);
   gameView.broodline.effects.forEach((effect) => { ctx.fillStyle = "#f6e8a4"; ctx.font = "bold 10px Courier New"; ctx.fillText(effect.text, (effect.pos.x - camera.x) * cell - 5, (effect.pos.y - camera.y) * cell - 4); });
   drawBroodlineHealthBar();
+  drawBroodlineMap();
+}
+
+function drawBroodlineMap() {
+  const active = gameView.broodline;
+  const size = 84, scale = size / 30, left = canvas.width - size - 8, top = canvas.height - size - 8;
+  ctx.fillStyle = "rgba(10,16,12,.9)"; ctx.fillRect(left, top, size, size);
+  ctx.strokeStyle = "#d5df9d"; ctx.lineWidth = 1; ctx.strokeRect(left, top, size, size);
+  const dot = (pos, color, radius) => { ctx.fillStyle = color; ctx.fillRect(left + (pos.x + .5) * scale - radius, top + (pos.y + .5) * scale - radius, radius * 2, radius * 2); };
+  active.pickups.forEach((drop) => dot(drop.pos, "#e0c15a", 1));
+  active.enemies.forEach((enemy) => dot(enemy.pos, "#e37a47", 1.5));
+  active.chain.forEach((part) => dot(part.pos, "#7bc86c", 1));
+  dot(active.head, "#fff5ce", 2.5);
+  ctx.strokeStyle = "rgba(231,225,197,.5)";
+  ctx.strokeRect(left + broodlineCamera.x * scale, top + broodlineCamera.y * scale, broodlineView * scale, broodlineView * scale);
 }
 
 function drawBroodlineHealthBar() {
@@ -2149,6 +2187,7 @@ function drawBroodlineHealthBar() {
 }
 
 function render() {
+  syncStrikeCanvas();
   boardMetrics = getBoardMetrics();
   drawScreen();
   if (gameView.gameMode === "crossing") drawCrossing();
@@ -2432,18 +2471,29 @@ function drawCentipede() {
     const hp = gameView.centipede.mushrooms[cell];
     const parts = cell.split(",");
     const rect = cellRect({ x: Number(parts[0]), y: Number(parts[1]) }, Math.max(2, cs * 0.16));
-    ctx.fillStyle = "rgba(24, 36, 19, 0.26)";
+    ctx.save();
+    ctx.globalAlpha = window.IdleSnakeMinigameFeedback.mushroomOpacity(hp);
+    ctx.fillStyle = "#182413";
     ctx.fillRect(rect.x + 2, rect.y + rect.size * 0.55, rect.size, rect.size * 0.4);
-    ctx.fillStyle = `rgba(88, 110, 58, ${Math.min(1, 0.32 + 0.17 * hp)})`;
+    ctx.fillStyle = "#182413";
     ctx.beginPath();
     ctx.arc(rect.x + rect.size / 2, rect.y + rect.size * 0.46, rect.size * 0.5, Math.PI, 0);
     ctx.fill();
-    ctx.fillStyle = "rgba(231, 225, 197, 0.45)";
+    ctx.fillStyle = "#39482c";
     ctx.fillRect(rect.x + rect.size * 0.22, rect.y + rect.size * 0.24, Math.max(1, rect.size * 0.16), Math.max(1, rect.size * 0.16));
+    ctx.restore();
   }
 
   // Villain centipede — segments are tinted with the player's chosen snake
   // colours (body colour for the chain, head colour for each head).
+  if (typeof drawSnakeConnectors === "function") {
+    let chain = [];
+    for (const seg of gameView.centipede.segments) {
+      if (seg.isHead && chain.length) { drawSnakeConnectors(chain); chain = []; }
+      chain.push(seg);
+    }
+    drawSnakeConnectors(chain);
+  }
   gameView.centipede.segments.forEach((seg) => {
     const rect = cellRect({ x: seg.x, y: seg.y }, Math.max(1, cs * 0.08));
     ctx.fillStyle = "rgba(24, 36, 19, 0.3)";
@@ -2468,14 +2518,16 @@ function drawCentipede() {
   }
 
   // Player shooter — cream, so the hero reads clearly against the tinted villain.
-  const p = cellRect(gameView.centipede.player, Math.max(1, cs * 0.12));
+  // .94-cell silhouette (formerly .76); keep the one-cell engine hit box and
+  // all drawing inside that cell, including at the bottom/left/right edges.
+  const p = cellRect(gameView.centipede.player, cs * .03);
   ctx.fillStyle = "rgba(24, 36, 19, 0.32)";
-  ctx.fillRect(p.x + 2, p.y + 3, p.size, p.size);
+  ctx.fillRect(p.x, p.y + p.size * .05, p.size, p.size * .95);
   ctx.fillStyle = "#182413";
-  ctx.fillRect(p.x + p.size * 0.42, p.y - cs * 0.12, Math.max(2, p.size * 0.16), cs * 0.22);
+  ctx.fillRect(p.x + p.size * 0.42, p.y, Math.max(1, p.size * 0.16), p.size * .3);
   ctx.fillStyle = "#e7e1c5";
   ctx.beginPath();
-  ctx.moveTo(p.x + p.size / 2, p.y);
+  ctx.moveTo(p.x + p.size / 2, p.y + p.size * .16);
   ctx.lineTo(p.x + p.size, p.y + p.size);
   ctx.lineTo(p.x, p.y + p.size);
   ctx.closePath();
@@ -2713,41 +2765,26 @@ function drawSokoban() {
   }
 }
 
-// Two stacked 10x10 grids: enemy waters on top (where the player fires venom),
-// their own nest below (where the AI fires). Layout is computed independently of
-// getBoardMetrics/grid so both grids fit the square LCD screen.
+// Venom Strike uses its own aspect ratio, leaving generic board metrics alone.
+function syncStrikeCanvas() {
+  const strike = gameView.gameMode === "battleship";
+  document.body.classList.toggle("has-strike-board", strike);
+  const area = strike ? canvas.parentElement.getBoundingClientRect() : { width: 0, height: 0 };
+  const wide = strike && document.body.classList.contains("is-fullscreen-mode") && area.width > area.height * 1.45;
+  const width = wide ? 1040 : 504, height = strike && !wide ? 1040 : 504;
+  if (canvas.width !== width || canvas.height !== height) { canvas.width = width; canvas.height = height; }
+  const layout = strike ? wide ? "strike-wide" : "strike-stack" : "square";
+  if (canvas.dataset.layout !== layout) canvas.dataset.layout = layout;
+}
+
 function battleshipLayout() {
-  const cols = battleshipGrid.columns;
-  const rows = battleshipGrid.rows;
-  const labelH = 16;
-  const gap = 18;
-  const usableH = canvas.height - labelH * 2 - gap - 14;
-  const size = Math.max(8, Math.floor(Math.min((canvas.width - 24) / cols, usableH / (rows * 2))));
-  const boardW = size * cols;
-  const boardH = size * rows;
-  const offsetX = Math.floor((canvas.width - boardW) / 2);
-  const enemyY = labelH + 6;
-  const playerY = enemyY + boardH + labelH + gap;
-  return { cols, rows, size, boardW, boardH, offsetX, enemyY, playerY, labelH };
+  return window.IdleSnakeMinigameFeedback.strikeLayout(canvas.width, canvas.height);
 }
 
 // Map a canvas click to { board: "enemy"|"player", x, y } or null, accounting
 // for CSS scaling of the canvas.
 function battleshipCellFromEvent(event) {
-  const rect = canvas.getBoundingClientRect();
-  const px = (event.clientX - rect.left) * (canvas.width / rect.width);
-  const py = (event.clientY - rect.top) * (canvas.height / rect.height);
-  const L = battleshipLayout();
-  const hit = (top) => {
-    if (px < L.offsetX || px >= L.offsetX + L.boardW) return null;
-    if (py < top || py >= top + L.boardH) return null;
-    return { x: Math.floor((px - L.offsetX) / L.size), y: Math.floor((py - top) / L.size) };
-  };
-  const enemy = hit(L.enemyY);
-  if (enemy) return { board: "enemy", ...enemy };
-  const player = hit(L.playerY);
-  if (player) return { board: "player", ...player };
-  return null;
+  return window.IdleSnakeMinigameFeedback.strikeCell(event, canvas.getBoundingClientRect(), canvas.width, canvas.height, battleshipLayout());
 }
 
 function battleshipGhost() {
@@ -2762,20 +2799,24 @@ function drawBattleship() {
   if (!gameView.battleship) return;
   const L = battleshipLayout();
   ctx.save();
-  drawBattleshipLabel(gameView.battleship.phase === "over" ? "ENEMY WATERS · REVEALED" : "ENEMY WATERS · STRIKE", L.offsetX, L.enemyY - 5, L);
+  drawBattleshipLabel(gameView.battleship.phase === "over" ? "ENEMY · REVEALED" : "ENEMY · STRIKE", L.enemyX, L.enemyY - 5, L);
   drawBattleshipBoard({
     L,
     top: L.enemyY,
+    offsetX: L.enemyX,
+    shotEffect: strikeShots.player,
     fleet: gameView.battleship.enemy,
     revealSunk: true,
     revealAll: gameView.battleship.phase === "over",
     cursor: gameView.battleship.phase === "playing" && gameView.battleship.turn === "player" ? gameView.battleship.target : null,
     lastShot: gameView.battleship.lastPlayerShot
   });
-  drawBattleshipLabel("YOUR NEST", L.offsetX, L.playerY - 5, L);
+  drawBattleshipLabel("YOUR NEST", L.playerX, L.playerY - 5, L);
   drawBattleshipBoard({
     L,
     top: L.playerY,
+    offsetX: L.playerX,
+    shotEffect: strikeShots.ai,
     fleet: gameView.battleship.player,
     revealAll: true,
     ghost: gameView.battleship.phase === "placement" ? battleshipGhost() : null,
@@ -2789,11 +2830,11 @@ function drawBattleshipLabel(text, x, y, L) {
   ctx.font = `bold ${Math.max(9, Math.floor(L.labelH * 0.72))}px "Courier New", monospace`;
   ctx.textAlign = "left";
   ctx.textBaseline = "alphabetic";
-  ctx.fillText(text, x, y);
+  ctx.fillText(text, x, y, L.boardW);
 }
 
-function drawBattleshipBoard({ L, top, fleet, revealAll, revealSunk, cursor, ghost, lastShot }) {
-  const { offsetX, size, cols, rows } = L;
+function drawBattleshipBoard({ L, top, offsetX, fleet, revealAll, revealSunk, cursor, ghost, lastShot, shotEffect }) {
+  const { size, cols, rows } = L;
   const B = window.IdleSnakeBattleship;
   for (let y = 0; y < rows; y += 1) {
     for (let x = 0; x < cols; x += 1) {
@@ -2821,10 +2862,11 @@ function drawBattleshipBoard({ L, top, fleet, revealAll, revealSunk, cursor, gho
     else drawVenomMiss(cx, cy, size);
   });
   if (lastShot) {
-    ctx.strokeStyle = "rgba(231,225,197,0.85)";
+    ctx.strokeStyle = "#182413";
     ctx.lineWidth = 2;
     ctx.strokeRect(offsetX + lastShot.x * size + 1.5, top + lastShot.y * size + 1.5, size - 3, size - 3);
   }
+  if (shotEffect) drawStrikeImpact(offsetX + shotEffect.x * size, top + shotEffect.y * size, size, shotEffect);
   if (cursor) drawBattleshipReticle(offsetX + cursor.x * size, top + cursor.y * size, size);
   ctx.strokeStyle = "rgba(24,36,19,0.32)";
   ctx.lineWidth = 1;
@@ -2847,6 +2889,7 @@ function drawBattleshipBoard({ L, top, fleet, revealAll, revealSunk, cursor, gho
 
 function drawBattleshipShip(ship, offsetX, top, size, sunk) {
   const inset = Math.max(2, size * 0.17);
+  if (typeof drawSnakeConnectors === "function") drawSnakeConnectors(ship.cells, sunk ? "#182413" : snakeColors.body, { cellSize: size, x: offsetX, y: top, columns: 10, rows: 10 });
   ship.cells.forEach((c) => {
     ctx.fillStyle = sunk ? "rgba(24,36,19,0.72)" : snakeColors.body;
     drawRoundedRect(offsetX + c.x * size + inset, top + c.y * size + inset, size - inset * 2, size - inset * 2);
@@ -2875,15 +2918,33 @@ function drawVenomHit(cx, cy, size) {
 }
 
 function drawVenomMiss(cx, cy, size) {
-  ctx.fillStyle = "rgba(24,36,19,0.4)";
+  ctx.strokeStyle = "#182413";
+  ctx.lineWidth = Math.max(1.5, size * .065);
   ctx.beginPath();
-  ctx.arc(cx + size / 2, cy + size / 2, Math.max(1.5, size * 0.12), 0, Math.PI * 2);
-  ctx.fill();
+  ctx.arc(cx + size / 2, cy + size / 2, size * .19, 0, Math.PI * 2);
+  ctx.stroke();
+}
+
+function drawStrikeImpact(cx, cy, size, shot) {
+  const effect = window.IdleSnakeMinigameFeedback.shotEmphasis(snakeAnimationNow() - shot.at, effectiveReducedMotion());
+  if (!effect) return; // Persistent X / hollow-ring markers remain in all modes.
+  ctx.save();
+  ctx.beginPath(); ctx.rect(cx, cy, size, size); ctx.clip();
+  ctx.globalAlpha = effect.alpha; ctx.strokeStyle = "#182413"; ctx.lineWidth = Math.max(2, size * .06);
+  const midX = cx + size / 2, midY = cy + size / 2;
+  const radius = size * (.18 + effect.progress * .3);
+  ctx.beginPath();
+  if (shot.result === "miss") ctx.arc(midX, midY, radius, 0, Math.PI * 2);
+  else for (let i = 0; i < 8; i += 1) {
+    const angle = i * Math.PI / 4;
+    ctx.moveTo(midX + Math.cos(angle) * radius * .55, midY + Math.sin(angle) * radius * .55);
+    ctx.lineTo(midX + Math.cos(angle) * radius, midY + Math.sin(angle) * radius);
+  }
+  ctx.stroke(); ctx.restore();
 }
 
 function drawBattleshipReticle(cx, cy, size) {
-  const bright = Math.floor(Date.now() / 400) % 2 === 0;
-  ctx.strokeStyle = bright ? "#182413" : "rgba(24,36,19,0.55)";
+  ctx.strokeStyle = "#182413";
   ctx.lineWidth = 2;
   ctx.strokeRect(cx + 2, cy + 2, size - 4, size - 4);
   ctx.beginPath();
@@ -3725,10 +3786,15 @@ function syncHud() {
     return;
   }
   if (gameView.gameMode === "broodline" && gameView.broodline) {
-    setText(scoreLabelEl, "Seeds"); setText(bestLabelEl, "Kills");
+    setText(scoreLabelEl, "Progress"); setText(bestLabelEl, "Kills");
     scoreEl.textContent = padScore(gameView.broodline.pendingSeeds); bestEl.textContent = padScore(gameView.broodline.kills);
-    gridLabelEl.textContent = `R${gameView.broodline.round}`; timerEl.textContent = formatTime(gameView.elapsedMs);
-    setScreenHint(`BODY ${gameView.broodline.chain.filter((part) => part.kind === "body").length} · ARMOR ${gameView.broodline.armor}/${gameView.broodline.maxArmor} · HATCH ${gameView.broodline.chain.filter((part) => ["garden", "cave", "electric", "lava", "rattle"].includes(part.kind)).length}`);
+    gridLabelEl.textContent = `R${gameView.broodline.round} W${gameView.broodline.wave}/5`; timerEl.textContent = formatTime(gameView.elapsedMs);
+    setText(seedsTotalEl, padSeeds(gameView.seedsTotal));
+    setHidden(gridLabelEl, false);
+    if (gameView.state !== "gameover") {
+      const goal = window.IdleSnakeMinigameFeedback.broodlineGoal(gameView.broodline, gameView.state);
+      if (screenHint?.textContent !== goal) setScreenHint(goal);
+    }
     return;
   }
   setText(scoreLabelEl, isSnakebird ? "Moves" : "Score");

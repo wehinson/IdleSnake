@@ -22,7 +22,9 @@
     mushroomHp: 4,          // hits to clear a mushroom (classic)
     mushroomDensity: 0.06,  // fraction of upper-field cells seeded at start
     waveMushrooms: 4,       // extra mushrooms added per wave
-    bulletStep: 2,          // rows the bullet climbs per tick
+    tickMs: 70,
+    bulletStep: 2.4,        // +20% travel rate; faster single-bullet re-fire
+    segmentStepMs: 87.5,    // 70 / 0.8: enemies travel 20% slower
     points: { body: 10, head: 100, mushroom: 1 }
   };
 
@@ -117,7 +119,12 @@
   function stepBullet(state, events) {
     if (!state.bullet) return;
     const b = state.bullet;
-    for (let s = 0; s < config.bulletStep; s += 1) {
+    // A new shot must check the adjacent cell, rather than skip past it.
+    if (b.fresh) { b.y += 1; delete b.fresh; }
+    state.bulletTravelRows = (state.bulletTravelRows || 0) + config.bulletStep;
+    const rows = Math.floor(state.bulletTravelRows + 1e-9);
+    state.bulletTravelRows -= rows;
+    for (let s = 0; s < rows; s += 1) {
       b.y -= 1;
       if (b.y < 0) { state.bullet = null; return; }
       const hitIndex = state.segments.findIndex((seg) => seg.x === b.x && seg.y === b.y);
@@ -196,12 +203,18 @@
       events.push({ type: "waveClear", wave: state.wave });
     }
 
-    moveSegments(state);
+    // Move on a separate clock; the first tick retains the familiar immediate
+    // advance. Player input stays on the existing 70 ms grid cadence.
+    state.segmentAccumulatorMs = (state.segmentAccumulatorMs ?? (config.segmentStepMs - config.tickMs)) + config.tickMs;
+    if (state.segmentAccumulatorMs + 1e-9 >= config.segmentStepMs) {
+      state.segmentAccumulatorMs -= config.segmentStepMs;
+      moveSegments(state);
+    }
 
     if (checkPlayerHit(state, events, rng) === "over") return { state, events, alive: false };
 
     // Auto-fire: while no bullet is in flight, launch a fresh one from the shooter.
-    if (!state.bullet) state.bullet = { x: state.player.x, y: state.player.y - 1 };
+    if (!state.bullet) state.bullet = { x: state.player.x, y: state.player.y - 1, fresh: true };
 
     return { state, events, alive: true };
   }
