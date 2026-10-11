@@ -465,3 +465,13 @@ The entries below record prior checks and decisions. All intended work is includ
 - Version impact: none; the impact state exists only during the active run and is not saved.
 - Last update: 2026-09-09.
 - Notes: a held shield shows a small blue arc ahead of the head. A collision consumes one shield immediately, freezes the body for three movement intervals, accepts valid queued turns behind the forced redirect, and pauses cleanly. No commit or release was made.
+# task/minigame-brick-crossing-20261011 — Minigame PR2 requests 3 and 4
+
+- Agent: Codex, GPT 6.1 Sol, local Jimothy.
+- Base: `31e773efee60c85d6781078803e4eae208911e4e` (local working).
+- Status: Active; isolated task branch; coordinator combines one Minigames PR.
+- Scope: Brick Breaker health/layout, motion, pickups and tail expiry; Snakeger obstacle tiers, overtaking, boundary rendering, win lock and length.
+- Tests: pending targeted engine tests and `npm run check`; no browser automation authorized.
+- Version impact: no release bump; no save-format change intended.
+- Last update: 2026-10-11.
+- Notes: no Colony commits, working/main merge, deployment, root balance/save edits, CI edits or shared4173 route mutations. Generic connectors and reward formulas owned by siblings.

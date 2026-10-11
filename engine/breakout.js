@@ -11,10 +11,10 @@
 })(typeof window !== "undefined" ? window : globalThis, () => {
   const config = {
     basePaddleLength: 3,
-    paddleSpeed: 231,
-    ballSpeed: 180.6,
+    paddleSpeed: 231 * 1.5,
+    ballSpeed: 180.6 * 1.5,
     powerupDropChance: 0.18,
-    powerupFallSpeed: 64.4
+    powerupFallSpeed: 64.4 * 1.5
   };
   const MAX_HEARTS_PER_LEVEL = 2;
   const SEED_BOOST_MS = 30000;
@@ -22,6 +22,8 @@
   const BOARD_HEIGHT = 720;
   const SEGMENT_SIZE = 45;
   const GAP = 4;
+  const PHYSICS_MS = 1000 / 240;
+  const BRICK_COLORS = { 1: "#4e9c45", 2: "#3979c6", 3: "#14171c" };
 
   function createState(options = {}) {
     const brickWidth = (BOARD_WIDTH - 28 - GAP * 9) / 10;
@@ -36,11 +38,12 @@
       powerups: [],
       seedBoosts: [],
       heartsCollected: 0,
-      bricks: []
+      bricks: [], physicsAccumulatorMs: 0
     };
     if (Array.isArray(options.bricks)) state.bricks = options.bricks.map((brick) => ({ ...brick }));
-    else for (let row = 0; row < 5; row += 1) for (let column = 0; column < 10; column += 1) {
-      state.bricks.push({ x: 14 + column * (brickWidth + GAP), y: 58 + row * 20, width: brickWidth, height: 16, hp: 1 });
+    else for (let row = 0; row < 4; row += 1) for (let column = 0; column < 10; column += 1) {
+      const hp = [3, 2, 1, 1][row];
+      state.bricks.push({ x: 14 + column * (brickWidth + GAP), y: 28 + row * 36, width: brickWidth, height: 32, hp, maxHp: hp, color: BRICK_COLORS[hp] });
     }
     state.paddle.x = (BOARD_WIDTH - paddleWidth(state)) / 2;
     state.balls = [buildBall(state, BOARD_WIDTH)];
@@ -70,7 +73,43 @@
   }
 
   function createPowerup(state, type, x, y) {
-    return { type, x, y, radius: Math.max(6, Math.floor(state.segmentSize * 0.2)) };
+    return { type, x, y, radius: Math.max(4, Math.floor(state.segmentSize * 0.23) * 0.8) };
+  }
+
+  // The head is at the right; index zero is the last extended tail end.
+  // Reduced motion keeps a steady warning instead of flickering.
+  function tailWarning(state, elapsedMs, reducedMotion = false) {
+    if (state.paddle.length <= config.basePaddleLength || !state.seedBoosts.length) return null;
+    const remainingMs = Math.min(...state.seedBoosts) - elapsedMs;
+    if (remainingMs <= 0 || remainingMs > 5000) return null;
+    const urgent = remainingMs <= 2000;
+    const periodMs = urgent ? 400 : 1000;
+    return { index: 0, remainingMs, phase: urgent ? "urgent" : "warning", periodMs,
+      dim: reducedMotion || remainingMs % periodMs < periodMs / 2 };
+  }
+
+  // Fixed simulation slices preserve time at 30/60/144 Hz. Collision slices
+  // additionally limit displacement, including externally supplied fast balls.
+  function step(state, ctx) {
+    const deltaMs = Math.max(0, Number(ctx.deltaMs) || 0);
+    state.physicsAccumulatorMs = (state.physicsAccumulatorMs || 0) + deltaMs;
+    const events = [];
+    while (state.physicsAccumulatorMs + 1e-8 >= PHYSICS_MS) {
+      state.physicsAccumulatorMs = Math.max(0, state.physicsAccumulatorMs - PHYSICS_MS);
+      const elapsedMs = ctx.elapsedMs - state.physicsAccumulatorMs;
+      const maxSpeed = Math.max(config.ballSpeed, ...state.balls.map((ball) => Math.hypot(ball.vx, ball.vy)));
+      const radius = Math.max(0.5, Math.min(10, ...state.balls.map((ball) => ball.radius)));
+      const count = Math.max(1, Math.ceil(maxSpeed * PHYSICS_MS / 1000 / (radius / 2)));
+      for (let index = 0; index < count; index += 1) {
+        const result = stepSlice(state, { ...ctx, deltaMs: PHYSICS_MS / count, elapsedMs: elapsedMs - PHYSICS_MS + (index + 1) * PHYSICS_MS / count });
+        events.push(...result.events);
+        if (!result.alive || result.events.some((item) => item.type === "ballLost")) {
+          state.physicsAccumulatorMs = 0;
+          return { state, events, alive: result.alive };
+        }
+      }
+    }
+    return { state, events, alive: true };
   }
 
   function randomPowerupType(heartsAllowed, rng) {
@@ -83,15 +122,15 @@
   // One physics tick. State is the game.js `breakout` object. ctx: { deltaMs,
   // boardWidth, boardHeight, elapsedMs, rng }. Returns { state, events, alive }.
   // Events: win, gameOver, ballLost{lives}.
-  function step(state, ctx) {
+  function stepSlice(state, ctx) {
     const rng = (ctx && ctx.rng) || Math.random;
     const boardWidth = ctx.boardWidth;
     const boardHeight = ctx.boardHeight;
     const elapsedMs = ctx.elapsedMs;
-    const dt = Math.min(40, ctx.deltaMs) / 1000;
+    const dt = ctx.deltaMs / 1000;
     const events = [];
     const paddle = state.paddle;
-    const pWidth = paddleWidth(state);
+    let pWidth = paddleWidth(state);
 
     paddle.x = Math.max(0, Math.min(boardWidth - pWidth, paddle.x + paddle.input * config.paddleSpeed * dt));
 
@@ -124,9 +163,11 @@
       if (expiredCount > 0) setPaddleLength(state, Math.max(config.basePaddleLength, paddle.length - expiredCount), boardWidth);
       state.seedBoosts = stillActive;
     }
+    pWidth = paddleWidth(state);
 
     const remainingBalls = [];
     for (const ball of state.balls) {
+      const previousX = ball.x;
       const previousY = ball.y;
       ball.x += ball.vx * dt;
       ball.y += ball.vy * dt;
@@ -157,12 +198,22 @@
         ball.y + ball.radius >= brick.y && ball.y - ball.radius <= brick.y + brick.height);
       if (brickIndex >= 0) {
         const brick = state.bricks[brickIndex];
-        state.bricks.splice(brickIndex, 1);
-        state.score += 10;
+        brick.maxHp = brick.maxHp || brick.hp || 1;
+        brick.hp = (brick.hp || 1) - 1;
+        const destroyed = brick.hp === 0;
+        if (destroyed) { state.bricks.splice(brickIndex, 1); state.score += 10; }
         const cameFromAbove = previousY + ball.radius <= brick.y;
         const cameFromBelow = previousY - ball.radius >= brick.y + brick.height;
-        if (cameFromAbove || cameFromBelow) ball.vy *= -1; else ball.vx *= -1;
-        if (rng() < config.powerupDropChance) {
+        if (cameFromAbove || cameFromBelow) {
+          ball.y = cameFromAbove ? brick.y - ball.radius - 0.001 : brick.y + brick.height + ball.radius + 0.001;
+          ball.vy *= -1;
+        } else {
+          const fromLeft = previousX <= brick.x + brick.width / 2;
+          ball.x = fromLeft ? brick.x - ball.radius - 0.001 : brick.x + brick.width + ball.radius + 0.001;
+          ball.vx = fromLeft ? -Math.abs(ball.vx) : Math.abs(ball.vx);
+        }
+        events.push({ type: "brickHit", hp: brick.hp, destroyed });
+        if (destroyed && rng() < config.powerupDropChance) {
           const heartsAllowed = state.heartsCollected < MAX_HEARTS_PER_LEVEL;
           state.powerups.push(createPowerup(state, randomPowerupType(heartsAllowed, rng), brick.x + brick.width / 2, brick.y + brick.height / 2));
         }
@@ -192,5 +243,5 @@
     return { state, events, alive: true };
   }
 
-  return { config, BOARD_WIDTH, BOARD_HEIGHT, SEGMENT_SIZE, GAP, MAX_HEARTS_PER_LEVEL, SEED_BOOST_MS, createState, paddleWidth, setPaddleLength, buildBall, createPowerup, randomPowerupType, step };
+  return { config, BOARD_WIDTH, BOARD_HEIGHT, SEGMENT_SIZE, GAP, BRICK_COLORS, MAX_HEARTS_PER_LEVEL, SEED_BOOST_MS, createState, paddleWidth, setPaddleLength, buildBall, createPowerup, randomPowerupType, tailWarning, step };
 });

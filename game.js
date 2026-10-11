@@ -1144,7 +1144,10 @@ function dispatchBroodlineFormation(action) {
 }
 function syncBroodlineFormation() { if (!broodlineChainEl || !gameView.broodline) return; broodlineChainEl.replaceChildren(...gameView.broodline.chain.map((part, index) => { const button = document.createElement("button"); button.className = `broodline-card${index === gameView.broodline.selected ? " is-selected" : ""}`; button.type = "button"; button.innerHTML = `<span>${broodlineSpeciesLabel(part.kind).toUpperCase()}</span><small>${part.kind === "egg" ? `${Math.ceil(part.hatchAt / 1000)}s` : "slot " + (index + 1)}</small>`; button.addEventListener("click", () => dispatchBroodlineFormation({ type: "broodlineSelect", index })); return button; })); }
 
-function startGame() { return presentGameResult(dispatchSession({ type: "primaryAction" })); }
+function startGame() {
+  if (gameView.gameMode === "crossing" && (Date.now() < directionInputLockedUntil || gameView.crossingPhase === "clearing")) return false;
+  return presentGameResult(dispatchSession({ type: "primaryAction" }));
+}
 
 function saveNursery() {
   setSaveItem("nursery");
@@ -1906,14 +1909,16 @@ function interpretSessionEvents(events) {
         break;
       case "stageClear":
         if (gameView.gameMode === "crossing") {
+          directionInputLockedUntil = Date.now() + 1000;
+          crossingStartPointerAllowed = false;
           showOverlay(`Stage ${gameView.crossingStage} Clear · +${formatNumber(event.reward)} Seeds`);
           setScreenHint("Next road loading");
         }
         break;
       case "stageStarted":
         if (gameView.gameMode === "crossing") {
-          hideOverlay();
-          setScreenHint(`Stage ${event.stage}: reach the top bank`);
+          showOverlay(`Stage ${event.stage} · Ready`);
+          setScreenHint("Press Start to cross the next road");
         }
         break;
       case "playerHit":
@@ -2153,7 +2158,7 @@ function render() {
   else if (gameView.gameMode === "battleship") drawBattleship();
   else if (gameView.gameMode === "runner") drawRunner();
   else {
-    if (gameView.gameMode !== "broodline") drawGrid();
+    if (!["broodline", "breakout"].includes(gameView.gameMode)) drawGrid();
     if (gameView.gameMode === "breakout") drawBreakout();
     else if (gameView.gameMode === "centipede") drawCentipede();
     else if (gameView.gameMode === "duel") drawVsSnake();
@@ -2218,6 +2223,10 @@ function drawRunner() {
 }
 
 function drawCrossing() {
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(boardMetrics.x, boardMetrics.y, boardMetrics.width, boardMetrics.height);
+  ctx.clip();
   for (let y = 0; y < crossingGrid.rows; y += 1) {
     const rowRect = cellRect({ x: 0, y }, 0);
     const isBank = y === 0 || y === crossingGrid.rows - 1;
@@ -2243,6 +2252,8 @@ function drawCrossing() {
 
   gameView.crossingCars.forEach((car) => drawCrossingCar(car));
 
+  if (typeof drawSnakeConnectors === "function") drawSnakeConnectors(gameView.crossingSnake);
+
   gameView.crossingSnake.forEach((part, index) => {
     // Body segments still below the bottom bank stay hidden until they climb in.
     if (part.y >= crossingGrid.rows || part.y < 0) return;
@@ -2266,6 +2277,13 @@ function drawCrossing() {
   const headRect = interpolatedCellRect(headPoint, Math.max(3, Math.floor(boardMetrics.cellSize * 0.11)));
   drawEyes(headRect.x, headRect.y, headRect.size);
 
+  ctx.restore();
+  // Opaque edge rails occlude wrapped logs as they slide into/out of view.
+  const rail = Math.max(3, boardMetrics.cellSize * 0.18);
+  ctx.fillStyle = "#25362b";
+  ctx.fillRect(boardMetrics.x, boardMetrics.y, rail, boardMetrics.height);
+  ctx.fillRect(boardMetrics.x + boardMetrics.width - rail, boardMetrics.y, rail, boardMetrics.height);
+
   ctx.strokeStyle = "rgba(24, 36, 19, 0.4)";
   ctx.lineWidth = 2;
   ctx.strokeRect(boardMetrics.x - 1, boardMetrics.y - 1, boardMetrics.width + 2, boardMetrics.height + 2);
@@ -2275,15 +2293,18 @@ function drawCrossingCar(car) {
   [-crossingGrid.columns, 0, crossingGrid.columns].forEach((offset) => {
     const left = car.x + offset;
     if (left + car.width <= 0 || left >= crossingGrid.columns) return;
-    const inset = Math.max(2, boardMetrics.cellSize * 0.12);
+    const inset = boardMetrics.cellSize * 0.18;
     const rect = cellRect({ x: left, y: car.row }, inset);
     const width = car.width * boardMetrics.cellSize - inset * 2;
     ctx.fillStyle = "rgba(24, 36, 19, 0.3)";
     ctx.fillRect(rect.x + 2, rect.y + 3, width, Math.max(2, rect.size * 0.18));
-    ctx.fillStyle = car.color;
+    ctx.fillStyle = car.color || "#4e9c45";
     drawRoundedRect(rect.x, rect.y, width, rect.size);
     ctx.fillStyle = "rgba(231, 225, 197, 0.28)";
     ctx.fillRect(rect.x + 3, rect.y + 3, Math.max(2, width * 0.55), Math.max(2, rect.size * 0.12));
+    ctx.strokeStyle = "rgba(231, 225, 197, 0.32)";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(rect.x + 2, rect.y + 2, Math.max(1, width - 4), Math.max(1, rect.size - 4));
   });
 }
 
@@ -2299,10 +2320,30 @@ function drawBreakout() {
   gameView.breakout.bricks.forEach((brick) => {
     ctx.fillStyle = "rgba(24, 36, 19, 0.3)";
     ctx.fillRect(boardMetrics.x + brick.x + 2, boardMetrics.y + brick.y + 2, brick.width, brick.height);
-    ctx.fillStyle = brick.color || ["#182413", "#29391f", "#38502a", "#496536", "#5c7840"][Math.max(0, Math.min(4, Math.round((brick.y - 58) / 20)))];
+    ctx.fillStyle = brick.color || window.IdleSnakeBreakout.BRICK_COLORS[brick.maxHp || brick.hp || 1];
     ctx.fillRect(boardMetrics.x + brick.x, boardMetrics.y + brick.y, brick.width, brick.height);
     ctx.fillStyle = "rgba(231, 225, 197, 0.24)";
     ctx.fillRect(boardMetrics.x + brick.x + 2, boardMetrics.y + brick.y + 2, Math.max(2, brick.width - 4), 2);
+    const damage = (brick.maxHp || brick.hp || 1) - (brick.hp || 1);
+    for (let crack = 0; crack < damage; crack += 1) {
+      const x = boardMetrics.x + brick.x + brick.width * (0.35 + crack * 0.32);
+      const y = boardMetrics.y + brick.y;
+      ctx.strokeStyle = "#d5dcc7";
+      ctx.lineWidth = 1.5 + crack;
+      ctx.beginPath();
+      ctx.moveTo(x, y + 1);
+      ctx.lineTo(x - 5, y + brick.height * 0.32);
+      ctx.lineTo(x + 4, y + brick.height * 0.58);
+      ctx.lineTo(x - 3, y + brick.height - 1);
+      ctx.stroke();
+      // A lost corner grows into a chip as a three-hit brick nears breaking.
+      ctx.fillStyle = "#a1aa86";
+      ctx.beginPath();
+      ctx.moveTo(boardMetrics.x + brick.x + brick.width, y + crack * 9);
+      ctx.lineTo(boardMetrics.x + brick.x + brick.width - 5 - crack * 3, y + crack * 9);
+      ctx.lineTo(boardMetrics.x + brick.x + brick.width, y + 7 + crack * 9);
+      ctx.fill();
+    }
   });
 
   gameView.breakout.powerups.forEach((powerup) => {
@@ -2312,13 +2353,10 @@ function drawBreakout() {
     ctx.fillStyle = "rgba(24, 36, 19, 0.3)";
     ctx.fillRect(x - radius + 2, y + radius + 2, radius * 2 - 2, 2);
     if (powerup.type === "seed") {
-      ctx.fillStyle = "#182413";
-      ctx.beginPath();
-      ctx.ellipse(x, y + 1, radius * 0.7, radius, 0, 0, Math.PI * 2);
-      ctx.fill();
-      ctx.fillStyle = "#9cac77";
-      ctx.fillRect(x + 1, y - radius - 2, Math.max(2, radius * 0.24), radius * 0.7);
-      ctx.fillRect(x + 3, y - radius - 2, Math.max(2, radius * 0.55), 2);
+      ctx.fillStyle = snakeColors.body;
+      drawRoundedRect(x - radius, y - radius, radius * 2, radius * 2);
+      ctx.fillStyle = "rgba(231, 225, 197, 0.24)";
+      ctx.fillRect(x - radius + 2, y - radius + 2, radius * 2 - 4, 2);
     } else if (powerup.type === "heart") {
       ctx.fillStyle = "#b3483d";
       ctx.font = `700 ${Math.max(16, Math.floor(radius * 2.1))}px Courier New, monospace`;
@@ -2328,10 +2366,9 @@ function drawBreakout() {
       ctx.textAlign = "left";
       ctx.textBaseline = "alphabetic";
     } else {
-      ctx.fillStyle = "#e4c65e";
+      ctx.fillStyle = "#e7e1c5";
       ctx.beginPath();
-      ctx.arc(x - radius * 0.35, y, radius * 0.48, 0, Math.PI * 2);
-      ctx.arc(x + radius * 0.35, y, radius * 0.48, 0, Math.PI * 2);
+      ctx.arc(x, y, radius, 0, Math.PI * 2);
       ctx.fill();
     }
   });
@@ -2342,10 +2379,25 @@ function drawBreakout() {
     ctx.fillStyle = "rgba(24, 36, 19, 0.3)";
     ctx.fillRect(ballX - ball.radius + 2, ballY + ball.radius + 2, ball.radius * 2 - 2, 2);
     ctx.fillStyle = "#e7e1c5";
-    ctx.fillRect(ballX - ball.radius, ballY - ball.radius, ball.radius * 2, ball.radius * 2);
+    ctx.beginPath();
+    ctx.arc(ballX, ballY, ball.radius, 0, Math.PI * 2);
+    ctx.fill();
   });
 
+  const pitch = gameView.breakout.segmentSize + gameView.breakout.gap;
+  if (typeof drawSnakeConnectors === "function") {
+    const points = Array.from({ length: paddle.length }, (_, index) => ({
+      x: (paddle.x + index * pitch + gameView.breakout.segmentSize / 2) / pitch - 0.5,
+      y: (paddle.y + gameView.breakout.segmentSize / 2) / pitch - 0.5
+    }));
+    // The canvas transform already scales engine pixels into the board.
+    drawSnakeConnectors(points, snakeColors.body, { cellSize: pitch, x: boardMetrics.x, y: boardMetrics.y, columns: gameView.breakout.board.width / pitch, rows: gameView.breakout.board.height / pitch });
+  }
+  const warning = gameView.state === "running"
+    ? window.IdleSnakeBreakout.tailWarning(gameView.breakout, gameView.elapsedMs, effectiveReducedMotion()) : null;
   for (let index = 0; index < paddle.length; index += 1) {
+    ctx.save();
+    if (warning?.index === index && warning.dim) ctx.globalAlpha = 0.35;
     const x = boardMetrics.x + paddle.x + index * (gameView.breakout.segmentSize + gameView.breakout.gap);
     const y = boardMetrics.y + paddle.y;
     const isHead = index === paddle.length - 1;
@@ -2361,6 +2413,7 @@ function drawBreakout() {
       ctx.fillRect(x + gameView.breakout.segmentSize * 0.64, y + gameView.breakout.segmentSize * 0.28, eyeSize, eyeSize);
       ctx.fillRect(x + gameView.breakout.segmentSize * 0.64, y + gameView.breakout.segmentSize * 0.62, eyeSize, eyeSize);
     }
+    ctx.restore();
   }
   ctx.restore();
 }
@@ -3727,6 +3780,7 @@ function syncHud() {
     ? `L${(gameView.snakebird?.levelIndex || 0) + 1}/5`
     : isSokoban ? `S${(gameView.sokoban?.stageIndex || 0) + 1}/${sokobanLevels.length}`
     : gameView.gameMode === "breakout" ? `LIVES ${gameView.breakout?.lives ?? 0}`
+    : gameView.gameMode === "crossing" ? `LENGTH ${gameView.crossingSnake.length}`
     : gameView.gameMode === "runner" ? "RUN"
     : gameView.gameMode === "centipede" ? `LIVES ${gameView.centipede?.lives ?? 0} · W${gameView.centipede?.wave ?? 1}`
     : gameView.gameMode === "broodline" ? `R${gameView.broodline?.round || 1} W${gameView.broodline?.wave || 1}/${broodlineWavesPerRound}`
@@ -4490,6 +4544,7 @@ document.addEventListener("keydown", (event) => {
 
   if (event.code === "Enter") {
     event.preventDefault();
+    if (gameView.gameMode === "crossing" && event.repeat) return;
     startGame();
   }
 });
@@ -4581,7 +4636,14 @@ canvas.addEventListener("pointerup", (event) => {
 });
 canvas.addEventListener("pointercancel", (event) => swipePointerStarts.delete(event.pointerId));
 
-startButton.addEventListener("click", startGame);
+let crossingStartPointerAllowed = true;
+startButton.addEventListener("pointerdown", () => {
+  crossingStartPointerAllowed = gameView.gameMode !== "crossing" || (Date.now() >= directionInputLockedUntil && gameView.crossingPhase !== "clearing");
+});
+startButton.addEventListener("click", (event) => {
+  if (gameView.gameMode === "crossing" && event.detail > 0 && !crossingStartPointerAllowed) return;
+  startGame();
+});
 pauseButton.addEventListener("click", activatePrimaryAction);
 resetButton.addEventListener("click", resetGame);
 document.querySelectorAll("[data-snake-speed]").forEach((button) => {

@@ -11,6 +11,25 @@
   const vectors = {
     up: { x: 0, y: -1 }, down: { x: 0, y: 1 }, left: { x: -1, y: 0 }, right: { x: 1, y: 0 }
   };
+  const LOG_TIERS = { green: { color: "#4e9c45", speed: 1 }, blue: { color: "#3979c6", speed: 1.25 }, black: { color: "#14171c", speed: 1.5625 } };
+
+  function buildCars(stage, grid) {
+    const cars = []; const carCount = stage >= 5 ? 3 : stage >= 3 ? 2 : 1;
+    const stageSpeed = 1 + Math.min(1.25, (stage - 1) * 0.14);
+    for (let row = 1; row < grid.rows - 1; row += 1) {
+      const sign = row % 2 === 0 ? -1 : 1;
+      const greenSpeed = (0.11 + (row % 3) * 0.018) * stageSpeed * sign;
+      for (let index = 0; index < carCount; index += 1) {
+        // Three greens in each five objects; higher stages mix tiers per lane.
+        const tier = ["green", "green", "blue", "green", "black"][(row - 1 + index * 2) % 5];
+        const width = 1 + ((row + index + stage) % 3 === 0 ? 1 : 0);
+        const start = (row * 2.7 + index * grid.columns / carCount + stage * 1.35) % grid.columns;
+        cars.push({ row, x: sign > 0 ? start - width : grid.columns - start, width,
+          speed: greenSpeed * LOG_TIERS[tier].speed, tier, color: LOG_TIERS[tier].color, direction: sign > 0 ? "right" : "left" });
+      }
+    }
+    return cars;
+  }
 
   function isWallHit(grid, point) {
     return point.x < 0 || point.x >= grid.columns || point.y < 0 || point.y >= grid.rows;
@@ -83,5 +102,5 @@
     return { state, events, alive: true };
   }
 
-  return { vectors, isWallHit, buildEntrySnake, updateCars, isCarHit, stepCrossing };
+  return { vectors, LOG_TIERS, buildCars, isWallHit, buildEntrySnake, updateCars, isCarHit, stepCrossing };
 });
