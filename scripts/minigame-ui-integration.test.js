@@ -16,11 +16,65 @@ function functionSource(name) {
 }
 function recorder() {
   const calls = []; const ctx = {};
-  for (const method of ["save", "restore", "beginPath", "rect", "clip", "moveTo", "lineTo", "stroke", "fill", "fillRect", "roundRect", "arc", "strokeRect"]) {
+  for (const method of ["save", "restore", "translate", "scale", "beginPath", "rect", "clip", "moveTo", "lineTo", "stroke", "fill", "fillRect", "roundRect", "arc", "strokeRect"]) {
     ctx[method] = (...args) => calls.push({ method, args, fill: ctx.fillStyle, stroke: ctx.strokeStyle, width: ctx.lineWidth });
   }
   return { calls, ctx };
 }
+
+test("actual Runner renderer connects all six delayed jump tiles before their bodies without changing poses", () => {
+  const runner = require("../engine/runner.js");
+  const colors = compileColors({ "#29391f": "#16465a" });
+  const game = createGameSession({ now: 0, rng: () => 0.3 });
+  game.dispatch({ type: "selectMode", mode: "duel" });
+  assert.equal(game.dispatch({ type: "openMinigame", number: 9 }).snapshot.mode, "runner");
+  const started = game.dispatch({ type: "playDirection", direction: "up" });
+  assert.equal(started.snapshot.phase, "running"); assert.equal(started.snapshot.active.player.grounded, false);
+  const { calls, ctx } = recorder(); const state = structuredClone(started.snapshot.active);
+  const metrics = { x: 13, y: 27, cellSize: 20, width: 360, height: 432 };
+  const context = vm.createContext({ ctx, boardMetrics: metrics, gameView: { runner: state, grid: { columns: 18, rows: 18 } },
+    snakeColors: { body: "#29391f", head: "#abcdef" }, drawEyes() {}, effectiveReducedMotion: () => false,
+    window: { IdleSnakeRunner: runner, IdleSnakeConnectors: connectors, ThemeKit: { color: (c) => mapColor(c, colors) } } });
+  vm.runInContext(["drawRunner", "drawSnakeConnectors", "drawRoundedRect"].map(functionSource).join("\n"), context);
+  const near = (actual, expected) => assert.ok(Math.abs(actual - expected) < 1e-9, `${actual} matches ${expected}`);
+  // Source poses only: no movement simulation or clock loop.
+  for (const elapsed of [0, 55, 220, 440, 700, 985]) {
+    context.effectiveReducedMotion = () => false;
+    state.jumpStartedAt = elapsed === 0 ? null : 0; state.elapsedMs = elapsed;
+    calls.length = 0; vm.runInContext("drawRunner();", context);
+    const tiles = calls.filter((c) => c.method === "roundRect");
+    const moves = calls.filter((c) => c.method === "moveTo");
+    const lines = calls.filter((c) => c.method === "lineTo");
+    assert.equal(tiles.length, 6); assert.equal(moves.length, 5); assert.equal(lines.length, 5);
+    const stroke = calls.findIndex((c) => c.method === "stroke");
+    assert.ok(stroke >= 0 && stroke < calls.findIndex((c) => c.method === "roundRect"));
+    assert.equal(calls[stroke].stroke, appearance.connectorColor("#16465a"));
+    assert.equal(calls[stroke].width, state.player.size * appearance.connectorWidth);
+    assert.deepEqual(calls.find((c) => c.method === "scale").args, [0.5, 0.6], "existing canvas scaling is retained");
+    const centers = [];
+    for (let index = 0; index < 6; index += 1) {
+      const size = state.player.size * (index === 0 ? 1 : 0.88);
+      const x = metrics.x + state.player.x - index * size * 0.72;
+      const y = metrics.y + state.groundY - size - runner.segmentYOffset(state, index);
+      const tile = tiles[5 - index];
+      near(tile.args[0], x); near(tile.args[1], y); near(tile.args[2], size); near(tile.args[3], size);
+      assert.equal(tile.fill, index === 0 ? "#abcdef" : "#29391f");
+      centers.push([x + size / 2, y + size / 2]);
+    }
+    for (let index = 0; index < 5; index += 1) {
+      moves[index].args.forEach((value, axis) => near(value, centers[index][axis]));
+      lines[index].args.forEach((value, axis) => near(value, centers[index + 1][axis]));
+    }
+    // Compare visible drawing state, excluding unused styles inherited by save/translate.
+    const visibleCalls = () => calls.map((c) => ({ method: c.method, args: [...c.args],
+      ...(["fill", "fillRect", "roundRect"].includes(c.method) ? { fill: c.fill } : {}),
+      ...(["stroke", "strokeRect"].includes(c.method) ? { stroke: c.stroke, width: c.width } : {}) }));
+    const normal = visibleCalls();
+    context.effectiveReducedMotion = () => true;
+    calls.length = 0; vm.runInContext("drawRunner();", context);
+    assert.deepEqual(visibleCalls(), normal, "connectors add no motion or change the existing reduced-motion pose");
+  }
+});
 
 test("actual wrapper uses theme/player color and accepts per-mode board metric overrides", () => {
   const colors = compileColors({ "#29391f": "#16465a" });

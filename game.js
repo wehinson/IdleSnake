@@ -2193,10 +2193,18 @@ function drawRunner() {
     }
   });
   const { player } = gameView.runner;
+  const segments = Array.from({ length: window.IdleSnakeRunner.config.segmentCount }, (_, index) => {
+    const size = player.size * (index === 0 ? 1 : 0.88);
+    return { size, x: originX + player.x - index * size * 0.72,
+      y: groundY - size - window.IdleSnakeRunner.segmentYOffset(gameView.runner, index) };
+  });
+  // Use the same delayed hop centers as the tiles, within the existing scale.
+  drawSnakeConnectors(segments.map((segment) => ({
+    x: (segment.x - originX + segment.size / 2) / player.size - 0.5,
+    y: (segment.y - originY + segment.size / 2) / player.size - 0.5
+  })), snakeColors.body, { cellSize: player.size, x: originX, y: originY });
   for (let index = window.IdleSnakeRunner.config.segmentCount - 1; index >= 0; index -= 1) {
-    const segmentSize = player.size * (index === 0 ? 1 : 0.88);
-    const x = originX + player.x - index * segmentSize * 0.72;
-    const y = groundY - segmentSize - window.IdleSnakeRunner.segmentYOffset(gameView.runner, index);
+    const { size: segmentSize, x, y } = segments[index];
     ctx.fillStyle = "rgba(24, 36, 19, 0.28)";
     ctx.fillRect(x + 2, groundY + 2, segmentSize, 3);
     ctx.fillStyle = index === 0 ? snakeColors.head : snakeColors.body;
