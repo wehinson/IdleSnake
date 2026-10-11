@@ -35,7 +35,8 @@ All current worker tips equal baseline; final tips pending. Independent review t
 - Reward owner owns all session payouts/history/save hooks and minimal reward explanation. Others supply outcomes and coordinate narrow session changes. Snake Bird progress bookkeeping must not retain legacy second payout. Crossing win lock and centipede cadence must coexist with reward hooks.
 - Arcade owner may expand battleship canvas with mode-specific aspect/full-width square10x10 boards. Generic metrics stay stable; coordinate resize wrapper with Snake owner and test pointer transforms directly.
 - Crossing currently uses moving `cars` as road obstacles, with no water/support mechanic. Worker treats these as requested logs, retaining central obstacle rules; accepted bounded interpretation, must be stated in final report.
-- Sokoban already has a heavy push mechanic requiring length>=5 and a tail brace against a wall. Starting length3 means at least2 pellets needed. Worker edits Sokoban array only; Bird edits Snakebird array only. Existing Sokoban has no durable level index; do not invent save migration unnecessarily.
+- Sokoban already has a heavy push mechanic requiring length>=5 and a tail brace against a wall. Starting length3 means at least2 pellets needed. Worker edits Sokoban array plus necessary scoped engine legality fix; Bird edits Snakebird array only. Existing Sokoban has no durable level index; do not invent save migration unnecessarily.
+- Sokoban design review found a reachable occupancy defect: pushing a crate onto the old tail while eating a pellet retained that tail. Worker will determine growth before collision validation and include the retained tail; preserve existing wall brace and pre-move plate/gate rules. Gates can close around occupants (departure permitted, closed entry blocked). Review requires pre-fix reachable regression witness, fixed rejection without mutation, legal non-growing push control, and no body/crate/solid overlaps throughout all15 replays. No new mechanic or session edit.
 - Reward brief says all9 modes, while session exposes11 including classic and runner. Explicitly inventory all payout-capable minigames, including runner, rather than omit modes by a mistaken count.
 
 ## Research and independent review ledger
@@ -47,7 +48,7 @@ All current worker tips equal baseline; final tips pending. Independent review t
 | Rewards | minigame-rewards-research-r1-20261011 / actual task ID requested | running, high effort |
 | Snake Bird layout | snakebird-layout-design-20261011 / node:delegated-task:command%3Amcp%3Ad06fc682-c68b-4a36-9dd7-4457cda6bf62%3Adelegate-task%3Asnakebird-layout-design-20261011 | completed, medium; eight original legal maps, optimal9–35 moves, shelves/posts/returns/low hanging fruit; parent replays verified |
 | Snake Bird mechanics | mechanics-design / actual task ID requested | running, medium effort |
-| Sokoban | task IDs/results pending | implementation active |
+| Sokoban | read-only design review actual task ID pending | review found reachable retained-tail growth/crate overlap; scoped legality fix/regression and15 curated witnesses in progress |
 
 Each final worker report must include exact pushed tip, owned files, acceptance evidence, targeted checks, full check results, actual research task IDs/results, migration decisions and risks. Stable completion message requested from all six.
 
