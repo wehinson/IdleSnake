@@ -169,10 +169,40 @@ test("a corrected move restores a shield consumed by the original collision", ()
   assert.deepEqual(corrected.active.snake[0], { x: 11, y: 0 });
 });
 
+test("fullscreen can be entered and left on a new save before any Board size upgrade", () => {
+  const queries = require("./queries.js");
+  const session = game();
+  const fresh = session.snapshot();
+  assert.equal(fresh.upgrades.boardLevel, 0);
+  assert.equal(fresh.fullscreenMode, false);
+  assert.equal(queries.fullscreenAvailable(fresh), true);
+  session.dispatch({ type: "begin" }); session.tick(210);
+  const before = session.snapshot();
+  const entered = session.dispatch({ type: "setFullscreenMode", fullscreenMode: true });
+  assert.deepEqual(entered.events.map((e) => e.type), ["fullscreenModeChanged"]);
+  assert.equal(entered.snapshot.fullscreenMode, true);
+  assert.deepEqual(entered.snapshot.active, before.active);
+  assert.deepEqual(entered.snapshot.upgrades, before.upgrades);
+  assert.equal(entered.snapshot.seeds, before.seeds);
+  assert.equal(queries.fullscreenAvailable(entered.snapshot), true);
+  const save = session.serialize();
+  assert.equal(validateSaveCandidate(save).ok, true);
+  const restored = createGameSession({ save, now: save.savedAt });
+  assert.equal(restored.snapshot().upgrades.boardLevel, 0);
+  assert.equal(restored.snapshot().fullscreenMode, true);
+  assert.deepEqual(restored.snapshot().active, session.snapshot().active);
+  const left = restored.dispatch({ type: "setFullscreenMode", fullscreenMode: false });
+  assert.deepEqual(left.events.map((e) => e.type), ["fullscreenModeChanged"]);
+  assert.equal(left.snapshot.fullscreenMode, false);
+  assert.deepEqual(left.snapshot.active, restored.snapshot().active);
+  const reloaded = createGameSession({ save: restored.serialize(), now: save.savedAt }).snapshot();
+  assert.equal(reloaded.fullscreenMode, false);
+  assert.equal(reloaded.upgrades.boardLevel, 0);
+});
+
 test("fullscreen is an engine preference that preserves the run and survives save, reload, and frame snapshots", () => {
   const session = game();
   assert.equal(session.snapshot().fullscreenMode, false);
-  assert.ok(session.dispatch({ type: "setFullscreenMode", fullscreenMode: true }).events.some((e) => e.reason === "fullscreenLocked"));
   session.dispatch({ type: "addSeeds", amount: 18 });
   session.dispatch({ type: "buyUpgrade", upgrade: "board" });
   const before = session.snapshot().active;

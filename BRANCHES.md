@@ -1,5 +1,19 @@
 # Branch status
 
+## working — Fullscreen button always available
+
+- Category: engine and controls.
+- Agent: Claude.
+- Status: Ready With Caveat.
+- Purpose: William asked: "make it so the button is there the entire time" for Snake Forever fullscreen.
+- Changes: fullscreen no longer depends on the Board size upgrade. The engine query `fullscreenAvailable` is always true, and `setFullscreenMode` no longer rejects at board level 0 (the `fullscreenLocked` reason is removed). The Fullscreen button is not hidden in index.html, and the layout has the fullscreen option class from the first paint. Enter and exit behavior, the saved preference, and gameplay are unchanged.
+- Files: engine/queries.js, engine/session.js, engine/snake-batch.test.js, index.html, tests/browser/fullscreen-mode.spec.js, README.md, BRANCHES.md.
+- Tests: `npm run check` passed syntax, authority checks, and all 371 Node tests. One new engine test enters fullscreen on a new save at board level 0 during a run, checks that the run, upgrades, and Seeds do not change, saves, reloads, exits, and reloads again. The existing fullscreen test no longer expects `fullscreenLocked`.
+- Caveat: no browser check was done, because browser automation was not authorized. The button's visibility and the fullscreen layout on the smallest board are not verified by eye in Original or in the ten themes. tests/browser/fullscreen-mode.spec.js now expects the button at board level 0 but was not run locally.
+- Notes: with the large D-pad control layout, the button stays in the keypad that opens from the minimized keypad button, as before. On screens 800 px wide or less, a new save now has the phone above the menu, which was the layout after the first board upgrade.
+- Version impact: none; no save format change. A save with fullscreen on and board level 0 now opens in fullscreen.
+- Last update: 2026-10-10.
+
 ## working — Five retro handset themes
 
 - Category: display (themes).

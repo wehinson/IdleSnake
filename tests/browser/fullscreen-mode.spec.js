@@ -10,17 +10,12 @@ async function unlock(page, boardLevel = 6) {
   await page.goto("/", { waitUntil: "networkidle" });
 }
 
-test("fullscreen unlock follows the purchased board and expands without resetting play", async ({ page }) => {
+test("fullscreen is available before any board upgrade and expands without resetting play", async ({ page }) => {
   await page.setViewportSize({ width: 1440, height: 900 });
   await unlock(page, 0);
   const button = page.locator("#fullscreenModeButton");
-  await expect(button).toBeHidden();
-  await page.evaluate(() => {
-    dispatchSession({ type: "addSeeds", amount: 1000000 });
-    dispatchSession({ type: "buyUpgrade", upgrade: "board" });
-    syncPanels();
-  });
   await expect(button).toBeVisible();
+  expect(await page.evaluate(() => session.snapshot().upgrades.boardLevel)).toBe(0);
   const before = await page.evaluate(() => session.snapshot().active);
   const small = await page.locator("#game").boundingBox();
   const normalMenu = await page.locator(".menu-panel").boundingBox();

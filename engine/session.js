@@ -1145,7 +1145,6 @@
           state.reducedMotion = action.reducedMotion; events.push(event("reducedMotionChanged", { reducedMotion: state.reducedMotion })); break;
         case "setFullscreenMode":
           if (typeof action.fullscreenMode !== "boolean") return reject("invalidFullscreenMode");
-          if (action.fullscreenMode && state.upgrades.boardLevel < 1) return reject("fullscreenLocked");
           state.fullscreenMode = action.fullscreenMode;
           events.push(event("fullscreenModeChanged", { fullscreenMode: state.fullscreenMode })); break;
         case "setMobileControls": {
