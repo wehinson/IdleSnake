@@ -419,8 +419,18 @@ test("discarding an unsafe guarded turn revalidates later inputs against the ret
   assert.equal(state.seedTurnQueueGuards, undefined);
 });
 
-function assertTimingResultsEqual(actual, expected) {
+function assertTimingResultsEqual(actual, expected, compareEpochWorldClock = false) {
   const copy = structuredClone(actual);
+  if (compareEpochWorldClock) {
+    // Settlement time already sums rounded wall-clock slices. Crossing frames
+    // can differ by one epoch clock unit; no gameplay/economy field is relaxed.
+    const tolerance = Number.EPSILON * Math.abs(expected.saved.savedAt) * 2;
+    for (const migration of [copy.snapshot.migration, copy.saved.session.migration]) {
+      const expectedMigration = migration === copy.snapshot.migration ? expected.snapshot.migration : expected.saved.session.migration;
+      assert.ok(Math.abs(migration.elapsedMs - expectedMigration.elapsedMs) < tolerance, "epoch settlement clock parity");
+      migration.elapsedMs = expectedMigration.elapsedMs;
+    }
+  }
   for (const path of [["snapshot", "elapsedMs"], ["snapshot", "modeAccumulatorMs"],
     ["snapshot", "hud", "elapsedMs"], ["saved", "savedAt"],
     ["saved", "session", "elapsedMs"], ["saved", "session", "modeAccumulatorMs"]]) {
@@ -589,6 +599,123 @@ test("epoch timestamps match precise untimestamped 84.9/85/99% requests before a
           assertTimingResultsEqual(run(true), run(false));
         }
       }
+    }
+  }
+});
+
+test("epoch replay retains request classification when one frame crosses input and movement", () => {
+  for (const now of [1791741600000, 2000000000000]) {
+    for (const speed of Object.keys(snakeConfig.speedPresets)) {
+      for (const score of [0, 250]) {
+        for (const progress of [0.849, 0.85, 0.99]) {
+          for (const lateMs of [0, 5, 16, 34]) {
+            function run(delayed) {
+              const game = gameAt({ now, speed, score });
+              const interval = game.snapshot().active.tickMs;
+              const inputDelta = interval * progress;
+              const inputAt = now + inputDelta;
+              const events = [];
+              let requested;
+              if (delayed) events.push(...game.tick(interval + lateMs).events);
+              else {
+                events.push(...game.tick(inputDelta).events);
+                requested = turn(game);
+                events.push(...game.tick(interval + lateMs - inputDelta).events);
+              }
+              if (delayed) requested = turn(game, "up", inputAt);
+              const held = progress >= 0.85;
+              assert.equal(deferred(requested), held, JSON.stringify({ now, speed, score, progress, lateMs, delayed }));
+              assert.equal(requested.events.some(e => e.type === "movementCorrected"), delayed && !held);
+              assert.equal(requested.events.some(e => e.type === "eat"), false);
+              assert.deepEqual(game.snapshot().active.snake[0], held ? { x: 11, y: 10 } : { x: 10, y: 9 });
+              assert.equal(game.snapshot().active.score, score + Number(held));
+              assert.equal(game.snapshot().seeds, Number(held));
+              assert.deepEqual(game.snapshot().active.directionQueue, held ? ["up"] : []);
+              if (held) assert.equal(events.filter(e => e.type === "eat").length, 1);
+              const saved = game.serialize();
+              assert.equal(validateSaveCandidate(saved).ok, true);
+              const restored = createGameSession({ save: saved, now: saved.savedAt, rng: () => 0.5 });
+              assert.deepEqual(restored.snapshot().active, game.snapshot().active);
+              const remaining = game.snapshot().active.tickMs - game.snapshot().modeAccumulatorMs;
+              game.tick(remaining); restored.tick(remaining);
+              assert.deepEqual(restored.snapshot().active, game.snapshot().active);
+              assert.deepEqual(game.snapshot().active.snake[0], held ? { x: 11, y: 9 } : { x: 10, y: 8 });
+              assert.equal(game.snapshot().active.score, score + Number(held));
+              return { snapshot: game.snapshot(), saved: game.serialize() };
+            }
+            assertTimingResultsEqual(run(true), run(false), true);
+          }
+        }
+      }
+    }
+  }
+});
+
+test("distinguishable epoch timestamps below 85% stay normal through historical lookup and replay", () => {
+  for (const now of [1791741600000, 2000000000000]) {
+    for (const speed of Object.keys(snakeConfig.speedPresets)) {
+      for (const score of [0, 250]) {
+        for (const belowMs of [0.0006, 0.001]) {
+          for (const afterStep of [false, true]) {
+            function run(delayed) {
+              const game = gameAt({ now, speed, score });
+              const interval = game.snapshot().active.tickMs;
+              const inputDelta = interval * 0.85 - belowMs;
+              const inputAt = now + inputDelta;
+              assert.ok(inputAt < now + interval * 0.85, "timestamp is distinguishable from the rounded boundary");
+              const total = afterStep ? interval + 16 : inputDelta + 1;
+              let requested;
+              if (delayed) game.tick(total);
+              else {
+                game.tick(inputDelta);
+                assert.equal(game.serialize().savedAt, inputAt);
+                requested = turn(game, "up", inputAt);
+                game.tick(total - inputDelta);
+              }
+              if (delayed) requested = turn(game, "up", inputAt);
+              assert.equal(deferred(requested), false, JSON.stringify({ now, speed, score, belowMs, afterStep, delayed }));
+              assert.equal(rejected(requested), false);
+              assert.equal(requested.events.some(e => e.type === "movementCorrected"), delayed && afterStep);
+              if (!afterStep) game.tick(interval - game.snapshot().modeAccumulatorMs);
+              assert.deepEqual(game.snapshot().active.snake[0], { x: 10, y: 9 });
+              assert.equal(game.snapshot().active.score, score);
+              assert.equal(game.snapshot().seeds, 0);
+              return { snapshot: game.snapshot(), saved: game.serialize() };
+            }
+            assertTimingResultsEqual(run(true), run(false), true);
+          }
+        }
+      }
+    }
+  }
+});
+
+test("crossing epoch replay preserves earlier buffers, latest legal input and canonical RNG", () => {
+  for (const now of [1791741600000, 2000000000000]) {
+    for (const lateMs of [0, 5, 16, 34]) {
+      function run(delayed) {
+        let draws = 0;
+        const game = gameAt({ now, speed: "rabbit", foods: [{ x: 10, y: 9, kind: "seed" }],
+          rng: () => { draws++; return 0.5; } });
+        const interval = game.snapshot().active.tickMs;
+        game.tick(interval * 0.5); turn(game, "up"); turn(game, "left");
+        if (delayed) game.tick(interval * 0.5 + lateMs);
+        else game.tick(interval * 0.35);
+        assert.equal(deferred(turn(game, "down", now + interval * 0.85)), true);
+        if (!delayed) game.tick(interval * 0.14);
+        const latest = turn(game, "up", now + interval * 0.99);
+        assert.equal(deferred(latest), true);
+        assert.equal(latest.events.some(e => ["eat", "movementCorrected"].includes(e.type)), false);
+        assert.equal(rejected(turn(game, "right", now + interval * 0.995)), true);
+        if (!delayed) game.tick(interval * 0.01 + lateMs);
+        assert.deepEqual(game.snapshot().active.snake[0], { x: 10, y: 9 });
+        assert.deepEqual(game.snapshot().active.directionQueue, ["left", "up"]);
+        assert.deepEqual(game.snapshot().active.seedTurnQueueGuards, [1]);
+        assert.equal(game.snapshot().active.score, 1);
+        assert.equal(game.snapshot().seeds, 1);
+        return { snapshot: game.snapshot(), saved: game.serialize(), draws };
+      }
+      assertTimingResultsEqual(run(true), run(false), true);
     }
   }
 });

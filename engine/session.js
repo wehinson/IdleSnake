@@ -451,6 +451,7 @@
     let randomQueue = [];
     let recentMovement = null;
     let replayingInput = false;
+    let replaySnakeInputProgress = null;
     state.rng = () => {
       const value = randomQueue.length ? randomQueue.shift() : sourceRng();
       if (recentMovement && !replayingInput) recentMovement.draws.push(value);
@@ -507,8 +508,10 @@
       }
       const segment = timing.findLast(item => item.at <= at) || timing[0];
       const progress = segment.progress + (segment.running ? (at - segment.at) / segment.interval : 0);
-      // Epoch timestamps round fractional milliseconds before subtraction.
-      return Math.abs(progress - 0.85) <= snakeInputProgressTolerance(at, segment.at, segment.interval) ? 0.85 : progress;
+      // Normalize only the timestamp representing the exact boundary. A
+      // distinguishable earlier timestamp must retain its pre-grace progress.
+      const boundaryAt = segment.at + (0.85 - segment.progress) * segment.interval;
+      return segment.running && at === boundaryAt ? 0.85 : progress;
     }
     function snakeInputProgressTolerance(at, anchor, interval) {
       return Math.max(Number.EPSILON * 16, Number.EPSILON * Math.max(Math.abs(at), Math.abs(anchor)) * 2 / interval);
@@ -522,7 +525,8 @@
     function correctRecentDirection(action) {
       const history = recentMovement;
       const inputAt = action.inputAt;
-      const protectedSeed = history?.seedGraceHeading && snakeInputProgressAt(inputAt, history.inputTiming) >= 0.85;
+      const inputProgress = history ? snakeInputProgressAt(inputAt, history.inputTiming) : null;
+      const protectedSeed = history?.seedGraceHeading && inputProgress >= 0.85;
       if (!history || state.mode !== "snake" || state.phase !== "running" || !Number.isFinite(inputAt)
         || (!history.eligible && !protectedSeed) || inputAt <= history.lowerBound || inputAt >= history.deadline
         || simulationNow - history.deadline > config.snakeConfig.inputLateToleranceMs) return null;
@@ -550,7 +554,12 @@
           if (!submitted && inputAt <= tickEnd) {
             const prefix = Math.min(delta, Math.max(0, inputAt - simulationNow));
             if (prefix) replayEvents.push(...tickCore(prefix).events);
-            replayEvents.push(...dispatch({ type: "direction", direction: action.direction, inputAt }).events);
+            // Splitting a frame at an epoch timestamp rounds its elapsed
+            // prefix. Preserve classification from the original clock history.
+            replaySnakeInputProgress = inputProgress;
+            try {
+              replayEvents.push(...dispatch({ type: "direction", direction: action.direction, inputAt }).events);
+            } finally { replaySnakeInputProgress = null; }
             submitted = true;
             // Keep the original duration; subtracting absolute clock values
             // can otherwise lose the step at a fractional-speed deadline.
@@ -966,8 +975,10 @@
               break;
             }
             const ready = state.phase === "ready";
-            const inputElapsed = Number.isFinite(action.inputAt)
-              ? snakeInputProgressAt(action.inputAt) * snake.nextMoveInterval(state.active) : state.modeAccumulatorMs;
+            const inputElapsed = replaySnakeInputProgress !== null
+              ? replaySnakeInputProgress * snake.nextMoveInterval(state.active)
+              : Number.isFinite(action.inputAt)
+                ? snakeInputProgressAt(action.inputAt) * snake.nextMoveInterval(state.active) : state.modeAccumulatorMs;
             if (!ready && !state.migrationChallenge && snake.seedTurnGraceHeading(state.active, inputElapsed)) {
               if (!snake.deferSeedTurn(state.active, action.direction)) return reject("invalidDirection");
               events.push(event("directionQueued", { direction: action.direction, deferredUntilSeed: true }));
