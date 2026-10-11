@@ -3,7 +3,7 @@
 ## task/colony-batch-20261011 — Nine-change integration and independent review
 
 - Agent: Codex, GPT 6.1 Sol, high effort, local Jimothy; T3 integration thread `mcp:4179fc65-6476-4132-ab6c-582e4df713e3`.
-- Status: Active; UI `6cb9d3a` and economy `fda0f85` accepted/frozen. Seed `b3ed476` worker76/370 and parent370/syntax/authority PASS; promised R7 focused source/small review running with exact-code full evidence reused, no heavy suite. Another provenance defect escalates design before fixes. No feature merge or PR. Current state/task IDs in BATCH_REVIEW.md; routine/final results route Agent Operations `mcp:bb549ea6-daa7-494c-9049-62a5453eef80`.
+- Status: All three individual gates PASS/frozen: UI `6cb9d3a`, economy `fda0f85`, Seed R7 `b3ed476`. Exact local/cached/live tips clean and unchanged; integrate all three here with merge commits, then required combined validation under fresh grant. No PR yet. Current state/task IDs in BATCH_REVIEW.md; routine/final results route Agent Operations `mcp:bb549ea6-daa7-494c-9049-62a5453eef80`.
 - Cleanup: all 12 recorded terminal review children and final UI/economy workers are already settled, verified agent-created. User-created threads remain open; respect explicit reopen/keep-open requests. Seed required work remains active. Settlement preserves history, classifications, branches, checkouts and previews.
 - Base: local active working `31e773efee60c85d6781078803e4eae208911e4e`. Work only in this integration checkout; final delivery is one PR into working, with no working/main merge or deployment.
 - Scope and evidence: [BATCH_REVIEW.md](BATCH_REVIEW.md) records all nine acceptance conditions, worker threads/branches, interfaces, review steps and eventual reviewed commit/task IDs.
