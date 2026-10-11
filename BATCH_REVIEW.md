@@ -5,10 +5,17 @@ Updated: 2026-10-11. Coordinator: GPT 6.1 Sol, high effort, local Jimothy.
 - Integration thread: `mcp:4179fc65-6476-4132-ab6c-582e4df713e3`.
 - Integration checkout: `C:/Users/wehin/.t3/worktrees/IdleSnake/task-colony-batch-20261011`.
 - Branch: `task/colony-batch-20261011`; baseline: `31e773efee60c85d6781078803e4eae208911e4e` (local active working at launch).
-- Home: `915f73b5-2a00-44c0-ad8b-61e81d820388`. Final handoff request ID: `colony-batch-review-pr-20261011`.
+- Agent Operations: `mcp:bb549ea6-daa7-494c-9049-62a5453eef80` owns future routine coordination/results/final handoff routing and forwards user-ready decisions/results to Home `915f73b5-2a00-44c0-ad8b-61e81d820388`. Final handoff request ID remains `colony-batch-review-pr-20261011`; send it to Agent Operations under latest routing. PR linking to integration/Home remains required.
 - Deliver one PR targeting `working`. No merge into working/main, deployment, release bump, unrelated workflow changes, browser automation, or computer use.
 - Preserve root checkout balance work (.github workflows, README/package, simulation/, scripts/balance.js); never copy its uncommitted changes into this branch.
 - Claims apply per worktree. Remove this coordinator's claim at each turn completion.
+
+## Current state
+
+- UI6cb9d3a and economyfda0f85 accepted/frozen. Seedb3ed476 worker76focused/370full and parent exact370/syntax119/authority PASS; NEW independent R7 source/small review is running, not accepted yet. No feature merge or PR.
+- R7 task `node:delegated-task:command%3Amcp%3Ab137c45a-1eb0-4c74-9793-728f26c1df7d%3Adelegate-task%3Acolony-batch-seed-review-r7-20261011`; full original/history/R6/first failed candidate/final provenance response retained. Exact-code full evidence reused; no repeated full/focused suite, broad matrix, solver/browser or heavy slot use. Prompt/task saved as batch-review-seed-round7-prompt.json in gitdir.
+- Audit adopted: focus later reviews on unresolved findings/fix delta/adjacent regressions, no new duplicate complete layers or docs-only reruns. Repeated Seed design risk escalated after >3 substantive rejections; another clock/provenance finding requires Agent Operations/Home design decision before another fix round, never autoaccept. Current promised acceptance/final combined gates retained.
+- Minigame remains sole finite heavy allocator; OIKOS next-ready priority. Combined checks require separate future grant. Shared preview PID14548/config/root dirty work/checkouts/branches/user-created or explicitly kept-open threads preserved. Recorded terminal agent-created children settle immediately; no active-required work settlement.
 
 ## Existing workers (do not duplicate)
 
@@ -16,7 +23,7 @@ Updated: 2026-10-11. Coordinator: GPT 6.1 Sol, high effort, local Jimothy.
 | --- | --- | --- | --- | --- |
 | 1, 6, 7, 9 UI | task/colony-ui-20261011 | mcp:4ee92de7-753a-47f6-84bd-7027e32edf3e | Round 2 PASS owned scope; economy integration condition pending | Accepted UI tip 6cb9d3a9b186364fd0887ff8fbe9fee6628eecf5 |
 | 3, 4, 5, 8 economy | task/colony-economy-20261011 | mcp:fd026147-88dc-4aae-8b42-576f1e265fa6 | Round 4 PASS, exact tip accepted/frozen | Accepted fda0f854bdbf808c1ea456247da5183a090366b9 |
-| 2 Seed grace | task/seed-turn-grace-20261011 | mcp:57410d23-3950-46db-933b-7d760f1a72ce | Parent370 PASS; NEW R7 queued for separate grant, not accepted | Candidate b3ed476b17cda59ef9c6ca5c2cd8617cf1ab40db; R6 rejected afcb392 |
+| 2 Seed grace | task/seed-turn-grace-20261011 | mcp:57410d23-3950-46db-933b-7d760f1a72ce | Parent370 PASS; focused source/small R7 running, not accepted | Candidate b3ed476b17cda59ef9c6ca5c2cd8617cf1ab40db; R6 rejected afcb392 |
 
 Each checkout is a sibling under `C:/Users/wehin/.t3/worktrees/IdleSnake/`. Workers send completion here with stable request IDs `colony-ui-20261011-complete`, `colony-economy-20261011-complete`, `seed-turn-grace-20261011-complete`.
 
@@ -228,7 +235,7 @@ Each checkout is a sibling under `C:/Users/wehin/.t3/worktrees/IdleSnake/`. Work
 4. Only after each passes, merge all three exact reviewed tips here with merge commits. Resolve conflicts preserving the full batch. Re-run npm run check and cross-feature regressions.
 5. Push this branch and create one preferably draft PR to working. Preserve existing CI triggers/tests/exceptions; confirm drafts run CI. Body describes all nine conditions, review commits/task evidence, tests, preview, compatibility and visual gaps.
 6. Immediately link PR to integration and home using link_pull_request; before finishing list_thread_pull_requests and repair missing links. Report tool failures honestly.
-7. Send home the PR, commits, review evidence, CI state, preview and concerns with mode auto/request ID above. Instruct home to use watch_pull_request; home owns babysitting and notifying William when review-ready. Do not create own watcher.
+7. Send Agent Operations the PR, commits, review evidence, CI state, preview and concerns with mode auto/request ID above. It forwards user-ready results to Home; request Home's watch_pull_request babysitting and William review-ready notification through Agent Operations. Do not create own watcher or routine Home callbacks.
 
 ## Preview and verification record
 
@@ -239,4 +246,4 @@ Each checkout is a sibling under `C:/Users/wehin/.t3/worktrees/IdleSnake/`. Work
 - Initial direct HTTP verification: 10 assets per route matched exact mapped checkout (HTML, game/CSS, session/queries, approved tongue engine/draw, theme kit/official CSS and image); primary game.js matches root working. Recheck after workers finish and integration merges.
 - Root preservation baseline: SHA-256 hashes for 27 unrelated modified/untracked root files saved locally in this worktree's git directory as `batch-root-preservation.json` (not committed).
 - All visual smoothness/layout/theme fit/accessibility by eye remain unverified until William tests. Direct engine/VM/HTTP checks cannot prove them.
-- PR: not created. UI accepted6cb9d3a; economy R4 acceptedfda0f85; new Seed candidateb3ed476 frozen with worker76focused/370full PASS but parent/R7 not run. SECOND reboot imposes source/light-only hold until home clearance, then OIKOS priority. Parent/R7/combined checks need fresh reservations. No feature branch integrated; separate Minigame/release scopes preserved. Historical PID/HTTP evidence above predates second reboot; home alone restores shared server.
+- PR: not created. See Current state for review/resource status. Historical preview evidence retains original timestamps/PIDs; home restored shared server, coordinator does not mutate it. Separate Minigame/release scopes preserved.
