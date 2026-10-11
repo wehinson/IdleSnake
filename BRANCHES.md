@@ -1,6 +1,6 @@
 # Branch status
 
-## working-claude — Office Charcoal is the official theme
+## working — Office Charcoal is the official theme
 
 - Category: display (themes) and controls.
 - Agent: Claude, in folder `IdleSnake-claude`, because Codex had an active claim on `working` when the work started. Started from `working` commit 4c7a5e1 and includes Codex's commits up to 80db136.
@@ -10,7 +10,7 @@
 - Files: themes/theme-kit.js, index.html, themes/_build/build_retro.py, the five retro theme.css files, themes/themes.test.js, themes/README.md, tests/browser/release-integration.spec.js, tests/browser/body-snaps.spec.js, tests/browser/fullscreen-mode.spec.js, tests/browser/responsive.spec.js, BRANCHES.md.
 - Tests: `npm run check` passed syntax, authority checks, and all 328 Node tests in this folder. The existing CI browser suite ran on GitHub with Office Charcoal as the default. The first run passed 84 of 87 checks; the three failures were two specs that assumed the Original palette or layout and the missing fullscreen bezel shading. After the corrections, the CI run on commit 7168f1f passed all 89 browser checks.
 - Caveat: no browser check by eye was done; browser automation on this computer was not authorized. The shape of the round keys and the look of the official theme are not verified by eye. themes/theme-kit.js is shared with IdleSweep; the two new options are off by default there.
-- Notes: the root README.md still says that Original is the default; it was not changed here because the main folder has uncommitted balance changes in that file. Update it at the merge into `working`.
+- Notes: merged into `working` by fast-forward on 2026-10-10. The root README.md now names Office Charcoal as the default.
 - Version impact: none; no save format change.
 - Last update: 2026-10-10.
 

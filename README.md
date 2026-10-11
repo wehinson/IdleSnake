@@ -35,7 +35,7 @@ Before handing off a change, run `npm run check`. Run browser checks when needed
 
 ## Live release
 
-Version 1.0.3 includes all five working branches and a deterministic save boundary in the browser/engine parity test. GitHub Pages serves `main` at [Snake Forever](https://wehinson.github.io/IdleSnake/). The Original theme remains the default; five more themes are available in the theme picker.
+Version 1.0.3 includes all five working branches and a deterministic save boundary in the browser/engine parity test. GitHub Pages serves `main` at [Snake Forever](https://wehinson.github.io/IdleSnake/). Office Charcoal is the official theme and the default. The theme picker is removed; `?theme=<id>` shows another theme, for example `?theme=original`.
 
 ## Project map
 
