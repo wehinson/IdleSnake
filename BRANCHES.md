@@ -5,7 +5,8 @@
 - Category: display only.
 - Agent: Codex, GPT 6.1 Sol, low reasoning effort, on Jimothy in the T3-managed thread.
 - Status: Ready With Caveat.
-- Changes: the main Colony Notables button shows the actual queue length as `X Pending` when at least one candidate is pending, including `1 Pending`; it hides the indicator only at zero. The retained/capacity label, Over Capacity warning, and internal panel summary are retained. Full session snapshots refresh the summary immediately for generation, decisions, loading, and settlement context changes. The small outlined indicator inherits button text color in Original and all ten themes, including the five Nokia themes.
+- Changes: the main Colony Notables button shows the actual queue length as `X Pending` when at least one candidate is pending, including `1 Pending`; it hides the indicator only at zero. The retained/capacity label, Over Capacity warning, and internal panel summary are retained. Full session snapshots refresh the summary immediately for generation, decisions, loading, and settlement context changes. At William's follow-up request, the small indicator has a rounded pill outline, black background, and white text in Original and all ten themes, including the five Nokia themes.
+- Follow-up verification: CSS diff reviewed and `git diff --check` passed for the rounded black/white indicator. No behavior code changed; prior checks below remain applicable.
 - Files: index.html, game.js, styles.css, BRANCHES.md.
 - Verification: `npm run check` passed syntax, authority checks, and all 371 Node tests. Direct Node VM checks of the actual summary and snapshot functions passed queue transitions (0, 1, 4, 3, 1, 0, 2, 0), capacity warnings, and a changed settlement count/capacity. `git diff --check` passed. No new persistent tests were added for this small presentation change.
 - Caveat: no browser or computer automation was used or authorized. Appearance and layout have not been verified by eye.

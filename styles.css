@@ -678,8 +678,9 @@ html[data-reduced-motion="true"] .nursery-cell.is-tail.is-wiggling::after {
   margin-inline-start: 0.35em;
   padding: 0.2em 0.4em;
   border: 1px solid currentColor;
-  border-radius: 3px;
-  color: inherit;
+  border-radius: 999px;
+  background: #000;
+  color: #fff;
   font-size: 0.85em;
   font-weight: 600;
   line-height: 1.2;
