@@ -253,7 +253,6 @@ function saveBranches() {
 const scoreEl = document.querySelector("#score");
 const timerEl = document.querySelector("#timer");
 const gridLabelEl = document.querySelector("#gridLabel");
-const duelGridSelect = document.querySelector("#duelGridSelect");
 const bestEl = document.querySelector("#best");
 const seedsTotalEl = document.querySelector("#seedsTotal");
 const seedIncomePerSecondEl = document.querySelector("#seedIncomePerSecond");
@@ -618,12 +617,12 @@ function presentReadyGame() {
   digestionAnimations = []; crumbAnimations = []; tailWiggleStartedAt = null; deathAnimation = null;
   clearTimeout(deathOverlayTimer); deathOverlayTimer = null;
   hideBroodlineFormation(); boardMetrics = getBoardMetrics();
-  const labels = { snake: "Ready", duel: "Vs Snake · Ready", maze: "Snake Forever · Ready", crossing: "Snakeger · Ready", breakout: "Brick Breakout · Ready", runner: "Snake Runner · Ready", centipede: "Centipede · Ready", broodline: "Broodline · Round 1" };
+  const labels = { snake: "Ready", duel: "Vs Snake · Ready", maze: "Nibbler · Ready", crossing: "Snakeger · Ready", breakout: "Brick Breakout · Ready", runner: "Snake Runner · Ready", centipede: "Centipede · Ready", broodline: "Broodline · Round 1" };
   if (gameView.gameMode === "battleship") { hideOverlay(); battleshipSetPlacementHint(); }
   else if (gameView.gameMode === "snakebird") showOverlay("Level " + (gameView.snakebird.levelIndex + 1) + " · Ready");
   else if (gameView.gameMode === "sokoban") showOverlay("Stage " + (gameView.sokoban.stageIndex + 1) + " · Ready");
   else showOverlay(labels[gameView.gameMode]);
-  const hints = { snake: "", snakebird: "Arrow keys / D-pad: move · collect all fruit · reach the exit", maze: "Snake Forever · steer with arrows", crossing: "Arrow keys / D-pad: cross the road", breakout: "Left / right to move · catch seeds to grow", runner: "Up / Space: jump · clear the rocks", broodline: "Steer · attacks are automatic", centipede: "Arrows to move · you auto-fire upward" };
+  const hints = { snake: "", snakebird: "Arrow keys / D-pad: move · collect all fruit · reach the exit", maze: "Nibbler · steer with arrows", crossing: "Arrow keys / D-pad: cross the road", breakout: "Left / right to move · catch seeds to grow", runner: "Up / Space: jump · clear the rocks", broodline: "Steer · attacks are automatic", centipede: "Arrows to move · you auto-fire upward" };
   if (hints[gameView.gameMode] !== undefined) setScreenHint(hints[gameView.gameMode]);
 }
 function presentGameResult(result) {
@@ -1121,11 +1120,6 @@ function launchBreakout(force = false) { return launchMode("breakout", force); }
 function launchRunner(force = false) { return launchMode("runner", force); }
 
 function runnerJump() { return queueDirection("up"); }
-
-function setDuelGridSize(size) {
-  presentGameResult(dispatchSession({ type: "setSelectedDuelGridSize", selectedDuelGridSize: Number(size) }));
-  if (duelGridSelect) duelGridSelect.value = String(gameView.selectedDuelGridSize);
-}
 
 function broodlineSpeciesLabel(kind) {
   return ({ garden: "Garden Snake", cave: "Cave Snake", electric: "Electric Snake", lava: "Lava Snake", rattle: "Rattle Snake", body: "Body segment", egg: "Egg" })[kind] || kind;
@@ -1845,7 +1839,7 @@ function interpretSessionEvents(events) {
         } else if (event.mode === "maze") {
 
           syncHud();
-          showOverlay(`Nibbled the wall · +${formatNumber(event.reward || 0)} Seeds`);
+          showOverlay(`Nibbler · Game Over · +${formatNumber(event.reward || 0)} Seeds`);
           setScreenHint("Start to explore again");
         } else if (event.mode === "crossing") {
 
@@ -2199,10 +2193,18 @@ function drawRunner() {
     }
   });
   const { player } = gameView.runner;
+  const segments = Array.from({ length: window.IdleSnakeRunner.config.segmentCount }, (_, index) => {
+    const size = player.size * (index === 0 ? 1 : 0.88);
+    return { size, x: originX + player.x - index * size * 0.72,
+      y: groundY - size - window.IdleSnakeRunner.segmentYOffset(gameView.runner, index) };
+  });
+  // Use the same delayed hop centers as the tiles, within the existing scale.
+  drawSnakeConnectors(segments.map((segment) => ({
+    x: (segment.x - originX + segment.size / 2) / player.size - 0.5,
+    y: (segment.y - originY + segment.size / 2) / player.size - 0.5
+  })), snakeColors.body, { cellSize: player.size, x: originX, y: originY });
   for (let index = window.IdleSnakeRunner.config.segmentCount - 1; index >= 0; index -= 1) {
-    const segmentSize = player.size * (index === 0 ? 1 : 0.88);
-    const x = originX + player.x - index * segmentSize * 0.72;
-    const y = groundY - segmentSize - window.IdleSnakeRunner.segmentYOffset(gameView.runner, index);
+    const { size: segmentSize, x, y } = segments[index];
     ctx.fillStyle = "rgba(24, 36, 19, 0.28)";
     ctx.fillRect(x + 2, groundY + 2, segmentSize, 3);
     ctx.fillStyle = index === 0 ? snakeColors.head : snakeColors.body;
@@ -2432,11 +2434,15 @@ function drawCentipede() {
 function drawVsSnake() {
   gameView.duelFoods.forEach((food) => {
     const rect = cellRect(food, Math.max(2, Math.floor(boardMetrics.cellSize * 0.2)));
-    ctx.fillStyle = "#e4c65e";
+    ctx.fillStyle = "#000000";
     ctx.fillRect(rect.x, rect.y, rect.size, rect.size);
+    const pulse = effectiveReducedMotion() ? 0.10 : 0.10 + 0.06 * Math.sin(snakeAnimationNow() / 500);
+    ctx.fillStyle = `rgba(255, 255, 255, ${pulse})`;
+    ctx.fillRect(rect.x + rect.size * 0.3, rect.y + rect.size * 0.3, rect.size * 0.4, rect.size * 0.4);
   });
   [gameView.duelPlayer, gameView.duelOpponent].forEach((snakeRef) => {
     const previousBody = snakeRef === gameView.duelPlayer ? previousDuelPlayerBody : previousDuelOpponentBody;
+    drawSnakeConnectors(snakeRef.body, snakeRef === gameView.duelOpponent ? "#d5d5c8" : snakeColors.body, { wrap: true });
     snakeRef.body.forEach((part, index) => {
       const previousPart = previousBody?.[index] || previousBody?.[previousBody.length - 1] || part;
       const point = interpolatedPoint(previousPart, part, index);
@@ -2476,9 +2482,10 @@ function drawMaze() {
     ctx.fill();
   }
 
+  drawSnakeConnectors(gameView.mazePath);
   gameView.mazePath.forEach((part, index) => {
     const isHead = index === 0;
-    const inset = Math.max(3, Math.floor(boardMetrics.cellSize * (isHead ? 0.16 : 0.25)));
+    const inset = Math.max(1, boardMetrics.cellSize * 0.12);
     const point = interpolatedPoint(null, part, index);
     const rect = interpolatedCellRect(point, inset);
     ctx.fillStyle = isHead ? snakeColors.head : snakeColors.body;
@@ -2486,7 +2493,7 @@ function drawMaze() {
   });
 
   const headPoint = interpolatedPoint(null, gameView.mazePath[0]);
-  const headRect = interpolatedCellRect(headPoint, Math.max(3, Math.floor(boardMetrics.cellSize * 0.16)));
+  const headRect = interpolatedCellRect(headPoint, Math.max(1, boardMetrics.cellSize * 0.12));
   drawEyes(headRect.x, headRect.y, headRect.size);
 }
 
@@ -2531,6 +2538,7 @@ function drawSnakebird() {
     ctx.fillRect(centerX - 1, rect.y - 2, 2, Math.max(3, rect.size * 0.24));
   });
 
+  drawSnakeConnectors(gameView.snakebird.body);
   gameView.snakebird.body.forEach((part, index) => {
     const rect = cellRect(part, Math.max(2, Math.floor(boardMetrics.cellSize * (index === 0 ? 0.1 : 0.14))));
     ctx.fillStyle = index === 0 ? snakeColors.head : snakeColors.body;
@@ -2622,6 +2630,7 @@ function drawSokoban() {
     }
   });
 
+  drawSnakeConnectors(gameView.sokoban.snake);
   gameView.sokoban.snake.forEach((part, index) => {
     const rect = cellRect(part, Math.max(3, Math.floor(boardMetrics.cellSize * (index === 0 ? 0.1 : 0.14))));
     const isTail = index === gameView.sokoban.snake.length - 1;
@@ -2942,7 +2951,7 @@ function drawGridDirect(layerCtx = ctx) {
   setGridDrawingState(layerCtx);
   for (let y = 0; y < gameView.grid.rows; y += 1) {
     for (let x = 0; x < gameView.grid.columns; x += 1) {
-      if ((x + y) % 2 === 0) {
+      if (gameView.gameMode !== "duel" && (x + y) % 2 === 0) {
         const rectX = boardMetrics.x + x * boardMetrics.cellSize;
         const rectY = boardMetrics.y + y * boardMetrics.cellSize;
         layerCtx.fillRect(rectX, rectY, boardMetrics.cellSize, boardMetrics.cellSize);
@@ -2986,6 +2995,15 @@ function drawGrid() {
   ctx.drawImage(layer, 0, 0);
 }
 
+function drawSnakeConnectors(points, color = snakeColors.body, options = {}) {
+  window.IdleSnakeConnectors.draw(ctx, points, {
+    cellSize: boardMetrics.cellSize, x: boardMetrics.x, y: boardMetrics.y,
+    columns: gameView.grid.columns, rows: gameView.grid.rows,
+    color: window.ThemeKit ? window.ThemeKit.color(color) : color,
+    ...options
+  });
+}
+
 function drawSnake() {
   const reducedMotion = effectiveReducedMotion();
   if (reducedMotion) digestionAnimations = [];
@@ -3008,38 +3026,7 @@ function drawSnake() {
     return index === 0 ? shieldImpactPoint(point) : point;
   });
 
-  // Connecting spine: a rounded path through segment centers, drawn UNDER the
-  // blocks and narrower than them. The blocks cover most of it, leaving only a
-  // neck visible in each gap — so the body reads as distinct blocks that
-  // are unmistakably one snake. Round joins keep turns connected too.
-  if (points.length > 1) {
-    ctx.strokeStyle = window.IdleSnakeAppearance.connectorColor(window.ThemeKit ? window.ThemeKit.color(snakeColors.body) : snakeColors.body);
-    ctx.lineJoin = "round";
-    // Flat end caps stay hidden below the head and the wide base of the tail.
-    // A round cap at the tail center extends beyond the tapered sides.
-    ctx.lineCap = "butt";
-    ctx.lineWidth = Math.max(window.IdleSnakeAppearance.connectorMinimumWidth, cell * window.IdleSnakeAppearance.connectorWidth);
-    ctx.beginPath();
-    points.forEach((point, index) => {
-      let cx = boardMetrics.x + (point.x + 0.5) * cell;
-      let cy = boardMetrics.y + (point.y + 0.5) * cell;
-      if (index === points.length - 1) {
-        const previousPoint = points[index - 1];
-        const dx = point.x - previousPoint.x;
-        const dy = point.y - previousPoint.y;
-        const length = Math.hypot(dx, dy);
-        const tailInset = Math.max(3, cell * 0.135);
-        const tailBaseDistance = (cell - tailInset * 2) * 0.5;
-        if (length > 0.001) {
-          cx -= dx / length * tailBaseDistance;
-          cy -= dy / length * tailBaseDistance;
-        }
-      }
-      if (index === 0) ctx.moveTo(cx, cy);
-      else ctx.lineTo(cx, cy);
-    });
-    ctx.stroke();
-  }
+  drawSnakeConnectors(points, snakeColors.body, { tailBaseDistance: (cell - Math.max(3, cell * 0.135) * 2) * 0.5 });
 
   drawTongueCatch();
 
@@ -3676,7 +3663,6 @@ function syncHud() {
     setText(scoreEl, padScore(B.sunkCount(gameView.battleship.enemy)));
     setText(bestEl, padScore(gameView.battleshipBest));
     setText(seedsTotalEl, padSeeds(gameView.seedsTotal));
-    setHidden(duelGridSelect, true);
     setHidden(gridLabelEl, false);
     setText(gridLabelEl, `${battleshipGrid.columns}x${battleshipGrid.rows}`);
     setText(timerEl, formatTime(gameView.elapsedMs));
@@ -3717,14 +3703,9 @@ function syncHud() {
   setText(scoreEl, padScore(activeScore));
   setText(bestEl, isSnakebird && activeBest === null ? "—" : padScore(activeBest));
   setText(seedsTotalEl, padSeeds(gameView.seedsTotal));
-  if (duelGridSelect) {
-    setHidden(duelGridSelect, gameView.gameMode !== "duel");
-    const size = String(gameView.selectedDuelGridSize);
-    if (duelGridSelect.value !== size) duelGridSelect.value = size;
-  }
-  setHidden(gridLabelEl, gameView.gameMode === "duel");
+  setHidden(gridLabelEl, false);
   setText(gridLabelEl, isSnakebird
-    ? `L${(gameView.snakebird?.levelIndex || 0) + 1}/5`
+    ? `L${(gameView.snakebird?.levelIndex || 0) + 1}/${gameView.snakebird?.levelCount || window.IdleSnakePuzzleLevels.snakebird.length}`
     : isSokoban ? `S${(gameView.sokoban?.stageIndex || 0) + 1}/${sokobanLevels.length}`
     : gameView.gameMode === "breakout" ? `LIVES ${gameView.breakout?.lives ?? 0}`
     : gameView.gameMode === "runner" ? "RUN"
@@ -4318,6 +4299,8 @@ function setText(el, value) {
   if (el.textContent !== next) el.textContent = next;
 }
 
+const minigameCatalog = window.IdleSnakeConfig.minigameCatalog;
+
 function showOverlay(text) {
   stateText.textContent = text;
   if (readyStartPrompt) {
@@ -4326,8 +4309,8 @@ function showOverlay(text) {
     readyStartPrompt.textContent = resetPrompt ? "Press any control to reset." : "Press any control to begin.";
   }
   overlay.classList.add("visible");
-  if (gameStatus) gameStatus.textContent = `${gameView.gameMode === "snake" ? "Snake Forever" : gameView.gameMode}: ${text}`;
-  if (canvas) canvas.setAttribute("aria-label", `${gameView.gameMode === "snake" ? "Snake Forever" : gameView.gameMode} play field: ${text}`);
+  if (gameStatus) gameStatus.textContent = `${gameView.gameMode === "snake" ? "Snake Forever" : minigameCatalog.find((game) => game.mode === gameView.gameMode)?.name || gameView.gameMode}: ${text}`;
+  if (canvas) canvas.setAttribute("aria-label", `${gameView.gameMode === "snake" ? "Snake Forever" : minigameCatalog.find((game) => game.mode === gameView.gameMode)?.name || gameView.gameMode} play field: ${text}`);
 }
 
 function showDeathOverlay(text) {
@@ -4361,8 +4344,8 @@ function hideOverlay() {
   overlay.classList.remove("visible");
   if (readyStartPrompt) readyStartPrompt.hidden = true;
   if (gameView.state === "running") {
-    if (gameStatus) gameStatus.textContent = `${gameView.gameMode === "snake" ? "Snake Forever" : gameView.gameMode}: Running`;
-    if (canvas) canvas.setAttribute("aria-label", `${gameView.gameMode === "snake" ? "Snake Forever" : gameView.gameMode} play field: Running`);
+    if (gameStatus) gameStatus.textContent = `${gameView.gameMode === "snake" ? "Snake Forever" : minigameCatalog.find((game) => game.mode === gameView.gameMode)?.name || gameView.gameMode}: Running`;
+    if (canvas) canvas.setAttribute("aria-label", `${gameView.gameMode === "snake" ? "Snake Forever" : minigameCatalog.find((game) => game.mode === gameView.gameMode)?.name || gameView.gameMode} play field: Running`);
   }
 }
 
@@ -4799,9 +4782,6 @@ activeExpeditionsEl?.addEventListener("click", (event) => {
 boardSizeSelect.addEventListener("change", () => {
   setActiveBoardLevel(boardSizeSelect.value);
 });
-duelGridSelect?.addEventListener("change", () => {
-  setDuelGridSize(duelGridSelect.value);
-});
 broodlineMoveUpButton?.addEventListener("click", () => dispatchBroodlineFormation({ type: "broodlineMove", direction: "up" }));
 broodlineMoveDownButton?.addEventListener("click", () => dispatchBroodlineFormation({ type: "broodlineMove", direction: "down" }));
 broodlineContinueButton?.addEventListener("click", () => dispatchBroodlineFormation({ type: "broodlineContinue" }));
@@ -4849,10 +4829,6 @@ minigameKeys.forEach((key) => {
     const gameNumber = Number(key.dataset.minigame);
     if (gameNumber === 0) {
       activatePersonalizationKey();
-      return;
-    }
-    if (gameView.state === "gameover") {
-      resetGame();
       return;
     }
     hideSnakebirdPicker(); hidePersonalization(); hideBroodlineFormation();

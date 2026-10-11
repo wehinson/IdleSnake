@@ -91,10 +91,10 @@ test("Centipede Reset remains in Centipede and Duel key nine opens Runner", asyn
   await context.close();
 });
 
-test("Maze launch, pause, resume, and reset stay session-owned", async ({ browser }) => {
+test("Nibbler launch, pause, resume, and reset stay session-owned", async ({ browser }) => {
   const { context, page, pageErrors, consoleErrors } = await openWithSave(browser, craftedSave(9));
   await page.locator('[data-minigame="2"]').click();
-  await expect(page.locator("#stateText")).toHaveText("Snake Forever · Ready");
+  await expect(page.locator("#stateText")).toHaveText("Nibbler · Ready");
   await page.getByRole("button", { name: "Start", exact: true }).click();
   await page.getByRole("button", { name: "Pause", exact: true }).click();
   await expect(page.locator("#stateText")).toHaveText("Paused");
@@ -104,7 +104,7 @@ test("Maze launch, pause, resume, and reset stay session-owned", async ({ browse
   await page.getByRole("button", { name: "Pause", exact: true }).click();
   await expect(page.locator("#stateText")).not.toHaveText("Paused");
   await page.getByRole("button", { name: "Reset", exact: true }).click();
-  await expect(page.locator("#stateText")).toHaveText("Snake Forever · Ready");
+  await expect(page.locator("#stateText")).toHaveText("Nibbler · Ready");
   expect(pageErrors).toEqual([]);
   expect(consoleErrors).toEqual([]);
   await context.close();

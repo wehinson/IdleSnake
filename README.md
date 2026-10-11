@@ -97,7 +97,7 @@ The session owns game state and game controls for all 11 modes. The browser send
 - resetRun: restart the current run, or continue a completed puzzle.
 - playDirection: use a direction control, including reset after game over.
 
-When paused, each gameplay control resumes the current run. The first input resumes without moving, resetting, or selecting another game. This applies to directions, Start, Pause, Reset, and minigame choices. Settings opens its menu during Game Over. Keyboard play clears focus from game buttons; pause does not leave a button highlighted. Swallowed Seed, crumb, and tail effects freeze during pause and continue from the same point after resume.
+When paused, each gameplay control resumes the current run. The first input resumes without moving, resetting, or selecting another game. This applies to directions, Start, Pause, and Reset. Minigame choices switch directly on one click, including during pause and Game Over. Settings opens its menu during Game Over. Keyboard play clears focus from game buttons; pause does not leave a button highlighted. Swallowed Seed, crumb, and tail effects freeze during pause and continue from the same point after resume.
 
 Board purchases, food-count purchases, board selection, and settlement selection create their new Snake board inside the session. The engine/queries.js module provides panel costs, production, availability, and migration estimates. The engine/save-projection.js module handles legacy storage projection. The browser still handles storage I/O and visual effects.
 
