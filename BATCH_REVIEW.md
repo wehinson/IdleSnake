@@ -14,9 +14,9 @@ Updated: 2026-10-11. Coordinator: GPT 6.1 Sol, high effort, local Jimothy.
 
 | Scope | Branch | Thread | State | Reviewed commit / task IDs |
 | --- | --- | --- | --- | --- |
-| 1, 6, 7, 9 UI | task/colony-ui-20261011 | mcp:4ee92de7-753a-47f6-84bd-7027e32edf3e | Complete; awaiting economy, then review | Candidate 082ac59b7c46bb13be9dcd85e49b101af641def8; review pending |
-| 3, 4, 5, 8 economy | task/colony-economy-20261011 | mcp:fd026147-88dc-4aae-8b42-576f1e265fa6 | Implementing | Pending |
-| 2 Seed grace | task/seed-turn-grace-20261011 | mcp:57410d23-3950-46db-933b-7d760f1a72ce | Complete; awaiting all workers, then review | Candidate e4032fe0677dd8b3401ac541255449c0c7049979; review pending |
+| 1, 6, 7, 9 UI | task/colony-ui-20261011 | mcp:4ee92de7-753a-47f6-84bd-7027e32edf3e | Independent review running | Candidate 082ac59b7c46bb13be9dcd85e49b101af641def8 |
+| 3, 4, 5, 8 economy | task/colony-economy-20261011 | mcp:fd026147-88dc-4aae-8b42-576f1e265fa6 | Independent review running | Candidate 3e8d01e58ed641999c9da6f2551fa9c7fcfdc4cc |
+| 2 Seed grace | task/seed-turn-grace-20261011 | mcp:57410d23-3950-46db-933b-7d760f1a72ce | Independent review running | Candidate e4032fe0677dd8b3401ac541255449c0c7049979 |
 
 Each checkout is a sibling under `C:/Users/wehin/.t3/worktrees/IdleSnake/`. Workers send completion here with stable request IDs `colony-ui-20261011-complete`, `colony-economy-20261011-complete`, `seed-turn-grace-20261011-complete`.
 
@@ -49,6 +49,21 @@ Each checkout is a sibling under `C:/Users/wehin/.t3/worktrees/IdleSnake/`. Work
 - UI completed/pushed `082ac59b7c46bb13be9dcd85e49b101af641def8`; coordinator confirmed identity and clean worktree. Six files: game.js, index.html, styles.css, tests/browser/notable-candidates.spec.js, scripts/check-colony-ui.js, BRANCHES.md. Reproduce VM acceptance with `node scripts/check-colony-ui.js` in UI checkout; worker reports all candidate/service scenarios above plus current Seed/Branch/Provision/Lake effects and tiny nonzero rate precision. Targeted `node --test engine/notables.test.js engine/length-bonus.test.js engine/ui-boundary.test.js` reports 35/35; npm run check reports 335/335 plus syntax/authority; diff whitespace and route HTTP page/game/CSS checks passed. Not independently accepted yet.
 - UI effect semantics: provisionRate + (foragerRate default 0), Lake `-X Hatch Sec/Egg`; seedRate expects length included by economy. Preserve economy progression, totalIncome=panel.seedIncomePerSecond and `.habitat-card[hidden]` during integration. Service labels update in place and hold callback reads current hasServed; replacement/Retire semantics remain. Browser specs, focus, narrow geometry and all theme fit remain unverified locally.
 - Economy progress (final tip pending): worker reports 346/346 Node tests, syntax 119 JS and authority 11 modes. New 11-case colony-progression suite covers zero-food time-only maturation online/offline/persistence, output/modifier/cost separation, 4/5 chain, legacy populations/reduced-save relock, founding/established settlements, zero-effect service/pause/offline/unassign/reassign/read-no-accrual and migration high-water marks. No live removal action exists, so prerequisite reduction uses canonical saved economy. Feeding browser expectations adapted but require UI removal; not executed locally.
+- Economy final completed/pushed tip `3e8d01e58ed641999c9da6f2551fa9c7fcfdc4cc`; commits bf5c544 (engine/tests) and 3e8d01e (progression/spec/log). Worker reports final targeted 138/138, npm run check 346/346, clean worktree and exact remote. Existing 15-minute maturation and 5/10-minute milestones preserved; historical resource/service totals untouched; passive pause/offline service requires assigned working populated habitat in established settlement. Faster output intentionally supports more adult upkeep/eggs.
+
+## Independent coordinator checks and delegated reviews
+
+- All workers returned before checks/reviews began. Coordinator inspected each diff against baseline, including adapted existing tests and cross-branch interfaces.
+- Exact-tip individual `npm run check` reruns passed: Seed 350/350, UI 335/335, economy 346/346; all syntax/authority checks passed, no skips/failures. UI `node scripts/check-colony-ui.js` independently passed candidate/service/effect acceptance. Diff whitespace checks passed; all task worktrees clean.
+- Refreshed direct HTTP verification: 12 assets each on /test2, /test3, /test4 match frozen checkout tips. All 27 protected unrelated root-file hashes still match baseline.
+- Three T3-owned read-only reviews launched with local provider codex/model gpt-6.1-sol/reasoningEffort high selected at creation. Each prompt contains original worker brief verbatim, full batch acceptance reference, worker claims, coordinator evidence and concrete concerns. No nested reviewers/browser execution authorized. Completion wakes coordinator; no polling monitors.
+- Coordinator concerns sent for review, not yet accepted findings: mixed-resource Notable contribution totals still labeled Seeds; next-habitat message appended below visible legacy cards rather than immediately after last regularly available habitat.
+
+| Review | Stable clientRequestId | taskId | State |
+| --- | --- | --- | --- |
+| Seed round 1 | colony-batch-seed-review-r1-20261011 | node:delegated-task:command%3Amcp%3Abcd63630-411c-4aec-8b6f-4afac57f78e2%3Adelegate-task%3Acolony-batch-seed-review-r1-20261011 | Running |
+| UI round 1 | colony-batch-ui-review-r1-20261011 | node:delegated-task:command%3Amcp%3Abcd63630-411c-4aec-8b6f-4afac57f78e2%3Adelegate-task%3Acolony-batch-ui-review-r1-20261011 | Running |
+| Economy round 1 | colony-batch-economy-review-r1-20261011 | node:delegated-task:command%3Amcp%3Abcd63630-411c-4aec-8b6f-4afac57f78e2%3Adelegate-task%3Acolony-batch-economy-review-r1-20261011 | Running |
 
 ## Review and integration sequence
 
@@ -69,4 +84,4 @@ Each checkout is a sibling under `C:/Users/wehin/.t3/worktrees/IdleSnake/`. Work
 - Initial direct HTTP verification: 10 assets per route matched exact mapped checkout (HTML, game/CSS, session/queries, approved tongue engine/draw, theme kit/official CSS and image); primary game.js matches root working. Recheck after workers finish and integration merges.
 - Root preservation baseline: SHA-256 hashes for 27 unrelated modified/untracked root files saved locally in this worktree's git directory as `batch-root-preservation.json` (not committed).
 - All visual smoothness/layout/theme fit/accessibility by eye remain unverified until William tests. Direct engine/VM/HTTP checks cannot prove them.
-- PR: not created. Independent reviews: not started. No feature branch integrated yet.
+- PR: not created. Independent reviews: round 1 running for all three. No feature branch integrated yet.
