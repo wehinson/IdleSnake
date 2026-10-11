@@ -1832,7 +1832,7 @@ function interpretSessionEvents(events) {
       case "win": if (gameView.gameMode === "snake") {  syncHud(); showOverlay("Maxed"); } break;
       case "runEnded":
         directionInputLockedUntil = Date.now() + 1000;
-        if (event.mode === "crossing") crossingStartPointerAllowed = false;
+        if (event.mode === "crossing") crossingPrimaryPressEpoch += 1;
         if (event.mode === "runner") {
 
           syncHud();
@@ -1912,7 +1912,7 @@ function interpretSessionEvents(events) {
         if (gameView.gameMode === "crossing") {
           syncHud();
           directionInputLockedUntil = Date.now() + 1000;
-          crossingStartPointerAllowed = false;
+          crossingPrimaryPressEpoch += 1;
           showOverlay(`Stage ${gameView.crossingStage} Clear · +${formatNumber(event.reward)} Seeds`);
           setScreenHint("Next road loading");
         }
@@ -4639,15 +4639,25 @@ canvas.addEventListener("pointerup", (event) => {
 });
 canvas.addEventListener("pointercancel", (event) => swipePointerStarts.delete(event.pointerId));
 
-let crossingStartPointerAllowed = true;
-startButton.addEventListener("pointerdown", () => {
-  crossingStartPointerAllowed = gameView.gameMode !== "crossing" || (Date.now() >= directionInputLockedUntil && gameView.crossingPhase !== "clearing");
-});
-startButton.addEventListener("click", (event) => {
-  if (gameView.gameMode === "crossing" && event.detail > 0 && !crossingStartPointerAllowed) return;
-  startGame();
-});
-pauseButton.addEventListener("click", activatePrimaryAction);
+let crossingPrimaryPressEpoch = 0;
+function bindCrossingPrimaryControl(button, activate) {
+  let press = null;
+  button.addEventListener("pointerdown", (event) => {
+    press = { epoch: crossingPrimaryPressEpoch, pointerId: event.pointerId,
+      allowed: gameView.gameMode !== "crossing" || (Date.now() >= directionInputLockedUntil && gameView.crossingPhase !== "clearing") };
+  });
+  button.addEventListener("pointercancel", (event) => {
+    if (press?.pointerId === event.pointerId) press = null;
+  });
+  button.addEventListener("click", (event) => {
+    if (gameView.gameMode === "crossing" && event.detail > 0 && (!press?.allowed || press.epoch !== crossingPrimaryPressEpoch
+      || (event.pointerId >= 0 && event.pointerId !== press.pointerId))) return;
+    press = null;
+    activate();
+  });
+}
+bindCrossingPrimaryControl(startButton, startGame);
+bindCrossingPrimaryControl(pauseButton, activatePrimaryAction);
 resetButton.addEventListener("click", resetGame);
 document.querySelectorAll("[data-snake-speed]").forEach((button) => {
   button.addEventListener("click", () => setSnakeSpeed(button.dataset.snakeSpeed));
