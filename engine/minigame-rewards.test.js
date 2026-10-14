@@ -7,7 +7,7 @@ const { runHeadless } = require("./simulate.js");
 
 const performances = {
   duel: [{ score: 10 }, { winner: "player" }],
-  maze: [{ score: 320 }, {}],
+  maze: [{ score: 150, timeLimitMs: 180000, remainingMs: 180000, totalSeeds: 15, seedsCollected: 15, seeds: [], result: "won" }, { won: true }],
   breakout: [{ score: 400 }, { won: true }],
   crossing: [{ score: 600 }, {}],
   snakebird: [{ moves: 20, definition: { optimalMoves: 20 } }, { won: true }],
@@ -30,12 +30,13 @@ test("inventory includes all nine catalog modes and hidden Runner, with measured
     const measured = rewards.performance(mode, active, outcome);
     assert.equal(measured.normalizedScore, 1, mode);
     assert.equal(measured.meaningful, true, mode);
-    assert.equal(measured.won, ["duel", "breakout", "snakebird", "sokoban", "battleship"].includes(mode), mode);
+    assert.equal(measured.won, rewards.winLossModes.includes(mode), mode);
     const ledger = rewards.createLedger();
     const run = rewards.beginRun(ledger, mode); run.engaged = true;
     const paid = rewards.settle(ledger, run, active, outcome, 0, () => 0.5);
     const nominal = measured.won ? 300 : 100;
-    assert.ok(paid.reward >= nominal * .97 && paid.reward <= nominal * 1.03, mode);
+    assert.ok(paid.reward >= Math.ceil(nominal * .97) && paid.reward <= Math.ceil(nominal * 1.03), mode);
+    assert.ok(Number.isInteger(paid.reward), mode);
     assert.equal(ledger.earnings[mode], paid.reward, mode);
     assert.equal(rewards.settle(ledger, { ...run, paid: false }, active, outcome, 0, () => { throw Error("replay RNG"); }), null, mode);
   }
@@ -50,7 +51,7 @@ test("score, wins and passive income are monotonic at fixed other factors", () =
         const lost = rewards.calculate({ ...fixed, normalizedScore });
         const won = rewards.calculate({ ...fixed, normalizedScore, won: true });
         assert.ok(lost.amount >= prior);
-        assert.ok(Math.abs(won.amount - 3 * lost.amount) < .0003, "significant win factor");
+        assert.ok(won.amount >= 3 * lost.amount - 2 && won.amount <= 3 * lost.amount, "3x before the final ceiling (at most two Seeds of ceiling difference)");
         prior = lost.amount;
       }
     }
@@ -315,7 +316,7 @@ test("cancelled Nibbler directions match Start-only scoring traces and never ena
   assert.deepEqual(traces[0], traces[1], "cancelled input did not affect any simulated movement or reward RNG");
 });
 
-test("an applied Nibbler turn with earned food pays, while a turn rejected by a wall does not", () => {
+test("Nibbler partial food progress or a wall collision cannot pay without a verified timed win", () => {
   for (const open of [["2,2", "3,2", "4,2"], ["2,2", "2,1"]]) {
     const game = createGameSession({ now: 0, rng: () => .4 });
     game.dispatch({ type: "selectMode", mode: "maze", setup: {
@@ -328,7 +329,7 @@ test("an applied Nibbler turn with earned food pays, while a turn rejected by a 
     const amount = result.events.find(e => e.type === "runEnded").reward;
     if (open.includes("3,2")) {
       assert.ok(result.snapshot.active.score >= 10);
-      assert.ok(amount > 0, "actual nondefault move ate food");
+      assert.equal(amount, 0, "actual nondefault move ate food, but this is not an all-15 timed win");
     } else assert.equal(amount, 0, "accepted direction never moved into its wall");
   }
 });
@@ -359,7 +360,7 @@ test("directional modes require an applied command, even when a terminal step re
         for (let tick = 0; tick < 8 && !ended; tick++) ended = game.tick(100).events.find(e => e.type === "runEnded");
       } finally { engine[stepName] = originalStep; }
       assert.ok(ended, mode);
-      if (applied) assert.ok(ended.reward > 0, `${mode}: real movement applied first`);
+      if (applied && mode !== "maze") assert.ok(ended.reward > 0, `${mode}: real movement applied first`);
       else assert.equal(ended.reward, 0, `${mode}: raw accepted command never ran`);
     }
   }
