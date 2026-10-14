@@ -2,6 +2,8 @@
 
 ## Current state
 
+2026-10-14 base update: William merged Colony PR2 into working and now explicitly authorizes a merge of origin/working262eac2c1a2d2e976c9ffd2eb4a3f1edd55142e6 into this integration branch, early in the revision round. This supersedes the earlier no-Colony-import boundary for that approved working merge only. Coordinator resolves BRANCHES.md once, preserving both histories; other shared source files merge automatically and still require semantic inspection and full combined checks including Colony. Workers must pick up the resolved integration base safely. Do not directly import other Colony worker/task commits, rewrite history, merge main, or restore retired /test3-/test5 checkouts/routes.
+
 PR3 stays open against `working`: https://github.com/wehinson/IdleSnake/pull/3. Common revision baseline: `a83251ad840e53cbde0bef5e2c105dfd6080b51c`, clean and CI green before this round. Five original workers resumed on their original branches and checkouts, using an authorized fast-forward to that same Minigame integration tip. No Colony, release, working or main commits are imported.
 
 Implementation is in progress; none of this round is accepted yet. One final combined review is required after scoped changes and combined checks. All earlier failed/cancelled findings and successful exact-tip evidence remain in the existing review records.

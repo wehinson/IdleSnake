@@ -125,29 +125,27 @@ test("active Lake snakes shorten one egg's incubation without generating seeds",
     "one second is removed once for each active Lake snake");
 });
 
-test("hatchlings burn seeds to grow and graduate into the colony", () => {
+test("hatchlings grow over time and graduate without spending seeds", () => {
   const state = freshState({ seeds: 100000 });
   state.nursery.hatchlings = [{ id: "a", x: 2, y: 4, direction: "right", progressMs: 0 }];
   const rng = seededRng(2);
 
-  // One Seed per 900 ms funds 15 minutes of growth for a lone hatchling.
+  // The existing fifteen-minute duration remains unchanged.
   economy.tickEconomy(state, nurseryConfig.growthMs, { rng });
 
   assert.equal(state.nursery.colonyCount, 1, "hatchling graduated");
   assert.equal(state.nursery.hatchlings.length, 0, "pen is empty after graduation");
-  assert.equal(state.seeds, 99000);
+  assert.equal(state.seeds, 100000);
 });
 
-test("growth stalls when seeds run out and resumes when refilled", () => {
-  const state = freshState({ seeds: 3 });
+test("zero Seeds and legacy feeding pause do not stop growth", () => {
+  const state = freshState();
   state.nursery.hatchlings = [{ id: "a", x: 2, y: 4, direction: "right", progressMs: 0 }];
-  const rng = seededRng(3);
-
-  economy.tickEconomy(state, nurseryConfig.growthMs, { rng });
-  // Three Seeds fund 2700 ms of growth, nowhere near graduation.
-  assert.equal(state.nursery.colonyCount, 0);
-  assert.ok(state.nursery.hatchlings[0].progressMs <= 3 * nurseryConfig.seedIntervalMs);
-  assert.ok(state.seeds < 1);
+  state.nursery.feedingPaused = true;
+  economy.tickEconomy(state, nurseryConfig.growthMs, { rng: seededRng(3) });
+  assert.equal(state.nursery.colonyCount, 1);
+  assert.equal(state.nursery.hatchlings.length, 0);
+  assert.equal(state.seeds, 0);
 });
 
 test("habitat income accrues over time and scales with food value", () => {
@@ -219,7 +217,7 @@ test("banked provisions keep over-capacity snakes working until the bank is empt
   economy.tickHabitats(state, 1000, 1);
   assert.equal(state.seeds, Math.round((beforeSeeds + (field.naturalCapacity + 10) * perSnake) * 10000) / 10000,
     "the provision bank activates every assigned snake");
-  assert.equal(state.provisions, 1_000_000 - 10 * perSnake * habitatConfig.income.overCapacityProvisionCost,
+  assert.equal(state.provisions, 1_000_000 - 10 * economy.habitatUpkeepPerSecond(field, state.habitats.counts[0]) * habitatConfig.income.overCapacityProvisionCost,
     "the extra snakes consume the stockpile");
 });
 
@@ -228,7 +226,7 @@ test("a long tick switches to renewable activation when the provision bank runs 
   const state = freshState({ provisions: 0.01 });
   state.habitats.counts[0] = field.naturalCapacity + 10;
   const perSnake = economy.habitatIncomePerSecond(field, state.habitats.counts[0], 1);
-  const fundedSeconds = state.provisions / (10 * perSnake * habitatConfig.income.overCapacityProvisionCost);
+  const fundedSeconds = state.provisions / (10 * economy.habitatUpkeepPerSecond(field, state.habitats.counts[0]) * habitatConfig.income.overCapacityProvisionCost);
 
   economy.tickHabitats(state, 10_000, 1);
 
@@ -240,13 +238,13 @@ test("a long tick switches to renewable activation when the provision bank runs 
 
 test("over-capacity snakes activate one per habitat per round", () => {
   const counts = habitatConfig.habitats.map(() => 0);
-  counts[0] = habitatConfig.habitats[0].naturalCapacity + 10; // Field
-  counts[1] = habitatConfig.habitats[1].naturalCapacity + 10; // Lake
-  counts[3] = 1; // River provides 0.02 provisions/sec at food value 1
+  counts[0] = habitatConfig.habitats[0].naturalCapacity + 30; // Field
+  counts[1] = habitatConfig.habitats[1].naturalCapacity + 30; // Lake
+  counts[3] = 1; // River provides 0.2 provisions/sec at food value 1
 
   const activation = economy.calculateHabitatActivation(counts, 1);
-  assert.deepEqual(activation.activeOverCapacityCounts.slice(0, 4), [3, 2, 0, 0]);
-  assert.deepEqual(activation.idleCounts.slice(0, 4), [7, 8, 0, 0]);
+  assert.deepEqual(activation.activeOverCapacityCounts.slice(0, 4), [27, 26, 0, 0]);
+  assert.deepEqual(activation.idleCounts.slice(0, 4), [3, 4, 0, 0]);
   assert.ok(activation.provisionsConsumedPerSecond <= activation.provisionsProducedPerSecond);
 });
 
@@ -257,7 +255,7 @@ test("activation stops within a row instead of skipping an unaffordable habitat"
   counts[3] = 1;
 
   const activation = economy.calculateHabitatActivation(counts, 1);
-  assert.deepEqual(activation.activeOverCapacityCounts.slice(0, 4), [2, 1, 0, 0]);
+  assert.deepEqual(activation.activeOverCapacityCounts.slice(0, 4), [17, 16, 0, 0]);
   assert.ok(activation.activeOverCapacityCounts[0] <= activation.activeOverCapacityCounts[1] + 1,
     "Field never gets more than one row ahead of Lake");
 });
@@ -269,7 +267,7 @@ test("reported provision consumption includes only activated snakes", () => {
   counts[2] = 1;
   const activation = economy.calculateHabitatActivation(counts, 1);
   const expected = activation.activeOverCapacityCounts.reduce((total, active, index) =>
-    total + active * activation.perSnakeRates[index] * habitatConfig.income.overCapacityProvisionCost, 0);
+    total + active * activation.upkeepPerSnakeRates[index] * habitatConfig.income.overCapacityProvisionCost, 0);
   assert.ok(Math.abs(activation.provisionsConsumedPerSecond - expected) < 1e-12);
 });
 
@@ -299,18 +297,18 @@ test("a ready egg starts as soon as the nest is empty, even if the yard is full"
 });
 
 test("an egg that finishes incubating while the yard is full is held, not discarded", () => {
-  const state = freshState({ seeds: 0 }); // no seeds -> hatchlings can't graduate
+  const state = freshState({ seeds: 0 }); // young hatchlings will not graduate in this one-second slice
   state.nursery.hatchlings = [{ id: "a", x: 2, y: 4, direction: "right", progressMs: 0 }, { id: "b", x: 3, y: 4, direction: "left", progressMs: 0 }];
   state.nursery.eggElapsedMs = nurseryConfig.eggHatchMs - 100; // about to hatch
   economy.tickEconomy(state, 1000, { rng: seededRng(1) });
-  // Yard full and can't graduate -> egg is held in the nest, no hatchling lost.
+  // Yard full and not yet mature -> egg is held in the nest, no hatchling lost.
   assert.ok(economy.eggHeldForSpace(state.nursery));
   assert.equal(state.nursery.eggElapsedMs, nurseryConfig.eggHatchMs);
   assert.equal(state.nursery.hatchlings.length, 2);
 });
 
 test("a held egg hatches once a hatchling graduates and frees a slot", () => {
-  const state = freshState({ seeds: 1_000_000 }); // plenty of seeds to grow/graduate
+  const state = freshState({ seeds: 1_000_000 }); // resource bank is unaffected by graduation
   state.nursery.hatchlings = [
     { id: "a", x: 2, y: 4, direction: "right", progressMs: nurseryConfig.growthMs - 10 },
     { id: "b", x: 3, y: 4, direction: "left", progressMs: nurseryConfig.growthMs - 10 }

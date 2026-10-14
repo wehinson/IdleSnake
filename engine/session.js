@@ -482,6 +482,7 @@
     let randomQueue = [];
     let recentMovement = null;
     let replayingInput = false;
+    let replaySnakeInputProgress = null;
     state.rng = () => {
       const value = randomQueue.length ? randomQueue.shift() : sourceRng();
       if (recentMovement && !replayingInput) recentMovement.draws.push(value);
@@ -504,6 +505,57 @@
     let savedAt = Number.isFinite(Number(migrated.savedAt)) ? Number(migrated.savedAt) : now;
     let simulationNow = savedAt;
     let lastSnakeMovementAt = simulationNow - Math.max(0, state.modeAccumulatorMs);
+    // Request timestamps use simulation wall time, while movement progress can
+    // change rate or freeze. Keep the current tick's clock segments separately
+    // from durable gameplay state, just like the existing correction history.
+    let snakeTimingActive = null;
+    let snakeInputTiming = [];
+    function recordSnakeInputTiming(reset = false) {
+      if (state.mode !== "snake" || !state.active) {
+        snakeTimingActive = null; snakeInputTiming = []; return;
+      }
+      if (reset || snakeTimingActive !== state.active) snakeInputTiming = [];
+      snakeTimingActive = state.active;
+      const interval = snake.nextMoveInterval(state.active);
+      const segment = { at: simulationNow, progress: state.modeAccumulatorMs / interval,
+        interval, running: state.phase === "running" };
+      const previous = snakeInputTiming.at(-1);
+      if (segment.running) {
+        // Keep the cadence's original boundary clock as frame anchors accumulate
+        // epoch rounding. Exact stored frame progress takes precedence below.
+        segment.graceAt = previous?.running && previous.interval === interval
+          ? previous.graceAt : simulationNow + (0.85 - segment.progress) * interval;
+      }
+      if (previous && previous.running === segment.running && (!segment.running || previous.interval === interval)) {
+        const expected = previous.progress + (previous.running ? (simulationNow - previous.at) / interval : 0);
+        // Coalesce only when wall-clock interpolation preserves authoritative
+        // relative progress. Rounded epoch frames can require distinct anchors.
+        if (Math.abs(segment.progress - expected) <= Number.EPSILON * 16) return;
+      }
+      if (snakeInputTiming.at(-1)?.at === simulationNow) snakeInputTiming.pop();
+      snakeInputTiming.push(segment);
+    }
+    function currentSnakeInputTiming() {
+      if (snakeTimingActive !== state.active || !snakeInputTiming.length) recordSnakeInputTiming(true);
+      return snakeInputTiming;
+    }
+    function snakeInputProgressAt(inputAt, timing = currentSnakeInputTiming()) {
+      const at = Number.isFinite(inputAt) ? Math.min(inputAt, simulationNow) : simulationNow;
+      if (timing === snakeInputTiming && at === simulationNow) {
+        const progress = state.modeAccumulatorMs / snake.nextMoveInterval(state.active);
+        return Math.abs(progress - 0.85) <= Number.EPSILON * 16 ? 0.85 : progress;
+      }
+      const segment = timing.findLast(item => item.at <= at) || timing[0];
+      if (at === segment.at) {
+        return Math.abs(segment.progress - 0.85) <= Number.EPSILON * 16 ? 0.85 : segment.progress;
+      }
+      const progress = segment.progress + (segment.running ? (at - segment.at) / segment.interval : 0);
+      // Normalize only the timestamp representing the exact boundary. A
+      // distinguishable earlier timestamp must retain its pre-grace progress.
+      const boundaryAt = segment.at + (0.85 - segment.progress) * segment.interval;
+      return segment.running && (at === segment.graceAt || at === boundaryAt) ? 0.85 : progress;
+    }
+    recordSnakeInputTiming(true);
     function restoreCheckpoint(checkpoint) {
       const rng = state.rng; const observer = state.snapshotObserver;
       for (const key of Object.keys(state)) delete state[key];
@@ -512,17 +564,26 @@
     function correctRecentDirection(action) {
       const history = recentMovement;
       const inputAt = action.inputAt;
+      const inputProgress = history ? snakeInputProgressAt(inputAt, history.inputTiming) : null;
+      const protectedSeed = history?.seedGraceHeading && inputProgress >= 0.85;
       if (!history || state.mode !== "snake" || state.phase !== "running" || !Number.isFinite(inputAt)
-        || !history.eligible || inputAt <= history.lowerBound || inputAt >= history.deadline
+        || (!history.eligible && !protectedSeed) || inputAt <= history.lowerBound || inputAt >= history.deadline
         || simulationNow - history.deadline > config.snakeConfig.inputLateToleranceMs) return null;
       const trial = clone(state.active);
-      if (!snake.queueDirection(trial, action.direction)) return null;
+      if (protectedSeed) {
+        trial.direction = history.seedGraceQueuedFrom;
+        trial.directionQueue = [];
+      }
+      if (!snake.queueDirection(trial, action.direction)) return protectedSeed
+        ? result(state, [event("actionRejected", { action: action.type, reason: "invalidDirection" })]) : null;
       const end = simulationNow;
       recentMovement = null;
       replayingInput = true;
       restoreCheckpoint(history.before);
       simulationNow = history.start;
       lastSnakeMovementAt = history.beforeMovementAt;
+      snakeTimingActive = state.active;
+      snakeInputTiming = clone(history.beforeInputTiming);
       randomQueue = history.draws.concat(randomQueue);
       const replayEvents = [];
       let submitted = false;
@@ -530,11 +591,19 @@
         for (const delta of history.ticks) {
           const tickEnd = simulationNow + delta;
           if (!submitted && inputAt <= tickEnd) {
-            const prefix = Math.max(0, inputAt - simulationNow);
+            const prefix = Math.min(delta, Math.max(0, inputAt - simulationNow));
             if (prefix) replayEvents.push(...tickCore(prefix).events);
-            replayEvents.push(...dispatch({ type: "direction", direction: action.direction }).events);
+            // Splitting a frame at an epoch timestamp rounds its elapsed
+            // prefix. Preserve classification from the original clock history.
+            replaySnakeInputProgress = inputProgress;
+            try {
+              replayEvents.push(...dispatch({ type: "direction", direction: action.direction, inputAt }).events);
+            } finally { replaySnakeInputProgress = null; }
             submitted = true;
-            if (tickEnd > simulationNow) replayEvents.push(...tickCore(tickEnd - simulationNow).events);
+            // Keep the original duration; subtracting absolute clock values
+            // can otherwise lose the step at a fractional-speed deadline.
+            const suffix = delta - prefix;
+            if (suffix > 0) replayEvents.push(...tickCore(suffix).events);
           } else replayEvents.push(...tickCore(delta).events);
         }
       } finally { replayingInput = false; }
@@ -546,7 +615,9 @@
         if (index < 0) return true;
         oldEvents.splice(index, 1); return false;
       });
-      return result(state, [event("movementCorrected", { inputAt, deadline: history.deadline, processedAt: end }), ...changedEvents]);
+      const seedHeld = replayEvents.some(item => item.type === "directionQueued" && item.deferredUntilSeed);
+      if (seedHeld) recentMovement = history;
+      return result(state, [...(seedHeld ? [] : [event("movementCorrected", { inputAt, deadline: history.deadline, processedAt: end })]), ...changedEvents]);
     }
     const puzzleSelections = { snakebird: null, sokoban: 0 };
     // Settlement economies are mutated in place between cross-settlement
@@ -706,6 +777,7 @@
         }
       } else if (!stepped.alive) { state.phase = "gameover"; events.push(event("runEnded", { mode: "snake" })); }
       if (state.phase === "gameover") { state.active.directionQueue = []; state.active.nextDirection = state.active.direction; state.modeAccumulatorMs = 0; }
+      recordSnakeInputTiming(true);
     }
     function dispatch(action) {
       action = action && typeof action === "object" ? action : {};
@@ -793,17 +865,17 @@
             if (state.active.player.ships.length !== battleship.FLEET.length) return reject("fleetIncomplete");
             state.active.phase = "playing"; state.active.turn = "player"; state.active.aiDelayRemainingMs = null;
           }
-          state.phase = "running"; events.push(event("runStarted", { mode: state.mode })); break;
+          state.phase = "running"; recordSnakeInputTiming(true); events.push(event("runStarted", { mode: state.mode })); break;
         case "pause":
           if (state.phase !== "running") return reject("notRunning");
-          state.phase = "paused"; events.push(event("paused")); break;
+          state.phase = "paused"; recordSnakeInputTiming(); events.push(event("paused")); break;
         case "toggleFeeding":
-          state.nursery.feedingPaused = !state.nursery.feedingPaused;
+          state.nursery.feedingPaused = false; // Legacy action is a harmless compatibility no-op.
           migration.storeActiveSettlement(state);
           events.push(event("feedingToggled", { paused: state.nursery.feedingPaused })); break;
         case "resume":
           if (state.phase !== "paused") return reject("notPaused");
-          state.phase = "running"; events.push(event("resumed")); break;
+          state.phase = "running"; recordSnakeInputTiming(); events.push(event("resumed")); break;
         case "launchPuzzle":
         case "selectPuzzleLevel":
         case "continuePuzzle": {
@@ -953,9 +1025,21 @@
               break;
             }
             const ready = state.phase === "ready";
+            const inputElapsed = replaySnakeInputProgress !== null
+              ? replaySnakeInputProgress * snake.nextMoveInterval(state.active)
+              : Number.isFinite(action.inputAt)
+                ? snakeInputProgressAt(action.inputAt) * snake.nextMoveInterval(state.active) : state.modeAccumulatorMs;
+            if (!ready && !state.migrationChallenge && snake.seedTurnGraceHeading(state.active, inputElapsed)) {
+              if (!snake.deferSeedTurn(state.active, action.direction)) return reject("invalidDirection");
+              events.push(event("directionQueued", { direction: action.direction, deferredUntilSeed: true }));
+              break;
+            }
+            currentSnakeInputTiming();
             const sameDirection = action.direction === (state.active.directionQueue.at(-1) || state.active.direction);
             if (!sameDirection && !snake.queueDirection(state.active, action.direction)) return reject("invalidDirection");
             if (sameDirection && !ready) break;
+            delete state.active.deferredSeedTurn;
+            recordSnakeInputTiming();
             const moveNow = ready || (config.snakeConfig.turnTimingEnabled && state.active.lastTurn === 0) || state.modeAccumulatorMs >= snake.nextMoveInterval(state.active);
             if (moveNow) {
               state.phase = "running";
@@ -1012,7 +1096,7 @@
           const index = Math.floor(Number(action.index));
           const habitat = config.habitatConfig.habitats[index];
           const count = Math.max(1, Math.floor(Number(action.count) || 1));
-          if (!habitat || state.nursery.colonyCount < count || state.best < habitat.unlockScore) return reject("habitatUnavailable");
+          if (!habitat || state.nursery.colonyCount < count || !economy.habitatUnlocked(state.habitats.counts, index)) return reject("habitatUnavailable");
           const leader = notables.assignedTo(state.notables, index);
           if (state.habitats.counts[index] + count > economy.habitatMaxCapacity(habitat, state.habitats.upgradeLevels[index], leader)) return reject("habitatOverCapacity");
           state.nursery.colonyCount -= count; state.habitats.counts[index] += count; events.push(event("habitatPlaced", { index, count }));
@@ -1030,7 +1114,7 @@
           if (isFounding()) return reject("featureUnavailableWhileFounding");
           const index = Math.floor(Number(action.index));
           const habitat = config.habitatConfig.habitats[index];
-          if (!habitat || state.best < habitat.unlockScore) return reject("habitatUnavailable");
+          if (!habitat || !economy.habitatUnlocked(state.habitats.counts, index)) return reject("habitatUnavailable");
           const level = state.habitats.upgradeLevels[index];
           const cost = economy.habitatUpgradeCost(habitat, level);
           if (state.branches < cost) return reject("insufficientBranches");
@@ -1177,9 +1261,11 @@
           if (typeof action.snakeSpeed !== "string" || !Object.hasOwn(config.snakeConfig.speedPresets, action.snakeSpeed)) return reject("invalidSnakeSpeed");
           state.snakeSpeed = action.snakeSpeed;
           if (state.mode === "snake" && state.active) {
+            currentSnakeInputTiming();
             const previousTickMs = state.active.tickMs;
             snake.setSpeedMultiplier(state.active, config.snakeConfig.speedPresets[state.snakeSpeed]);
             state.modeAccumulatorMs *= state.active.tickMs / previousTickMs;
+            recordSnakeInputTiming();
           }
           events.push(event("snakeSpeedChanged", { snakeSpeed: state.snakeSpeed })); break;
         }
@@ -1254,12 +1340,19 @@
           }
         } else {
           state.modeAccumulatorMs += dt;
+          // Capture actual relative progress at each frame's rounded timestamp,
+          // including unchanged-speed frames and the final pre-movement slice.
+          recordSnakeInputTiming();
           while (state.modeAccumulatorMs >= snake.nextMoveInterval(state.active) && state.phase === "running") {
             state.modeAccumulatorMs -= snake.nextMoveInterval(state.active);
             if (recentMovement && !replayingInput) {
               recentMovement.deadline = simulationNow - state.modeAccumulatorMs;
               recentMovement.lowerBound = lastSnakeMovementAt;
               recentMovement.eligible = !state.active.directionQueue.length && !state.active.shieldImpact;
+              recentMovement.seedGraceHeading = !state.migrationChallenge
+                ? snake.seedTurnGraceHeading(state.active, snake.nextMoveInterval(state.active)) : null;
+              recentMovement.inputTiming = clone(currentSnakeInputTiming());
+              recentMovement.seedGraceQueuedFrom = state.active.directionQueue.at(-1) || state.active.direction;
             }
             lastSnakeMovementAt = simulationNow - state.modeAccumulatorMs;
             moveSnake(events);
@@ -1383,7 +1476,8 @@
       if (!replayingInput && state.mode === "snake" && state.phase === "running" && state.active
         && state.active.collisionGraceRemainingMs === null && state.modeAccumulatorMs + rawDt >= snake.nextMoveInterval(state.active)) {
         recentMovement = { before: clone(state), start: simulationNow, beforeMovementAt: lastSnakeMovementAt,
-          lowerBound: lastSnakeMovementAt, ticks: [], draws: [], events: [], deadline: null, eligible: false };
+          lowerBound: lastSnakeMovementAt, beforeInputTiming: clone(currentSnakeInputTiming()),
+          ticks: [], draws: [], events: [], deadline: null, eligible: false };
       }
       if (recentMovement) recentMovement.ticks.push(rawDt);
       const output = tickCore(rawDt, options);
