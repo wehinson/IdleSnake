@@ -78,10 +78,9 @@ test("fullscreen follow-up widens the menu, restores the mode, and finishes back
   await page.goto("/");
   await page.evaluate(() => { setMenuTab("nursery"); syncPanels(); });
   const title = await page.locator(".nursery-yard-card strong").boundingBox();
-  const feeding = await page.locator("#pauseFeedingButton").boundingBox();
+  await expect(page.locator("#pauseFeedingButton")).toHaveCount(0);
   const capacity = await page.locator("#nurseryCapacity").boundingBox();
-  expect(title.x + title.width).toBeLessThanOrEqual(feeding.x);
-  expect(feeding.x + feeding.width).toBeLessThanOrEqual(capacity.x);
+  expect(title.x + title.width).toBeLessThanOrEqual(capacity.x);
   const before = await page.locator(".menu-panel").boundingBox();
   const small = await page.locator("#game").boundingBox();
   expect(await page.evaluate(() => screenEffectStrength())).toBe(1);

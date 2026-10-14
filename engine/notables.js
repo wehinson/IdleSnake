@@ -110,12 +110,12 @@
     return { accepted: true, events: [{ type: removed.hasServed ? "NOTABLE_RETIRED" : "NOTABLE_DISMISSED", notableId: removed.id }, { type: "NOTABLE_RETAINED", notableId: candidate.id }], removed: clone(removed) };
   }
   function recordContribution(state, notableId, habitatId, dtMs, contributions) {
-    const notable = findRetained(state, notableId); if (!notable || notable.assignedHabitatId !== habitatId) return;
-    const amount = Object.values(contributions || {}).reduce((sum, value) => sum + Math.max(0, Number(value) || 0), 0);
-    if (amount <= 0) return;
-    notable.hasServed = true; notable.totalServiceTime += Math.max(0, Number(dtMs) || 0);
+    const notable = findRetained(state, notableId);
+    const elapsed = Math.max(0, Number(dtMs) || 0);
+    if (!notable || notable.status !== "ASSIGNED" || notable.assignedHabitatId !== habitatId || elapsed <= 0) return;
+    notable.hasServed = true; notable.totalServiceTime += elapsed;
     if (!notable.habitatsServed.includes(habitatId)) notable.habitatsServed.push(habitatId);
-    Object.entries(contributions).forEach(([field, value]) => { if (STAT_FIELDS.includes(field)) notable[field] += Math.max(0, Number(value) || 0); });
+    Object.entries(contributions || {}).forEach(([field, value]) => { if (STAT_FIELDS.includes(field) && field !== "totalServiceTime") notable[field] += Math.max(0, Number(value) || 0); });
   }
   function assignedTo(state, habitatId) { return state?.retained?.find((item) => item.status === "ASSIGNED" && item.assignedHabitatId === habitatId) || null; }
   return { createState, capacity, rosterOverCapacity, generate, findRetained, assignedTo, isForagerEligible, hardCapacity, assign, unassign, removeRetained, resolvePending, recordContribution };
