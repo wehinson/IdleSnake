@@ -358,7 +358,6 @@ const nestTimerEl = document.querySelector("#nestTimer");
 const nestUpgradeButtonEl = document.querySelector("#nestUpgradeButton");
 const nurseryBranchTotalEl = document.querySelector("#nurseryBranchTotal");
 const nurseryCapacityEl = document.querySelector("#nurseryCapacity");
-const pauseFeedingButtonEl = document.querySelector("#pauseFeedingButton");
 const nurseryUpgradeButtonEl = document.querySelector("#nurseryUpgradeButton");
 const nurseryGrowthStatusEl = document.querySelector("#nurseryGrowthStatus");
 const nurseryGridEl = document.querySelector("#nurseryGrid");
@@ -370,7 +369,6 @@ const colonyBranchTotalEl = document.querySelector("#colonyBranchTotal");
 const colonySeedIncomeRateEl = document.querySelector("#colonySeedIncomeRate");
 const colonyProvisionIncomeRateEl = document.querySelector("#colonyProvisionIncomeRate");
 const colonyBranchIncomeRateEl = document.querySelector("#colonyBranchIncomeRate");
-const colonyProvisionConsumptionRateEl = document.querySelector("#colonyProvisionConsumptionRate");
 const habitatListEl = document.querySelector("#habitatList");
 const colonyOverviewEl = document.querySelector("#colonyOverview");
 const notablesButtonEl = document.querySelector("#notablesButton");
@@ -381,12 +379,7 @@ const notablesSummaryEl = document.querySelector("#notablesSummary");
 const notablesRosterEl = document.querySelector("#notablesRoster");
 const eldersRosterEl = document.querySelector("#eldersRoster");
 const pendingNotableEl = document.querySelector("#pendingNotable");
-const candidateListEl = document.querySelector("#candidateList");
-const candidateQueueSummaryEl = document.querySelector("#candidateQueueSummary");
-const candidatePaginationEl = document.querySelector("#candidatePagination");
-const candidatePreviousPageEl = document.querySelector("#candidatePreviousPage");
-const candidateNextPageEl = document.querySelector("#candidateNextPage");
-const candidatePageStatusEl = document.querySelector("#candidatePageStatus");
+const candidateDecisionEl = document.querySelector("#candidateDecision");
 const recruitNotableButtonEl = document.querySelector("#recruitNotableButton");
 const closeNotablesButtonEl = document.querySelector("#closeNotablesButton");
 const settleTabNotificationEl = document.querySelector("#settleTabNotification");
@@ -1232,10 +1225,8 @@ function buildHabitatList() {
           <span class="habitat-snakes"><span class="habitat-assigned-count"></span>/<span class="habitat-natural-count"></span>/<span class="habitat-max-count"></span></span>
           <span class="habitat-capacity-tooltip" role="tooltip"></span>
         </span>
-        <span class="habitat-production"></span>
       </div>
       <div class="habitat-over-capacity-row" hidden>
-        <span class="habitat-provisions-use"></span>
         <span class="habitat-idle-snakes" hidden></span>
       </div>
       <p class="habitat-bonus"></p>
@@ -1246,11 +1237,16 @@ function buildHabitatList() {
     `;
     const button = card.querySelector(".habitat-place-button");
     const upgradeButton = card.querySelector(".habitat-upgrade-button");
+    const legacyProgress = document.createElement("p");
+    legacyProgress.className = "habitat-bonus";
+    legacyProgress.hidden = true;
+    card.append(legacyProgress);
     button.addEventListener("click", () => placeSnakeInHabitat(index));
     upgradeButton.addEventListener("click", () => upgradeHabitat(index));
     habitatListEl.append(card);
     return {
       card,
+      legacyProgress,
       button,
       upgradeButton,
       snakes: card.querySelector(".habitat-snakes"),
@@ -1259,25 +1255,25 @@ function buildHabitatList() {
       maxCount: card.querySelector(".habitat-max-count"),
       capacityTooltip: card.querySelector(".habitat-capacity-tooltip"),
       outputTypes: card.querySelector(".habitat-output-types"),
-      production: card.querySelector(".habitat-production"),
       overCapacityRow: card.querySelector(".habitat-over-capacity-row"),
-      provisionsUse: card.querySelector(".habitat-provisions-use"),
       idleSnakes: card.querySelector(".habitat-idle-snakes"),
       bonus: card.querySelector(".habitat-bonus"),
       notable: card.querySelector(".habitat-notable")
     };
   });
+  const nextHabitat = document.createElement("p");
+  nextHabitat.id = "next-habitat-progress";
+  nextHabitat.className = "habitat-bonus";
+  habitatListEl.append(nextHabitat);
 }
 
 function totalProvisionsPerSecond() { return engineQueries.nurseryPanel(latestSnapshot).provisionsPerSecond; }
 
 function renderHabitats() {
   const panel = engineQueries.habitatPanel(latestSnapshot);
-  const { availableSnakes, placedSnakes, activation, fullActivation } = panel;
-  const totalIncome = activation.incomePerSecond;
+  const { availableSnakes, placedSnakes, activation } = panel;
+  const totalIncome = panel.seedIncomePerSecond;
   const totalProvisions = activation.provisionsProducedPerSecond;
-  const totalProvisionsUse = activation.provisionsConsumedPerSecond;
-  const totalProvisionsDraw = fullActivation.provisionsConsumedPerSecond;
   const totalBranches = activation.branchesPerSecond;
   colonyCountEl.textContent = padScore(availableSnakes);
   colonyPlacedCountEl.textContent = padScore(placedSnakes);
@@ -1286,20 +1282,32 @@ function renderHabitats() {
   setText(colonySeedIncomeRateEl, formatDecimal(totalIncome));
   setText(colonyProvisionIncomeRateEl, formatProvisions(totalProvisions));
   setText(colonyBranchIncomeRateEl, formatDecimal(totalBranches));
-  setText(colonyProvisionConsumptionRateEl, `${formatProvisions(totalProvisionsUse)} (${formatProvisions(totalProvisionsDraw)} Drawn)`);
 
   habitatCardRefs.forEach((ref, index) => {
     const habitat = habitatConfig.habitats[index];
-    const { count, unlocked, multiplier, nextMilestone, overCapacity, idleSnakes, eggHatchReduction, seedRate, branchRate, provisionRate, provisionsUse, notable, hardCapacity, upgradeCost, canAssign, canUpgrade } = panel.habitats[index];
+    const { count, unlocked, multiplier, nextMilestone, idleSnakes, idleSnakesAreAverage, eggHatchReduction, seedRate, branchRate, provisionRate, foragerRate = 0, notable, hardCapacity, upgradeCost, canAssign, canUpgrade } = panel.habitats[index];
 
     ref.card.classList.toggle("is-locked", !unlocked);
+    ref.card.hidden = !panel.habitats[index].visible;
+    ref.card.title = panel.habitats[index].legacyOccupied
+      ? "Existing population preserved. Restore five snakes in each preceding habitat to assign or upgrade."
+      : "";
+    ref.legacyProgress.hidden = !panel.habitats[index].legacyOccupied;
+    ref.legacyProgress.textContent = panel.habitats[index].legacyOccupied
+      ? "Existing population and production preserved. Expansion waits for 5 snakes in each previous habitat."
+      : "";
     ref.card.classList.toggle("produces-provisions", Boolean(habitat.producesProvisions));
     ref.card.classList.toggle("produces-branches", Boolean(habitat.producesBranches));
     ref.card.classList.toggle("speeds-egg-hatch", Boolean(habitat.eggHatchReductionSeconds));
 
+    // Read current effective outputs, including activation and leader bonuses.
     ref.outputTypes.textContent = habitat.eggHatchReductionSeconds
-      ? `Effect: -${formatDecimal(habitat.eggHatchReductionSeconds)} sec incubation per active snake`
-      : `Produces: Seeds${habitat.producesBranches ? " + Branches" : ""}${habitat.producesProvisions ? " + Provisions" : ""}`;
+      ? `Effect: -${formatDecimal(eggHatchReduction)} Hatch Sec/Egg`
+      : [
+          ...(habitat.producesSeeds !== false ? [`Effect: +${formatDecimal(seedRate)} Seed/Sec`] : []),
+          ...(habitat.producesBranches ? [`Effect: +${formatDecimal(branchRate)} Branch/Sec`] : []),
+          ...(habitat.producesProvisions || provisionRate + foragerRate > 0 ? [`Effect: +${formatDecimal(provisionRate + foragerRate)} Provision/Sec`] : [])
+        ].join(" \u00b7 ");
 
     ref.notable.hidden = !notable;
     ref.notable.textContent = notable ? `Leader: ${notableDisplayName(notable)} · ${notablePowerText(notable)}` : "";
@@ -1310,18 +1318,16 @@ function renderHabitats() {
     ref.naturalCount.classList.toggle("is-over-natural", count > habitat.naturalCapacity);
     ref.maxCount.classList.toggle("is-at-maximum", count === hardCapacity);
     ref.capacityTooltip.innerHTML = `<ul><li><strong>${formatNumber(count)}</strong> snakes assigned.</li><li>Local resources easily support <strong>${formatNumber(habitat.naturalCapacity)}</strong> individuals.</li><li>Space limits this habitat to <strong>${formatNumber(hardCapacity)}</strong> snakes. Upgrade to increase.</li></ul>`;
-    ref.production.textContent = habitat.eggHatchReductionSeconds
-      ? `Current effect: -${formatDecimal(eggHatchReduction)} sec per egg`
-      : `${formatDecimal(seedRate)} seed/sec${branchRate > 0 ? ` + ${formatDecimal(branchRate)} branch/sec` : ""}${provisionRate > 0 ? ` + ${formatProvisions(provisionRate)} provision/sec` : ""}`;
-    ref.overCapacityRow.hidden = overCapacity === 0;
-    ref.provisionsUse.textContent = `Consumes ${formatProvisions(provisionsUse)}/sec`;
+    ref.overCapacityRow.hidden = idleSnakes === 0;
     ref.idleSnakes.hidden = idleSnakes === 0;
-    ref.idleSnakes.textContent = `${formatNumber(idleSnakes)} idle snake${idleSnakes === 1 ? "" : "s"}`;
+    ref.idleSnakes.textContent = idleSnakesAreAverage
+      ? `Idle on average: ${formatNumber(idleSnakes)} snake${idleSnakes === 1 ? "" : "s"}`
+      : `${formatNumber(idleSnakes)} idle snake${idleSnakes === 1 ? "" : "s"}`;
     ref.bonus.textContent = `×${formatDecimal(multiplier, 2)} habitat bonus${nextMilestone ? ` (next at ${formatNumber(nextMilestone.score)} snakes)` : ""}`;
     ref.card.classList.toggle("is-hard-over-capacity", count > hardCapacity);
     ref.button.disabled = !canAssign;
     ref.button.textContent = !unlocked
-      ? `Score ${formatNumber(habitat.unlockScore)}`
+      ? "Previous habitats need 5 snakes"
       : count >= hardCapacity
         ? "At capacity"
       : availableSnakes < 1
@@ -1334,6 +1340,16 @@ function renderHabitats() {
       : `Upgrade - ${formatNumber(upgradeCost)} Branches`;
 
   });
+  const nextHabitat = document.getElementById("next-habitat-progress");
+  if (nextHabitat) {
+    nextHabitat.hidden = !panel.nextHabitat;
+    nextHabitat.textContent = panel.nextHabitat
+      ? `Next habitat in ${formatNumber(panel.nextHabitat.snakesNeeded)} Snakes`
+      : "";
+    if (panel.nextHabitat) {
+      habitatCardRefs[panel.nextHabitat.previousIndex].card.after(nextHabitat);
+    }
+  }
 }
 
 function placeSnakeInHabitat(index) {
@@ -1391,23 +1407,13 @@ function syncNurseryPanel(now = Date.now()) {
   }
 
   setText(nurseryCapacityEl, `${activeCount} / ${capacity}`);
-  setText(pauseFeedingButtonEl, panel.feedingPaused ? "Resume feeding" : "Pause feeding");
-  pauseFeedingButtonEl.setAttribute("aria-pressed", String(panel.feedingPaused));
   setText(nurseryBranchTotalEl, formatWholeNumber(gameView.branchesTotal));
 
   nestUpgradeButtonEl.disabled = !panel.canUpgradeNest;
   nestUpgradeButtonEl.textContent = nestMaxed ? "Nest Slots Maxed · 5 / 5" : `Add Nest Slot · ${formatNumber(nestCost)} Branches`;
   nurseryUpgradeButtonEl.disabled = !panel.canUpgradeNursery;
   nurseryUpgradeButtonEl.textContent = `Upgrade Nursery · ${formatNumber(nurseryBranchCost)} Branches + ${formatNumber(nurserySeedCost)} Seeds`;
-  if (activeCount === 0) {
-    setText(nurseryGrowthStatusEl, "Waiting for a hatchling");
-  } else if (panel.feedingPaused) {
-    setText(nurseryGrowthStatusEl, "Growth paused · feeding stopped");
-  } else if (panel.growthPaused) {
-    setText(nurseryGrowthStatusEl, "Growth paused · seed bank too low");
-  } else {
-    setText(nurseryGrowthStatusEl, "Growing · 1 Seed / 900 ms each");
-  }
+  setText(nurseryGrowthStatusEl, activeCount === 0 ? "Waiting for a hatchling" : "Growing");
 
   syncHatchlingRows();
   renderNurseryGrid();
@@ -1558,11 +1564,11 @@ function notableSourceText(notable) {
 }
 
 function notableContributionText(notable) {
-  if (notable.powerType === "PRODUCTION_INCREASE") return `Generated ${formatDecimal(notable.totalProductionAdded)} bonus Seeds`;
-  if (notable.powerType === "CONSUMPTION_REDUCTION") return `Prevented ${formatProvisions(notable.totalConsumptionPrevented)} Provision consumption`;
+  if (notable.powerType === "PRODUCTION_INCREASE") return `Generated ${formatDecimal(notable.totalProductionAdded)} bonus resources`;
+  if (notable.powerType === "CONSUMPTION_REDUCTION") return "";
   if (notable.powerType === "CAPACITY_INCREASE") return `Enabled ${formatDecimal(notable.totalCapacityEnabled / 3600)} snake-hours of capacity`;
   if (notable.powerType === "FORAGER") return `Foraged ${formatProvisions(notable.totalProvisionsForaged)} Provisions`;
-  if (notable.powerType === "RATIONER") return `Preserved ${formatDecimal(notable.totalShortageOutputPreserved)} Seeds during shortages`;
+  if (notable.powerType === "RATIONER") return `Preserved ${formatDecimal(notable.totalShortageOutputPreserved)} resources during shortages`;
   return "No recorded contribution";
 }
 
@@ -1604,6 +1610,23 @@ function makeHoldConfirmButton(label, onConfirm) {
   return button;
 }
 
+const notableServiceRefs = new Map();
+function notableServiceText(notable, elder = false) {
+  const servedNames = notable.habitatsServed.map((index) => habitatConfig.habitats[index]?.name).filter(Boolean);
+  const contribution = notableContributionText(notable);
+  return `${formatDuration(notable.totalServiceTime)} served${servedNames.length ? ` in ${servedNames.join(", ")}` : ""} ${contribution ? `\u00b7 ${contribution}` : ""}${elder && notable.retiredAt ? ` \u00b7 Retired ${new Date(notable.retiredAt).toLocaleDateString()}` : ""}`;
+}
+
+function syncNotableService() {
+  if (!isMenuPanelVisible(notablesPanelEl)) return;
+  gameView.notablesState.retained.forEach((notable) => {
+    const ref = notableServiceRefs.get(notable.id);
+    if (!ref) return;
+    setText(ref.service, notableServiceText(notable));
+    setText(ref.remove, `Hold to ${notable.hasServed ? "Retire" : "Dismiss"}`);
+  });
+}
+
 function buildNotableCard(notable, elder = false) {
   const card = document.createElement("article"); card.className = "notable-card";
   const habitat = notable.assignedHabitatId == null ? null : habitatConfig.habitats[notable.assignedHabitatId];
@@ -1612,8 +1635,7 @@ function buildNotableCard(notable, elder = false) {
   details.textContent = `${notablePowerText(notable)} · ${habitat ? `Leader of ${habitat.name}` : elder ? "Retired" : "Inactive"} · Source: ${notableSourceText(notable)}`;
   card.append(details);
   const service = document.createElement("p"); service.className = "notable-service";
-  const servedNames = notable.habitatsServed.map((index) => habitatConfig.habitats[index]?.name).filter(Boolean);
-  service.textContent = `${formatDuration(notable.totalServiceTime)} served${servedNames.length ? ` in ${servedNames.join(", ")}` : ""} · ${notableContributionText(notable)}${elder && notable.retiredAt ? ` · Retired ${new Date(notable.retiredAt).toLocaleDateString()}` : ""}`;
+  service.textContent = notableServiceText(notable, elder);
   card.append(service);
   if (elder) return card;
   const actions = document.createElement("div"); actions.className = "notable-actions";
@@ -1638,8 +1660,12 @@ function buildNotableCard(notable, elder = false) {
     });
     actions.append(select);
   }
-  const retire = makeHoldConfirmButton(notable.hasServed ? "Retire" : "Dismiss", () =>
-    commitNotableAction({ type: notable.hasServed ? "retireNotable" : "dismissNotable", notableId: notable.id }));
+  const retire = makeHoldConfirmButton(notable.hasServed ? "Retire" : "Dismiss", () => {
+    const current = gameView.notablesState.retained.find((item) => item.id === notable.id);
+    if (current) commitNotableAction({ type: current.hasServed ? "retireNotable" : "dismissNotable", notableId: notable.id });
+  });
+  if (notable.status !== "PENDING") notableServiceRefs.set(notable.id, { service, remove: retire });
+  retire.classList.add("notable-remove");
   actions.append(retire); card.append(actions); return card;
 }
 
@@ -1652,73 +1678,39 @@ function syncNotablesSummary() {
   const pendingCount = gameView.notablesState.pending.length;
   setText(notablesPendingIndicatorEl, pendingCount ? `${pendingCount} Pending` : "");
   setHidden(notablesPendingIndicatorEl, pendingCount === 0);
-  if (notablesSummaryEl) setText(notablesSummaryEl, label);
+  if (notablesSummaryEl) setText(notablesSummaryEl, `(${gameView.notablesState.retained.length}/${capacity})`);
   return over;
 }
 
-const CANDIDATES_PER_PAGE = 5;
-let candidatePage = 0;
-let selectedCandidateId = null;
-
-function selectCandidate(candidateId) {
-  selectedCandidateId = candidateId;
-  renderNotables();
-}
-
-function buildCandidateListItem(candidate) {
-  const button = document.createElement("button");
-  button.type = "button";
-  button.className = "candidate-list-item";
-  button.dataset.candidateId = candidate.id;
-  button.setAttribute("aria-pressed", String(candidate.id === selectedCandidateId));
-  const name = document.createElement("strong"); name.textContent = notableDisplayName(candidate);
-  const power = document.createElement("span"); power.textContent = notablePowerText(candidate);
-  button.append(name, power);
-  button.addEventListener("click", () => selectCandidate(candidate.id));
-  return button;
-}
-
-function renderCandidateQueue() {
-  const pending = gameView.notablesState.pending;
-  const pageCount = Math.max(1, Math.ceil(pending.length / CANDIDATES_PER_PAGE));
-  candidatePage = Math.min(candidatePage, pageCount - 1);
-  const pageStart = candidatePage * CANDIDATES_PER_PAGE;
-  const candidates = pending.slice(pageStart, pageStart + CANDIDATES_PER_PAGE);
-  if (!pending.some((item) => item.id === selectedCandidateId)) selectedCandidateId = candidates[0]?.id || pending[0]?.id || null;
-  candidateListEl.replaceChildren(...candidates.map(buildCandidateListItem));
-  if (!pending.length) candidateListEl.textContent = "No candidates waiting.";
-  candidateQueueSummaryEl.textContent = `${pending.length} waiting`;
-  candidatePaginationEl.hidden = pageCount <= 1;
-  candidatePageStatusEl.textContent = `Page ${candidatePage + 1} of ${pageCount}`;
-  candidatePreviousPageEl.disabled = candidatePage === 0;
-  candidateNextPageEl.disabled = candidatePage >= pageCount - 1;
-}
-
 function renderNotables() {
-  const over = syncNotablesSummary();
+  syncNotablesSummary();
   if (!notablesPanelEl || notablesPanelEl.hidden) return;
+  notableServiceRefs.clear();
   notablesRosterEl.replaceChildren(...gameView.notablesState.retained.map((item) => buildNotableCard(item)));
   if (!gameView.notablesState.retained.length) notablesRosterEl.textContent = "No retained Notables.";
   eldersRosterEl.replaceChildren(...gameView.notablesState.elders.map((item) => buildNotableCard(item, true)));
   if (!gameView.notablesState.elders.length) eldersRosterEl.textContent = "No Elders yet.";
-  renderCandidateQueue();
-  const pending = gameView.notablesState.pending.find((item) => item.id === selectedCandidateId); pendingNotableEl.replaceChildren();
+  const pending = gameView.notablesState.pending[0];
+  candidateDecisionEl.hidden = !pending;
+  pendingNotableEl.replaceChildren();
   if (pending) {
     const card = buildNotableCard(pending); card.classList.add("is-pending");
+    card.querySelector(".notable-service")?.remove();
     pendingNotableEl.append(card);
     const reject = document.createElement("button"); reject.type = "button"; reject.textContent = "Reject"; reject.addEventListener("click", () => commitNotableAction({ type: "resolvePendingNotable", decision: "REJECT", candidateId: pending.id }));
-    card.querySelector(".notable-actions")?.remove(); const actions = document.createElement("div"); actions.className = "notable-actions"; actions.append(reject);
+    card.querySelector(".notable-actions")?.remove(); const actions = document.createElement("div"); actions.className = "notable-actions candidate-actions";
     const capacity = latestSnapshot?.notableCapacity ?? window.IdleSnakeNotables.capacity(gameView.notablesState, gameView.habitats.counts);
-    if (gameView.notablesState.retained.length < capacity) {
-      const accept = document.createElement("button"); accept.type = "button"; accept.textContent = "Accept"; accept.addEventListener("click", () => commitNotableAction({ type: "resolvePendingNotable", decision: "ACCEPT", candidateId: pending.id }));
-      actions.append(accept);
-    }
+    const accept = document.createElement("button"); accept.type = "button"; accept.textContent = "Keep";
+    accept.disabled = gameView.notablesState.retained.length >= capacity;
+    accept.addEventListener("click", () => commitNotableAction({ type: "resolvePendingNotable", decision: "ACCEPT", candidateId: pending.id }));
+    actions.append(accept, reject);
     const replaceSelect = document.createElement("select"); replaceSelect.setAttribute("aria-label", `Replace a retained Notable with ${notableDisplayName(pending)}`);
     const replacePrompt = document.createElement("option"); replacePrompt.value = ""; replacePrompt.textContent = "Replace a Notable…"; replaceSelect.append(replacePrompt);
     gameView.notablesState.retained.forEach((existing) => { const option = document.createElement("option"); option.value = existing.id; option.textContent = notableDisplayName(existing); replaceSelect.append(option); });
     replaceSelect.addEventListener("change", () => { if (replaceSelect.value) commitNotableAction({ type: "resolvePendingNotable", decision: "REPLACE", replaceNotableId: replaceSelect.value, candidateId: pending.id }); });
-    actions.append(replaceSelect); card.append(actions);
-  } else pendingNotableEl.textContent = "Select a candidate from the queue.";
+    if (gameView.notablesState.retained.length) actions.append(replaceSelect);
+    pendingNotableEl.append(actions);
+  }
   const cost = window.IdleSnakeConfig.notableConfig.directRecruitmentCost;
   recruitNotableButtonEl.disabled = !engineQueries.capabilities(latestSnapshot).canRecruit;
   recruitNotableButtonEl.textContent = `Recruit Notable · Sacrifice ${cost} unassigned snakes`;
@@ -3766,6 +3758,7 @@ function syncPanels(now = Date.now()) {
   // Keep the shared count fresh without rebuilding the interactive roster
   // under the pointer every 250ms.
   syncNotablesSummary();
+  syncNotableService();
   if (isMenuPanelVisible(migrationPanelEl)) syncMigrationPanel();
 }
 
@@ -4861,8 +4854,6 @@ minigameKeys.forEach((key) => {
 });
 
 notablesButtonEl?.addEventListener("click", showNotablesMenu);
-candidatePreviousPageEl?.addEventListener("click", () => { candidatePage = Math.max(0, candidatePage - 1); selectedCandidateId = null; renderNotables(); });
-candidateNextPageEl?.addEventListener("click", () => { candidatePage += 1; selectedCandidateId = null; renderNotables(); });
 closeNotablesButtonEl?.addEventListener("click", showColonyOverview);
 closeNotablesButtonEl?.addEventListener("pointerdown", (event) => {
   event.preventDefault();
@@ -4891,12 +4882,7 @@ animationId = requestAnimationFrame((now) => {
   gameLoop(now);
 });
 
-pauseFeedingButtonEl.addEventListener("click", () => {
-  interpretSessionEvents(tickIdleWorld("feeding"));
-  const result = dispatchSession({ type: "toggleFeeding" });
-  interpretSessionEvents(result.events);
-  syncNurseryPanel(); persistConsolidatedSave();
-});
+
 
 // Animation frames stop in hidden tabs. Timers can also be throttled, so each
 // callback accounts for the entire elapsed time; returning focus catches up too.

@@ -360,18 +360,7 @@ button {
 }
 
 .nursery-yard-card .nursery-card-heading { gap: 8px; flex-wrap: wrap; }
-.nursery-feeding-button {
-  padding: 5px 7px;
-  border: 1px solid var(--screen);
-  border-radius: 4px;
-  background: transparent;
-  color: #d4ddbd;
-  font: inherit;
-  font-size: 0.6rem;
-  cursor: pointer;
-}
-.nursery-feeding-button[aria-pressed="true"] { background: #34452b; }
-.nursery-feeding-button:focus-visible { outline: 2px solid #d4ddbd; outline-offset: 2px; }
+
 
 .nursery-goal-card .upgrade-button {
   margin-top: 2px;
@@ -697,7 +686,8 @@ html[data-reduced-motion="true"] .nursery-cell.is-tail.is-wiggling::after {
 
 .notables-panel[hidden] { display: none; }
 .notables-heading, .notable-actions { display: flex; gap: 0.5rem; align-items: center; justify-content: space-between; }
-.notables-heading > div { display: grid; gap: 0.2rem; }
+.notables-heading { align-items: start; }
+#notablesSummary { white-space: nowrap; }
 .notables-heading strong { color: #f4efd8; font-size: 1rem; }
 .notables-panel h3 { margin: 4px 2px 0; color: #d9e5a5; font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; }
 #recruitNotableButton { min-height: 42px; padding: 8px 14px; line-height: 1.25; }
@@ -705,28 +695,29 @@ html[data-reduced-motion="true"] .nursery-cell.is-tail.is-wiggling::after {
 .notable-card { padding: 8px 9px 7px; border: 2px solid #1b211d; border-radius: 8px; background: linear-gradient(180deg, rgba(255,255,255,0.07), rgba(0,0,0,0.16)), #3a433c; box-shadow: inset 0 1px 0 rgba(255,255,255,0.11); color: #d8d7c4; }
 .notable-card > strong { color: #f4efd8; }
 .notable-card.is-pending { border-color: #8a6a34; }
-.notable-card p { margin: 0.25rem 0; }
+.notable-card p { margin: 0.5rem 0; line-height: 1.45; }
 .notable-service { color: var(--screen); font-size: 0.68rem; }
 .notable-actions { justify-content: flex-start; flex-wrap: wrap; margin-top: 0.45rem; }
-.notable-card:not(.is-pending) > .notable-actions { width: 100%; flex-direction: column; align-items: flex-start; }
+.notable-card:not(.is-pending) > .notable-actions { width: 100%; align-items: center; gap: 8px; }
 .notable-card:not(.is-pending) > .notable-actions > select { width: 100%; }
 .notable-actions button, .notable-actions select { min-height: 25px; padding: 3px 7px; border: 1px solid #101713; border-radius: 4px; background: var(--screen); color: var(--screen-ink); font: 800 0.62rem/1 "Courier New", Courier, monospace; }
-.notable-candidates, .candidate-decision { margin-top: 0.75rem; padding: 8px; border: 2px solid rgba(27,33,29,0.7); border-radius: 7px; }
-.notable-section-heading, .candidate-pagination { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
-.notable-section-heading h3, .candidate-decision > h3 { margin: 0; }
-.candidate-list { display: grid; gap: 5px; margin-top: 7px; }
-.candidate-list-item { display: flex; align-items: center; justify-content: space-between; gap: 8px; width: 100%; min-height: 36px; padding: 6px 8px; border: 1px solid #101713; border-radius: 5px; background: rgba(24,36,19,0.12); color: var(--screen-ink); font: 700 0.62rem/1.2 "Courier New", Courier, monospace; text-align: left; cursor: pointer; }
-.candidate-list-item[aria-pressed="true"] { background: var(--screen-ink); color: #dbe5ad; }
-.candidate-list-item span { text-align: right; }
-.candidate-pagination { margin-top: 7px; }
-.candidate-pagination[hidden] { display: none; }
-.candidate-pagination button { min-height: 28px; border: 1px solid #101713; border-radius: 4px; background: var(--screen); color: var(--screen-ink); font: 800 0.6rem/1 "Courier New", Courier, monospace; }
+/* A single review card; pending candidates stay in the engine queue. */
+.candidate-decision { padding: 0; margin: 0; border: 0; }
+.candidate-decision[hidden] { display: none; }
+#pendingNotable { width: min(100%, 240px); margin-inline: auto; }
+#pendingNotable .is-pending { box-sizing: border-box; aspect-ratio: 1; display: flex; flex-direction: column; justify-content: center; gap: 8px; overflow-wrap: anywhere; }
+#pendingNotable .candidate-actions { display: grid; grid-template-columns: 1fr 1fr; }
+#pendingNotable .candidate-actions select { grid-column: 1 / -1; width: 100%; }
+#notablesPanel .notable-remove { background: #a52b32 !important; color: #fff !important; border-color: #a52b32; }
+#notablesPanel .notable-remove:not(:disabled):hover { background: #be343c !important; }
 .notable-hold-confirm { position: relative; overflow: hidden; }
 .notable-hold-confirm::after { content: ""; position: absolute; left: 0; bottom: 0; width: 0; height: 3px; background: #8a3f34; }
 .notable-hold-confirm.is-holding::after { animation: notable-hold-fill var(--hold-confirm-ms) linear forwards; }
 @keyframes notable-hold-fill { from { width: 0; } to { width: 100%; } }
-.notables-back-button { width: 100%; margin-top: 6px; padding: 7px 5px 6px; border: 2px solid #101713; border-radius: 5px; background: var(--screen); color: var(--screen-ink); font: 800 0.66rem/1 "Courier New", Courier, monospace; text-transform: uppercase; cursor: pointer; }
+.notables-back-button { width: auto; margin: 0; padding: 7px 5px 6px; border: 2px solid #101713; border-radius: 5px; background: var(--screen); color: var(--screen-ink); font: 800 0.66rem/1 "Courier New", Courier, monospace; text-transform: uppercase; cursor: pointer; }
 .notables-back-button:active, .notables-open-button:active { transform: translateY(1px); }
+
+.habitat-card[hidden] { display: none; }
 
 .habitat-card {
   display: grid;
@@ -800,8 +791,10 @@ html[data-reduced-motion="true"] .nursery-cell.is-tail.is-wiggling::after {
   font-size: 0.61rem;
   font-weight: 800;
   line-height: 1.25;
-  text-transform: uppercase;
+  text-transform: none;
 }
+
+#habitatList .habitat-output-types { text-transform: none; }
 
 .habitat-card.produces-provisions:not(.is-locked) .habitat-output-types {
   color: #e5a04c;
@@ -1543,11 +1536,11 @@ canvas {
   outline: none;
 }
 
-.seed-income-summary,
-.length-bonus-summary {
-  margin-top: 8px;
-  font-size: 0.85rem;
-}
+/* Keep both income modifiers side by side, with wrapping inside each label. */
+.seed-income-row { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 6px 12px; margin-top: 8px; }
+.seed-income-summary, .length-bonus-summary { font-size: clamp(0.65rem, 1.6vw, 0.85rem); overflow-wrap: anywhere; }
+.length-bonus-summary[hidden] { display: none; }
+#lengthBonusMultiplier { color: #ffe05a; background: #252820; border-radius: 2px; padding-inline: 2px; }
 
 .nav-key {
   width: 100%;

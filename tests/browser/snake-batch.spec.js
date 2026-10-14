@@ -91,42 +91,35 @@ test("the keyboard forwards input timestamps and corrects a turn processed after
   expect(state.modeAccumulatorMs).toBeLessThanOrEqual(34);
 });
 
-test("nursery feeding button is between the title and counter, saves its pause, and resumes growth", async ({ page }) => {
+test("nursery grows at zero Seeds without feeding controls and retains growth across reload", async ({ page }) => {
   await page.goto("/");
   await page.evaluate(() => {
     dispatchSession({ type: "addDevelopmentHatchling" });
-    dispatchSession({ type: "addSeeds", amount: 1000 });
     setMenuTab("nursery"); syncPanels();
   });
-  const button = page.locator("#pauseFeedingButton");
-  await expect(button).toHaveText("Pause feeding");
-  await button.click();
-  await expect(button).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator("#pauseFeedingButton")).toHaveCount(0);
   const counterBox = await page.locator("#nurseryCapacity").boundingBox();
-  const buttonBox = await button.boundingBox();
   const titleBox = await page.locator(".nursery-yard-card strong").boundingBox();
-  expect(titleBox.x + titleBox.width).toBeLessThanOrEqual(buttonBox.x);
-  expect(buttonBox.x + buttonBox.width).toBeLessThanOrEqual(counterBox.x);
-  const paused = await page.evaluate(() => {
+  expect(titleBox.x + titleBox.width).toBeLessThanOrEqual(counterBox.x);
+  const grown = await page.evaluate(() => {
     const before = session.snapshot();
     acceptSnapshot(session.tick(600000).snapshot); syncPanels();
     persistConsolidatedSave(); flushPendingSaves();
     const after = session.snapshot();
-    return { before: { seeds: before.seeds, growth: before.nursery.hatchlings[0].progressMs },
-      after: { seeds: after.seeds, growth: after.nursery.hatchlings[0].progressMs } };
+    return { seeds: after.seeds, growth: after.nursery.hatchlings[0].progressMs - before.nursery.hatchlings[0].progressMs,
+      savedGrowth: after.nursery.hatchlings[0].progressMs };
   });
-  expect(paused.after).toEqual(paused.before);
-  await page.screenshot({ path: test.info().outputPath("nursery-pause.png") });
+  expect(grown.seeds).toBe(0); expect(grown.growth).toBe(600000);
+  await page.screenshot({ path: test.info().outputPath("nursery-time-growth.png") });
   await page.reload();
   await page.evaluate(() => setMenuTab("nursery"));
-  const resume = page.getByRole("button", { name: "Resume feeding", exact: true });
-  await expect(resume).toHaveAttribute("aria-pressed", "true");
-  await resume.click();
+  await expect(page.locator("#pauseFeedingButton")).toHaveCount(0);
+  expect(await page.evaluate(() => session.snapshot().nursery.hatchlings[0].progressMs)).toBeGreaterThanOrEqual(grown.savedGrowth);
   const resumed = await page.evaluate(() => {
     const before = session.snapshot();
     const after = session.tick(900).snapshot;
-    return { spent: before.seeds - after.seeds, count: before.nursery.hatchlings.length,
+    return { spent: before.seeds - after.seeds,
       grown: after.nursery.hatchlings[0].progressMs - before.nursery.hatchlings[0].progressMs };
   });
-  expect(resumed.spent).toBe(resumed.count); expect(resumed.grown).toBe(900);
+  expect(resumed.spent).toBe(0); expect(resumed.grown).toBe(900);
 });
