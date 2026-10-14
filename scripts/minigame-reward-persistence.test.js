@@ -21,6 +21,7 @@ test("actual result presentation and HUD refresh retain terminal reward explanat
     for (let tick = 0; result.snapshot.phase !== "gameover" && tick < 100; tick++) result = session.tick(100);
     const ended = result.events.find(event => event.type === "runEnded");
     assert.ok(ended?.reward > 0, mode);
+    assert.ok(Number.isInteger(ended.reward), `${mode}: terminal award is whole Seeds`);
     const snapshot = result.snapshot;
     const storage = new Map();
     let hint = "";
@@ -82,6 +83,7 @@ test("actual terminal interpreter immediately stores currency and reward ledger 
   const won = session.dispatch({ type: "direction", direction: "right" });
   const terminal = won.events.find(event => event.type === "runEnded");
   assert.ok(terminal.reward > 0);
+  assert.ok(Number.isInteger(terminal.reward));
   context.terminalEvents = [terminal];
   vm.runInContext("interpretSessionEvents(terminalEvents);", context);
 

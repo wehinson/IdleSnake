@@ -1881,7 +1881,8 @@ function interpretSessionEvents(events) {
           setScreenHint(event.won ? "All enemy snakes sunk · Start to play again" : "Your nest was wiped out · Start to try again");
         }
         if (event.rewardDetails) {
-          setScreenHint(`+${formatDecimal(event.reward, 2)} Seeds · progress${event.outcome === "win" ? " + win" : ""} · income ×${formatDecimal(event.rewardDetails.incomeFactor, 1)} · variety ×${formatDecimal(event.rewardDetails.diversityFactor, 2)} · Start to play again`);
+          if (event.outcome === "loss" || event.outcome === "draw") setScreenHint(`0 Seeds · ${event.outcome} · Start to play again`);
+          else setScreenHint(`+${formatDecimal(event.reward, 0)} Seeds · ${event.mode === "maze" ? "time left" : "progress"}${event.outcome === "win" ? " + win" : ""} · income ×${formatDecimal(event.rewardDetails.incomeFactor, 1)} · variety ×${formatDecimal(event.rewardDetails.diversityFactor, 2)} · Start to play again`);
           persistConsolidatedSave();
           flushPendingSaves(); // Currency, reward RNG/history and receipt must persist together now.
         }

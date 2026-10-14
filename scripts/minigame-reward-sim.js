@@ -12,13 +12,16 @@ function repeat(incomePerSecond, modes, runs, won) {
 }
 const result = [0, 99, 9999].map(incomePerSecond => ({
   incomePerSecond,
-  freshLoss: rewards.calculate({ normalizedScore: 1, incomePerSecond }).amount,
+  freshScoreOnly: rewards.calculate({ normalizedScore: 1, incomePerSecond }).amount,
+  genuineLoss: rewards.calculate({ normalizedScore: 1, incomePerSecond, eligible: false }).amount,
   freshWin: rewards.calculate({ normalizedScore: 1, incomePerSecond, won: true }).amount,
   scoreQuarter: rewards.calculate({ normalizedScore: .25, incomePerSecond }).amount,
   scoreFour: rewards.calculate({ normalizedScore: 4, incomePerSecond }).amount,
   repeatedWins: repeat(incomePerSecond, ["breakout"], 100, true),
   rotatingWins: repeat(incomePerSecond, ["breakout", "snakebird", "sokoban", "battleship", "duel"], 100, true),
-  repeatedEndless: repeat(incomePerSecond, ["maze"], 100, false),
+  repeatedScoreOnly: repeat(incomePerSecond, ["centipede"], 100, false),
+  timedNibbler: [45000, 90000, 180000].map(remainingMs => ({ remainingMs,
+    amount: rewards.calculate({ normalizedScore: remainingMs / rewards.MAZE_TIME_LIMIT_MS, won: true, incomePerSecond }).amount })),
   freshAfterRepeats: rewards.calculate({ normalizedScore: 1, incomePerSecond, won: true }).amount
 }));
 function realTraces() {
