@@ -27,50 +27,50 @@ const sokobanLevels = (() => {
     return definition;
   }
   return [
-    stage("First Push", 20, "Eat twice; push with your tail against the back wall.", [
-      "#########", "#21HppCG#", "#########"
+    stage("Measure the Gap", 20, "The spaces include the head. A bent body works; spare pellets are optional.", [
+      "########", "#21pp..#", "##Hpc.G#", "########"
     ]),
-    stage("Around the Heel", 35, "Grow down the shaft, then fold around the corner to brace right.", [
-      "#########", "#2#######", "#1#######", "#H#######", "#p#######", "#.#######", "#p#######", "#.....CG#", "#########"
+    stage("Close Backstop", 35, "An interior wall permits three short-body shoves through a much larger room.", [
+      "##########", "#21H....p#", "#........#", "#.#.c..G.#", "#p.......#", "##########"
     ]),
-    stage("Harvest Loop", 45, "Leave the crate, harvest the room, and return with a supported tail.", [
-      "#########", "#21H....#", "#..#..p.#", "#....CG.#", "#p......#", "#########"
+    stage("Last Shove", 45, "Each shove increases the gap. Feed once more or the last shove will fail.", [
+      "#########", "#21Hpc.G#", "#p...p###", "#########"
     ]),
-    stage("Ceiling Press", 60, "Build length below the load; turn your tail toward the floor to push up.", [
-      "#######", "#..G..#", "#..C..#", "#.....#", "#p...p#", "#21H..#", "#######"
+    stage("Corner Crane", 60, "A wall blocks the direct lift. Shift sideways, then use the floor wall to lift.", [
+      "#########", "#21H..G.#", "#.......#", "#..#.c..#", "#p...#p.#", "#########"
     ]),
-    stage("Dogleg Delivery", 85, "A heavy crate must turn the corner; each push needs a different brace.", [
-      "########", "#....G.#", "#......#", "#...C..#", "#p..#p.#", "#21H...#", "########"
+    stage("Feed or Relocate", 85, "Grow for the long delivery line, or move the box to a closer wall before turning.", [
+      "###########", "#21Hppp...#", "#..#......#", "#.....c.G.#", "#.........#", "###########"
     ]),
-    stage("Light Work First", 100, "Move the light crate to reach growth, then prepare the heavy brace.", [
-      "#########", "#21H.####", "####cp###", "#p.....##", "#....CG##", "#...G..##", "#########"
+    stage("Opposed Bays", 100, "A second box interrupts the wall line. Lift the obstruction before opposite deliveries.", [
+      "#########", "#21H.p..#", "#..#....#", "#Gc...cG#", "#....#..#", "#p......#", "#########"
     ]),
-    stage("Living Bridge", 120, "Keep a body segment on the plate while the head pushes through its gate.", [
-      "#########", "#21Hpp..#", "#.....###", "#..a.CAG#", "#.....###", "#########"
+    stage("Body Key", 120, "One extra segment can both span the gate plate and finish the growing wall gap.", [
+      "#########", "#21Hp.p.#", "#.....###", "##a..cAG#", "#p....###", "#########"
     ]),
-    stage("Rebrace", 145, "The first shove spends the brace. Coil again before the second shove.", [
-      "###########", "#21Hpp....#", "#..#......#", "#.....C.G.#", "#.........#", "###########"
+    stage("Narrow Relay", 145, "Park the first box off the line. The distant delivery then needs a six-cell reach.", [
+      "###########", "#21Hppp...#", "#...#...###", "#...c..cG##", "#...#...###", "#p...G....#", "###########"
     ]),
-    stage("Crossed Cargo", 170, "Deliver two heavy crates in different directions through the same workspace.", [
-      "#########", "#...G...#", "#...C...#", "#21Hpp..#", "#....CG.#", "#.......#", "#########"
+    stage("Two Backstops", 170, "The top gate has a closer wall. The lower gate needs another segment; escape before feeding.", [
+      "##########", "#21Hpp.p.#", "#......###", "##a..cAG##", "#......###", "#b...cBG##", "##########"
     ]),
-    stage("Opposed Loads", 200, "Solve loads facing opposite walls without boxing in the long body.", [
-      "#########", "#21Hpp..#", "#.......#", "#GC...CG#", "#.......#", "#########"
+    stage("Opposite Ends", 200, "Use right and left backing walls in different narrow lanes without trapping the body.", [
+      "##########", "#21Hppp..#", "#...#....#", "#Gc....###", "#...#....#", "###....cG#", "#p.......#", "##########"
     ]),
-    stage("Gatehouse", 235, "Shift the light crate while preserving space for a gated heavy push.", [
-      "#########", "#21Hpp..#", "#....cG##", "#..a.CAG#", "#.....###", "#########"
+    stage("Exchange Bays", 235, "Clear the short upward load first, then plan the two longer opposing delivery lines.", [
+      "#########", "#..G....#", "#..c....#", "#21H.pp.#", "#Gc..cG.#", "#..#...p#", "#########"
     ]),
-    stage("Two Keys", 275, "Body placement must open two gates; collect extra length before crossing.", [
-      "##########", "#21Hppp..#", "#......###", "#.a..CAG##", "#b.....###", "#....CBG##", "##########"
+    stage("Plate Cross", 275, "One box blocks the other's backing line. Finish the vertical gate before the horizontal one.", [
+      "#########", "###G#####", "#..B..###", "#a...cAG#", "#..c.b###", "#21Hppp.#", "#########"
     ]),
-    stage("Three Bearings", 320, "Three heavy loads compete for the same turning room and wall anchors.", [
-      "#########", "#...G...#", "#...C...#", "#21Hpp..#", "#GC..CG.#", "#.......#", "#########"
+    stage("Switch the Anchor", 320, "The gate behind your head must stay open to reach the real wall beyond it.", [
+      "##########", "#21Hpp...#", "#...a...##", "##.A..c.G#", "#p......##", "##########"
     ]),
-    stage("Long Lever", 370, "Growth extends the plate reach but makes rebracing and turning harder.", [
-      "###########", "#21H..p####", "#..#..p####", "#a.....CAG#", "#p.#..p####", "#......####", "###########"
+    stage("Three Cargo Routes", 370, "Choose three growth pellets, keep the side plate covered, and deliver three loads in different directions.", [
+      "###########", "#...G.....#", "#p..c..####", "#..#...cAG#", "#..a...####", "#Gc....####", "#21Hppp...#", "###########"
     ]),
-    stage("Anchorworks", 430, "A parked crate blocks the tail anchor. Clear it to finish the gated load, then restore it.", [
-      "#########", "#...G...#", "#...C...#", "#21Hpp.##", "#GCa.CAG#", "#......##", "#########"
+    stage("Wall Ledger", 430, "Move the lower load aside instead of parking it. Its goal blocks the only route to the upper key.", [
+      "###########", "####G######", "#...B..####", "##.#c..cAG#", "#b#a...####", "#Gc....####", "#21Hpppp..#", "###########"
     ])
   ];
 })();

@@ -10,7 +10,7 @@ function stateKey(state) {
   return [state.snake, state.crates, state.pellets]
     .map(points => points.map(p => `${p.x},${p.y}`).join(";")).join("|");
 }
-function search(definition, { maxStates = 200000, pellets = definition.pellets, guided = false } = {}) {
+function search(definition, { maxStates = 30000, pellets = definition.pellets, guided = false, growthTarget = definition.snake.length } = {}) {
   const grid = { columns: definition.map[0].length, rows: definition.map.length };
   const start = sokoban.parseLevel({ ...definition, pellets }, grid, 0);
   const queue = [{ state: start, parent: -1, move: "" }];
@@ -22,7 +22,7 @@ function search(definition, { maxStates = 200000, pellets = definition.pellets, 
     const state = queue[index].state;
     const distance = state.crates.reduce((sum, crate) => sum + Math.min(...state.goals.map(goal =>
       Math.abs(crate.x - goal.x) + Math.abs(crate.y - goal.y))), 0);
-    const priority = state.moves + (guided ? distance * 12 + Math.max(0, 5 - state.snake.length) * 10 : 0);
+    const priority = state.moves + (guided ? distance * 12 + Math.max(0, growthTarget - state.snake.length) * 10 : 0);
     const item = { index, priority };
     pending.push(item);
     let cursor = pending.length - 1;

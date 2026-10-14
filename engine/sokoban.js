@@ -64,11 +64,23 @@
   function isGoal(state, point) {
     return state.goals.some((goal) => goal.x === point.x && goal.y === point.y);
   }
-  function isBraced(state, directionName) {
+  // Spaces strictly between the adjacent box and the wall behind the head,
+  // including the head cell. Body shape is irrelevant to this measurement.
+  // Map edges count as walls. Crates/closed gates interrupt the line but are
+  // not walls; open gates, plates and body segments are transparent to it.
+  function pushSupport(state, directionName) {
     const vector = vectors[directionName];
-    const tail = state.snake[state.snake.length - 1];
-    if (!tail || !vector) return false;
-    return isWall(state, { x: tail.x - vector.x, y: tail.y - vector.y });
+    const head = state.snake[0];
+    if (!head || !vector) return null;
+    let point = { x: head.x - vector.x, y: head.y - vector.y };
+    let spaces = 1;
+    while (!isWall(state, point)) {
+      const gate = gateAt(state, point);
+      if (crateAt(state, point) || (gate && !plateActive(state, gate.id))) return null;
+      spaces++;
+      point = { x: point.x - vector.x, y: point.y - vector.y };
+    }
+    return { wall: point, spaces };
   }
 
   // Attempt a move. Returns { accepted, state, events, won }. Rejected (illegal)
@@ -93,7 +105,8 @@
 
     let nextCratePoint = null;
     if (crate) {
-      if (crate.kind === "heavy" && (state.snake.length < 5 || !isBraced(state, directionName))) {
+      const support = pushSupport(state, directionName);
+      if (!support || state.snake.length < support.spaces) {
         return { accepted: false, state, events: [], won: false };
       }
       nextCratePoint = { x: crate.x + vector.x, y: crate.y + vector.y };
@@ -129,7 +142,7 @@
 
   return {
     vectors, key, parseLevel,
-    isWall, crateAt, snakeContains, gateAt, plateActive, isOpen, isGoal, isBraced,
+    isWall, crateAt, snakeContains, gateAt, plateActive, isOpen, isGoal, pushSupport,
     applyMove
   };
 });

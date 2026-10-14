@@ -69,15 +69,52 @@ test("a crate can't be pushed into a wall", () => {
   assert.equal(result.accepted, false);
 });
 
-test("heavy crates need a braced snake of length >= 5", () => {
-  const def = level();
-  // Snake length 2, not braced -> heavy crate won't budge.
-  def.snake = [{ x: 1, y: 2 }, { x: 1, y: 1 }];
-  def.crates = [{ x: 2, y: 2, kind: "heavy" }];
-  def.goals = [{ x: 3, y: 2 }];
-  def.pellets = [];
+test("every box kind needs length equal to floor spaces, including the head, and permits a bent body", () => {
+  for (const kind of [undefined, "light", "heavy"]) {
+    const def = {
+      ...level(), map: ["#######", "#.....#", "#.....#", "#.....#", "#######"],
+      snake: [{ x: 3, y: 2 }, { x: 3, y: 3 }],
+      crates: [{ x: 4, y: 2, kind }], goals: [{ x: 5, y: 2 }], pellets: []
+    };
+    const state = sokoban.parseLevel(def, { columns: 7, rows: 5 }, 0);
+    assert.deepEqual(sokoban.pushSupport(state, "right"), { wall: { x: 0, y: 2 }, spaces: 3 });
+    const before = structuredClone(state);
+    assert.equal(sokoban.applyMove(state, "right").accepted, false, "length two cannot span three floor spaces");
+    assert.deepEqual(state, before);
+    state.snake.push({ x: 2, y: 3 }); // tail neither on the push line nor touching its backing wall
+    assert.equal(sokoban.applyMove(state, "right").accepted, true, "length three suffices, even for the former heavy kind");
+  }
+});
+
+test("one head space is sufficient; each consecutive push remeasures the wall distance", () => {
+  const def = { ...level(), snake: [{ x: 1, y: 2 }], pellets: [], goals: [{ x: 4, y: 2 }] };
   const state = sokoban.parseLevel(def, grid, 0);
+  assert.equal(sokoban.pushSupport(state, "right").spaces, 1);
+  assert.equal(sokoban.applyMove(state, "right").accepted, true);
+  assert.equal(sokoban.pushSupport(state, "right").spaces, 2);
+  const before = structuredClone(state);
   assert.equal(sokoban.applyMove(state, "right").accepted, false);
+  assert.deepEqual(state, before);
+});
+
+test("finite map edges back a push; nearby walls shorten the distance, crates and closed gates never substitute", () => {
+  const def = { ...level(), map: ["......", "......", "......", "......", "......"],
+    snake: [{ x: 2, y: 2 }, { x: 2, y: 3 }], crates: [{ x: 3, y: 2, kind: "light" }],
+    goals: [{ x: 4, y: 2 }], pellets: [] };
+  const state = sokoban.parseLevel(def, { columns: 6, rows: 5 }, 0);
+  assert.deepEqual(sokoban.pushSupport(state, "right"), { wall: { x: -1, y: 2 }, spaces: 3 });
+  assert.equal(sokoban.applyMove(state, "right").accepted, false);
+  state.walls.add("1,2");
+  assert.equal(sokoban.pushSupport(state, "right").spaces, 1);
+  state.walls.delete("1,2");
+  state.crates.push({ x: 1, y: 2, kind: "light" });
+  assert.equal(sokoban.pushSupport(state, "right"), null);
+  state.crates.pop();
+  state.gates.push({ x: 1, y: 2, id: "a" });
+  state.plates.push({ x: 0, y: 0, id: "a" });
+  assert.equal(sokoban.pushSupport(state, "right"), null);
+  state.plates[0] = { x: 2, y: 3, id: "a" };
+  assert.deepEqual(sokoban.pushSupport(state, "right"), { wall: { x: -1, y: 2 }, spaces: 3 });
 });
 
 test("runs headless with no DOM", () => {
