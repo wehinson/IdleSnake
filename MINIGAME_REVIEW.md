@@ -4,6 +4,8 @@ Updated2026-10-11. All six independently passed tips are merged ONLY into this i
 
 ## Current state
 
+- Current merged runtime base36aae35: approvedworking262eac2 ancestor, one full pass535/535,143syntax/11authority/canonical +actualColonyUI/diff PASS. Lease released; no heavy job remains. These exact-code checks are baseline evidence only; all13 new revisions remain pending. Original workers must preserve owned WIP and merge the already-resolved integration36aae35 rather than independently resolving working. Final report must cover Colony10× passive income→reward compatibility and Back→Classic Seed grace/progression/save/UI preservation.
+
 - 2026-10-14: William approved ColonyPR2 into working262eac2c1a2d2e976c9ffd2eb4a3f1edd55142e6. Explicitly authorized early working merge intoPR3 now supersedes the older separate-import restriction for that approvedbase only. Coordinator resolves soleBRANCHES conflict keepingbothhistories; allfiveoriginalworkers safelypickupresolvedbase. Full merged/minigame+Colony checks still required; automatedmerge doesnotprovecompatibility. RetiredmergedColonytest3-5 previews may404 normally, no restoration.
 
 - 2026-10-13: William requested13 revisions on PR3. Active round source: MINIGAME_REVISION_20261013.md, including his later corrected Sokoban occupied-straight-body rule. All five original worker branches fast-forward only to common accepted a83251ad; scoped work in progress, no new round acceptance yet. One final combined review replaces repeated per-worker layers. Required Claude/GPT Nibbler design task IDs recorded in the new brief. No current heavy lease; source/small only until named allocator lease.
