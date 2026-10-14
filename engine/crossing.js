@@ -14,14 +14,17 @@
   const LOG_TIERS = { green: { color: "#4e9c45", speed: 1 }, blue: { color: "#3979c6", speed: 1.25 }, black: { color: "#14171c", speed: 1.5625 } };
 
   function buildCars(stage, grid) {
-    const cars = []; const carCount = stage >= 5 ? 6 : stage >= 3 ? 5 : 4;
-    const tiers = ["green", "blue", "green", "black", "green", "green"];
+    const cars = []; const carCount = stage >= 5 ? 3 : 2;
     const stageSpeed = 1 + Math.min(1.25, (stage - 1) * 0.14);
     for (let row = 1; row < grid.rows - 1; row += 1) {
       const sign = row % 2 === 0 ? -1 : 1;
       const greenSpeed = (0.11 + (row % 3) * 0.018) * stageSpeed * sign;
+      const fastTier = (row + stage) % 2 === 0 ? "blue" : "black";
+      const tiers = carCount === 2 ? ["green", fastTier]
+        : row % 3 === 0 ? ["green", "blue", "black"] : ["green", "green", fastTier];
       for (let index = 0; index < carCount; index += 1) {
-        // Every lane contains all three tiers, with green always most common.
+        // Mix each lane without raising mid/late density. Greens lead globally;
+        // blue/black alternate across lanes/stages, with some late three-tier lanes.
         const tier = tiers[(index + row + stage - 2) % carCount];
         const width = 1 + ((row + index + stage) % 3 === 0 ? 1 : 0);
         const start = (row * 2.7 + index * grid.columns / carCount + stage * 1.35 + 0.5) % grid.columns;
