@@ -48,6 +48,8 @@ Required read-only design tasks (source/design only, no heavy solver):
 - Claude Opus5.5, medium: node:delegated-task:command%3Amcp%3A3fd7493a-04dc-4025-8f70-e94c49c6b351%3Adelegate-task%3Anibbler-level-design-claude-20261013-v1
 - GPT6.1Sol, medium: node:delegated-task:command%3Amcp%3A3fd7493a-04dc-4025-8f70-e94c49c6b351%3Adelegate-task%3Anibbler-level-design-gpt-20261013-v1
 
+Design evidence correction: GPT v1 completed without candidates after improperly delegating to nested Claude, whose rate-limit failure produced no designs. This is INCOMPLETE, not successful GPT design evidence. The original Claude v1 remains the direct Claude design task and is not duplicated. Snake owner sent a GPT-only correction to the original GPT backing thread (design follow-up, not an independent review round), with full schema/history and no more children. Its returned task ID and actual GPT candidate comparison must be recorded before the15 selected boards are accepted. No incomplete/cancelled/failed result counts as a design PASS.
+
 ### Sokoban — William's correction to change10
 
 William explicitly discarded Home's length-only assumption. The actual body must lie in a straight, continuous line between the box and wall: head adjacent to the box, every cell from head back to the wall occupied by the snake. A sufficiently long but bent snake CANNOT push. Check occupied cells, not a length threshold. Remove the old all-Seeds/hard-length5 gate.
