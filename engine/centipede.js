@@ -1,6 +1,6 @@
 // Headless centipede minigame — a grid-based Centipede clone. A villain
 // centipede winds down through a mushroom field; the player's shooter is
-// confined to a band of rows at the bottom and auto-fires a single bullet up
+// confined to a band of rows at the bottom and auto-fires concurrent bullets up
 // the screen. Shooting a middle segment splits the chain into two and drops a
 // mushroom where the segment died. Pure logic here (grid coordinates only);
 // the host renders cells to pixels and tints the villain with the player's
@@ -23,7 +23,8 @@
     mushroomDensity: 0.06,  // fraction of upper-field cells seeded at start
     waveMushrooms: 4,       // extra mushrooms added per wave
     tickMs: 70,
-    bulletStep: 2.4,        // +20% travel rate; faster single-bullet re-fire
+    bulletStep: 2.4,        // unchanged travel rate; each projectile carries fractions
+    fireIntervalMs: 210,   // one shot every three ticks, independent of impact
     segmentStepMs: 87.5,    // 70 / 0.8: enemies travel 20% slower
     points: { body: 10, head: 100, mushroom: 1 }
   };
@@ -78,7 +79,8 @@
       rows,
       playerRows,
       player: { x: Math.floor(cols / 2), y: rows - 1, inputX: 0, inputY: 0 },
-      bullet: null,
+      bullets: [],
+      fireAccumulatorMs: config.fireIntervalMs - config.tickMs,
       mushrooms: {},
       segments: [],
       score: 0,
@@ -116,19 +118,17 @@
   }
 
   // Climb the bullet up the field, checking every cell so it never tunnels.
-  function stepBullet(state, events) {
-    if (!state.bullet) return;
-    const b = state.bullet;
+  function stepBullet(state, b, events) {
     // A new shot must check the adjacent cell, rather than skip past it.
     if (b.fresh) { b.y += 1; delete b.fresh; }
-    state.bulletTravelRows = (state.bulletTravelRows || 0) + config.bulletStep;
-    const rows = Math.floor(state.bulletTravelRows + 1e-9);
-    state.bulletTravelRows -= rows;
+    b.travelRows = (b.travelRows || 0) + config.bulletStep;
+    const rows = Math.floor(b.travelRows + 1e-9);
+    b.travelRows -= rows;
     for (let s = 0; s < rows; s += 1) {
       b.y -= 1;
-      if (b.y < 0) { state.bullet = null; return; }
+      if (b.y < 0) return false;
       const hitIndex = state.segments.findIndex((seg) => seg.x === b.x && seg.y === b.y);
-      if (hitIndex >= 0) { destroySegment(state, hitIndex, events); state.bullet = null; return; }
+      if (hitIndex >= 0) { destroySegment(state, hitIndex, events); return false; }
       const hp = mushroomHp(state, b.x, b.y);
       if (hp > 0) {
         if (hp - 1 <= 0) {
@@ -138,10 +138,15 @@
         } else {
           state.mushrooms[key(b.x, b.y)] = hp - 1;
         }
-        state.bullet = null;
-        return;
+        return false;
       }
     }
+    return true;
+  }
+
+  function clearProjectiles(state, resetClock = false) {
+    state.bullets = [];
+    if (resetClock) state.fireAccumulatorMs = config.fireIntervalMs - config.tickMs;
   }
 
   // Each segment marches horizontally; blocked by an edge or a mushroom it drops
@@ -175,11 +180,11 @@
     if (!hit) return null;
     state.lives -= 1;
     events.push({ type: "playerHit", lives: state.lives });
+    clearProjectiles(state, true);
     if (state.lives <= 0) {
       events.push({ type: "gameOver", score: state.score, wavesCleared: state.wavesCleared });
       return "over";
     }
-    state.bullet = null;
     respawnPlayer(state);
     spawnCentipede(state, waveLength(state));
     return "reset";
@@ -191,13 +196,17 @@
   function step(state, ctx) {
     const rng = (ctx && ctx.rng) || Math.random;
     const events = [];
+    if (state.lives <= 0) return { state, events, alive: false };
 
     const previousPlayer = { x: state.player.x, y: state.player.y };
     movePlayer(state);
     if (state.player.x !== previousPlayer.x || state.player.y !== previousPlayer.y) events.push({ type: "controlledMove" });
-    stepBullet(state, events);
+    state.bullets = (state.bullets || []).filter(b => stepBullet(state, b, events));
 
     if (state.segments.length === 0) {
+      // Shots from the cleared field cannot hit the new wave. The regular fire
+      // clock continues, so a kill never brings the next scheduled shot forward.
+      clearProjectiles(state);
       state.wave += 1;
       state.wavesCleared += 1;
       seedMushrooms(state, config.waveMushrooms, rng);
@@ -213,10 +222,16 @@
       moveSegments(state);
     }
 
-    if (checkPlayerHit(state, events, rng) === "over") return { state, events, alive: false };
+    const hit = checkPlayerHit(state, events, rng);
+    if (hit) return { state, events, alive: hit !== "over" };
 
-    // Auto-fire: while no bullet is in flight, launch a fresh one from the shooter.
-    if (!state.bullet) state.bullet = { x: state.player.x, y: state.player.y - 1, fresh: true };
+    state.fireAccumulatorMs = (state.fireAccumulatorMs ?? (config.fireIntervalMs - config.tickMs)) + config.tickMs;
+    while (state.fireAccumulatorMs >= config.fireIntervalMs) {
+      state.fireAccumulatorMs -= config.fireIntervalMs;
+      const bullet = { x: state.player.x, y: state.player.y - 1, fresh: true, travelRows: 0 };
+      state.bullets.push(bullet);
+      events.push({ type: "shotFired", x: bullet.x, y: bullet.y });
+    }
 
     return { state, events, alive: true };
   }

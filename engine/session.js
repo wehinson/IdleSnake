@@ -417,8 +417,10 @@
   function clampBattleshipPlacement(active) {
     const def = battleship.FLEET[active.placement.index];
     if (!def) return;
-    const maxX = active.placement.orientation === "h" ? battleship.SIZE - def.length : battleship.SIZE - 1;
-    const maxY = active.placement.orientation === "v" ? battleship.SIZE - def.length : battleship.SIZE - 1;
+    if (!battleship.orientations(def).includes(active.placement.orientation)) active.placement.orientation = active.placement.orientation.startsWith("v") ? "v" : "h";
+    const bounds = battleship.shipBounds(def, active.placement.orientation);
+    const maxX = battleship.SIZE - bounds.width;
+    const maxY = battleship.SIZE - bounds.height;
     active.placement.x = Math.max(0, Math.min(active.placement.x, maxX));
     active.placement.y = Math.max(0, Math.min(active.placement.y, maxY));
   }
@@ -880,7 +882,7 @@
         case "battleshipRotate":
           if (state.mode !== "battleship" || !state.active || state.phase !== "ready" || state.active.phase !== "placement") return reject("notPlacing");
           if (!battleship.FLEET[state.active.placement.index]) return reject("fleetComplete");
-          state.active.placement.orientation = state.active.placement.orientation === "h" ? "v" : "h";
+          state.active.placement.orientation = battleship.nextOrientation(battleship.FLEET[state.active.placement.index], state.active.placement.orientation);
           clampBattleshipPlacement(state.active); events.push(event("battleshipRotated", { orientation: state.active.placement.orientation })); break;
         case "battleshipShuffle": {
           if (state.mode !== "battleship" || !state.active || state.phase !== "ready" || state.active.phase !== "placement") return reject("notPlacing");

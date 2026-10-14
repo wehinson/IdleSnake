@@ -76,7 +76,7 @@ test("Centipede is a session-owned mode with deterministic input, cadence, pause
   assert.equal(started.snapshot.active.player.inputX, -1);
   const moved = game.tick(70).snapshot;
   assert.equal(moved.active.player.x, 3);
-  assert.ok(moved.active.bullet);
+  assert.ok(moved.active.bullets.length > 0);
   game.dispatch({ type: "pause" });
   const held = game.tick(140).snapshot;
   assert.deepEqual(held.active.segments, moved.active.segments);

@@ -3,30 +3,30 @@ const assert = require("node:assert/strict");
 const C = require("./centipede.js");
 function blank(overrides = {}) {
   return { cols: 100, rows: 100, playerRows: 6, player: { x: 50, y: 99, inputX: 0, inputY: 0 },
-    bullet: null, mushrooms: {}, segments: [{ x: 10, y: 0, dir: 1, vDir: 1, isHead: true }],
+    bullets: [], mushrooms: {}, segments: [{ x: 10, y: 0, dir: 1, vDir: 1, isHead: true }],
     score: 0, lives: 3, wave: 1, wavesCleared: 0, ...overrides };
 }
 test("ten 70ms ticks move enemies eight cells and an existing bullet 24 rows, leaving input cadence intact", () => {
-  const s = blank({ bullet: { x: 80, y: 90 }, player: { x: 50, y: 99, inputX: 1, inputY: 0 } });
+  const s = blank({ bullets: [{ x: 80, y: 90 }], player: { x: 50, y: 99, inputX: 1, inputY: 0 } });
   for (let i = 0; i < 10; i++) C.step(s);
-  assert.equal(s.segments[0].x, 18); assert.equal(s.bullet.y, 66); assert.equal(s.player.x, 60);
+  assert.equal(s.segments[0].x, 18); assert.equal(s.bullets[0].y, 66); assert.equal(s.player.x, 60);
   assert.equal(C.config.segmentStepMs, 87.5); assert.equal(C.config.tickMs, 70);
 });
-test("single-projectile re-fire cadence increases while retaining exactly one projectile", () => {
+test("regular fire has constant three-tick cadence with several airborne projectiles", () => {
   const s = blank({ rows: 28, player: { x: 50, y: 27, inputX: 0, inputY: 0 } });
   const launches = [];
   for (let tick = 0; tick < 60; tick++) {
-    const previous = s.bullet; C.step(s);
-    if (previous !== s.bullet) launches.push(tick);
-    assert.ok(s.bullet && !Array.isArray(s.bullet));
+    const result = C.step(s);
+    if (result.events.some(e => e.type === "shotFired")) launches.push(tick);
+    if (tick === 3) assert.equal(s.bullets.length, 2, "two shots fly before any first-shot impact");
   }
-  assert.deepEqual(launches.slice(0, 5), [0, 12, 24, 36, 48]); // old 2-row shots: 14 ticks
+  assert.deepEqual(launches.slice(0, 5), [0, 3, 6, 9, 12]); // prior single-bullet cadence: 12 ticks
 });
 test("new shots check the adjacent obstacle and every traversed cell including a three-row tick", () => {
   const s = blank({ mushrooms: { "50,98": 4 } }); C.step(s); C.step(s);
   assert.equal(s.mushrooms["50,98"], 3, "the adjacent cell cannot be skipped");
   for (const y of [8, 7, 6]) {
-    const field = blank({ bullet: { x: 50, y: 9 }, bulletTravelRows: .8, mushrooms: { [`50,${y}`]: 4 } });
+    const field = blank({ bullets: [{ x: 50, y: 9, travelRows: .8 }], mushrooms: { [`50,${y}`]: 4 } });
     C.step(field); assert.equal(field.mushrooms[`50,${y}`], 3, `row ${y} hit without tunnelling`);
   }
 });

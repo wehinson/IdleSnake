@@ -1077,7 +1077,7 @@ function battleshipCurrentDef() {
 function battleshipSetPlacementHint() {
   const def = battleshipCurrentDef();
   if (def) {
-    setScreenHint(`Place the ${def.name} (${def.length}) · arrows move · Pause/R rotate · Start place · 8 shuffle`);
+    setScreenHint(`Place the ${def.name} (${def.length}${def.shape === "L" ? "-cell L" : ""}) · arrows move · Pause/R rotate · Start place · 8 shuffle`);
   } else {
     setScreenHint("Fleet ready · Start to begin the battle · 8 to re-shuffle");
   }
@@ -2516,8 +2516,8 @@ function drawCentipede() {
   });
 
   // Bullet.
-  if (gameView.centipede.bullet) {
-    const rect = cellRect(gameView.centipede.bullet, Math.max(2, cs * 0.38));
+  for (const bullet of gameView.centipede.bullets) {
+    const rect = cellRect(bullet, Math.max(2, cs * 0.38));
     ctx.fillStyle = "#e7e1c5";
     ctx.fillRect(rect.x, rect.y, rect.size, cs * 0.6);
   }
@@ -2796,7 +2796,7 @@ function battleshipGhost() {
   const def = battleshipCurrentDef();
   if (!def) return null;
   const B = window.IdleSnakeBattleship;
-  const cells = B.shipCells(gameView.battleship.placement.x, gameView.battleship.placement.y, def.length, gameView.battleship.placement.orientation);
+  const cells = B.shipCells(gameView.battleship.placement.x, gameView.battleship.placement.y, def, gameView.battleship.placement.orientation);
   return { cells, valid: B.canPlaceCells(gameView.battleship.player, cells, battleshipGrid.columns) };
 }
 

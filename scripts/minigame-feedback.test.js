@@ -105,7 +105,7 @@ test("actual Centipede mushroom alpha follows health 100/85/70/55%, independent 
   const { ctx, ops } = drawingContext(), connectors = [];
   const boardMetrics = { x: 12, y: 12, cellSize: 16, width: 384 };
   const gameView = { centipede: { rows: 28, playerRows: 6, mushrooms: { "0,0": 4, "1,0": 3, "2,0": 2, "3,0": 1 },
-    segments: [{ x: 5, y: 5, isHead: true }, { x: 4, y: 5 }, { x: 2, y: 5, isHead: true }, { x: 1, y: 5 }], bullet: null, player: { x: 23, y: 27 } } };
+    segments: [{ x: 5, y: 5, isHead: true }, { x: 4, y: 5 }, { x: 2, y: 5, isHead: true }, { x: 1, y: 5 }], bullets: [], player: { x: 23, y: 27 } } };
   const context = vm.createContext({ ctx, boardMetrics, gameView, window: { IdleSnakeMinigameFeedback: F }, snakeColors: { head: "#aabbcc", body: "#778899" },
     contrastingEyeColor: () => "black", drawSnakeConnectors: (points) => connectors.push(points) });
   vm.runInContext(functions("cellRect", "snakeStepped") + functions("drawCentipede", "drawVsSnake"), context);

@@ -11,7 +11,7 @@ function lcg(seed) {
 function rowFleet() {
   const fleet = battleship.emptyFleet();
   battleship.FLEET.forEach((def, row) => {
-    assert.equal(battleship.placeShip(fleet, def, 0, row, "h"), true);
+    assert.equal(battleship.placeShip(fleet, def, 0, row * 2, "h"), true);
   });
   return fleet;
 }

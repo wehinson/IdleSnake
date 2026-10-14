@@ -18,11 +18,12 @@ test("placeShip accepts in-bounds, rejects overlap and out-of-bounds", () => {
   assert.equal(fleet.ships.length, 1);
 });
 
-test("randomFleet places the full 5-ship fleet spanning 17 unique cells", () => {
+test("randomFleet places the full 5-ship fleet spanning 18 unique cells", () => {
   const fleet = bs.randomFleet(Math.random, bs.SIZE);
   assert.ok(fleet, "expected a valid fleet");
   assert.equal(fleet.ships.length, bs.FLEET.length);
   assert.equal(bs.occupied(fleet).size, bs.TOTAL_SHIP_CELLS);
+  assert.equal(bs.TOTAL_SHIP_CELLS, 18);
 });
 
 test("fireAt resolves miss, hit, sunk and repeat", () => {

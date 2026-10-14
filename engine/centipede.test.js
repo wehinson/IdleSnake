@@ -12,7 +12,7 @@ function blank(overrides = {}) {
   return {
     cols: 20, rows: 14, playerRows: 4,
     player: { x: 10, y: 13, inputX: 0, inputY: 0 },
-    bullet: null, mushrooms: {}, segments: [],
+    bullets: [], mushrooms: {}, segments: [],
     score: 0, lives: 3, wave: 1, wavesCleared: 0,
     ...overrides
   };
@@ -38,7 +38,7 @@ test("waveLength grows each wave and caps at maxLength", () => {
 test("a bullet destroys a mid-chain segment, splits it, and drops a mushroom", () => {
   const s = blank({
     player: { x: 0, y: 13, inputX: 0, inputY: 0 },
-    bullet: { x: 2, y: 7 },
+    bullets: [{ x: 2, y: 7 }],
     segments: [
       { x: 3, y: 5, dir: 1, vDir: 1, isHead: true },
       { x: 2, y: 5, dir: 1, vDir: 1, isHead: false },
@@ -60,11 +60,11 @@ test("a mushroom takes four hits to clear, then scores", () => {
     mushrooms: { "3,3": centipede.config.mushroomHp }
   });
   for (let i = 0; i < 3; i += 1) {
-    s.bullet = { x: 3, y: 5 };
+    s.bullets = [{ x: 3, y: 5 }];
     centipede.step(s, { rng });
     assert.equal(s.mushrooms["3,3"], centipede.config.mushroomHp - (i + 1));
   }
-  s.bullet = { x: 3, y: 5 };
+  s.bullets = [{ x: 3, y: 5 }];
   centipede.step(s, { rng });
   assert.equal(s.mushrooms["3,3"], undefined, "the mushroom is finally cleared");
   assert.equal(s.score, centipede.config.points.mushroom);
@@ -114,16 +114,16 @@ test("clearing every segment advances to the next wave", () => {
   assert.ok(events.some((e) => e.type === "waveClear"));
 });
 
-test("the shooter auto-fires a single bullet from its position", () => {
+test("the shooter opens regular fire with a bullet from its position", () => {
   const s = blank({
-    bullet: null,
+    bullets: [],
     segments: [{ x: 0, y: 1, dir: 1, vDir: 1, isHead: true }],
     player: { x: 7, y: 13, inputX: 0, inputY: 0 }
   });
   centipede.step(s, { rng });
-  assert.ok(s.bullet, "a bullet was launched");
-  assert.equal(s.bullet.x, 7);
-  assert.equal(s.bullet.y, 12);
+  assert.equal(s.bullets.length, 1, "an opening bullet was launched");
+  assert.equal(s.bullets[0].x, 7);
+  assert.equal(s.bullets[0].y, 12);
 });
 
 test("the shooter cannot move into a mushroom or below the top of its band", () => {
