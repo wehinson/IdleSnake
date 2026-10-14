@@ -38,14 +38,35 @@ test("builds upgrade, board, nursery, and habitat UI from shared configuration",
   await expect(page.locator("#boardUpgradeButton")).toContainText(String(shared.boardCost));
   await expect(page.locator(".nursery-cell")).toHaveCount(shared.nurseryCells);
   await expect(page.locator(".habitat-card")).toHaveCount(shared.habitatCount);
-  await expect(page.locator(".habitat-card").filter({ hasText: "Lake" }).locator(".habitat-output-types"))
-    .toHaveText("Effect: -1 sec incubation per active snake");
-  await expect(page.locator(".habitat-card").filter({ hasText: "Forest" }).locator(".habitat-output-types"))
-    .toHaveText("Produces: Seeds + Branches");
-  await expect(page.locator(".habitat-card").filter({ hasText: "River" }).locator(".habitat-output-types"))
-    .toHaveText("Produces: Seeds + Provisions");
   await expect(page.locator("#nurseryEggProgressText")).toHaveText("0 / 500");
   await expect(page.locator("#nurserySeedStatus")).toHaveText("500 provisions to next egg");
+
+  // Occupied legacy habitats remain visible even when the new preceding-chain
+  // gate is not met. Fresh locked cards are hidden after economy integration.
+  // These small populations stay below milestones and natural capacity, so
+  // the current effect is independently derived from shared configuration.
+  const effects = await page.evaluate(() => {
+    const now = Date.now();
+    session = IdleSnakeSession.createGameSession({ now, rng: () => 0.5,
+      save: { savedAt: now, habitats: { counts: [0, 2, 3, 4, 0, 0, 0, 0] } } });
+    refreshPanelSnapshot(now, session.snapshot());
+    idleLastWallAt = now;
+    const { income, habitats } = IdleSnakeConfig.habitatConfig;
+    const perSnake = income.basePerSecond * (income.productionMultiplier || 1);
+    return {
+      counts: session.snapshot().habitats.counts.slice(0, 4),
+      lake: `Effect: -${formatDecimal(2 * habitats[1].eggHatchReductionSeconds)} Hatch Sec/Egg`,
+      forest: `Effect: +${formatDecimal(3 * perSnake * habitats[2].incomeMultiplier)} Seed/Sec \u00b7 Effect: +${formatDecimal(3 * perSnake * habitats[2].incomeMultiplier)} Branch/Sec`,
+      river: `Effect: +${formatDecimal(4 * perSnake * habitats[3].incomeMultiplier)} Seed/Sec \u00b7 Effect: +${formatDecimal(4 * perSnake * habitats[3].incomeMultiplier)} Provision/Sec`
+    };
+  });
+  expect(effects.counts).toEqual([0, 2, 3, 4]);
+  await page.locator('[data-menu-tab="colony"]').click();
+  for (const [name, expected] of [["Lake", effects.lake], ["Forest", effects.forest], ["River", effects.river]]) {
+    const card = page.locator(".habitat-card").filter({ has: page.locator(".habitat-name", { hasText: name }) });
+    await expect(card).toBeVisible();
+    await expect(card.locator(".habitat-output-types")).toHaveText(expected);
+  }
 });
 
 test("grown nursery snakes use a pointed final tail segment", async ({ page }) => {

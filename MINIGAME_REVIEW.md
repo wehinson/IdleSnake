@@ -4,6 +4,10 @@ Updated2026-10-11. All six independently passed tips are merged ONLY into this i
 
 ## Current state
 
+- 2026-10-14: William approved ColonyPR2 into working262eac2c1a2d2e976c9ffd2eb4a3f1edd55142e6. Explicitly authorized early working merge intoPR3 now supersedes the older separate-import restriction for that approvedbase only. Coordinator resolves soleBRANCHES conflict keepingbothhistories; allfiveoriginalworkers safelypickupresolvedbase. Full merged/minigame+Colony checks still required; automatedmerge doesnotprovecompatibility. RetiredmergedColonytest3-5 previews may404 normally, no restoration.
+
+- 2026-10-13: William requested13 revisions on PR3. Active round source: MINIGAME_REVISION_20261013.md, including his later corrected Sokoban occupied-straight-body rule. All five original worker branches fast-forward only to common accepted a83251ad; scoped work in progress, no new round acceptance yet. One final combined review replaces repeated per-worker layers. Required Claude/GPT Nibbler design task IDs recorded in the new brief. No current heavy lease; source/small only until named allocator lease.
+
 - PR3 https://github.com/wehinson/IdleSnake/pull/3 targets working separately from ColonyPR2. Original head7977875 CI failed two stale browser presentation assertions (89 total/87PASS); narrow test-only repair retains and strengthens full Strike/Broodline scenarios. Three direct VM groups/syntax/diff PASS; approved runtime/Node475 unchanged. New-head CI, owned by Operations watch, still required; no local browser or acceptance waiver.
 
 - Integration: `task/minigame-batch-20261011`, coordinator `mcp:618042fc-9354-4fc9-906a-1b3ca5c689e4`; base `31e773efee60c85d6781078803e4eae208911e4e`. Six gameplay merge commits: `9b58aee`, `f31336d`, `fb2224d`, `410c429`, `6fac4c0`, `ca4e08e`; review checkpoint before merges `81f0ea6`.

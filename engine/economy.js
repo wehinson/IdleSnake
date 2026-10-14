@@ -87,7 +87,7 @@
       eggProgress: clampNumber(saved.eggProgress, 0, Number.MAX_SAFE_INTEGER, 0),
       eggsStarted: Math.floor(clampNumber(saved.eggsStarted, 0, Number.MAX_SAFE_INTEGER, 0)),
       hatchlings,
-      feedingPaused: saved.feedingPaused === true,
+      feedingPaused: false, // Legacy feeding controls no longer pause time-based growth.
       colonyCount: clampNumber(saved.colonyCount, 0, Number.MAX_SAFE_INTEGER, 0),
       seedTickAccumulatorMs: clampNumber(saved.seedTickAccumulatorMs, 0, nurseryConfig.seedIntervalMs, 0),
       movementAccumulatorMs: clampNumber(saved.movementAccumulatorMs, 0, nurseryConfig.moveIntervalMs, 0)
@@ -162,10 +162,7 @@
   function tryStartEgg(state) {
     const nursery = state.nursery;
     if (nursery.eggProgress < eggRequirement(nursery) || !canStartEgg(nursery)) return [];
-    const activation = calculateHabitatActivation(
-      state.habitats.counts, foodValueFromUpgrades(state.upgrades), state.notables, state.habitats.upgradeLevels);
-    const reductionMs = activation.eggHatchReductionSeconds * 1000;
-    startEgg(nursery, Math.max(0, nurseryConfig.eggHatchMs - reductionMs));
+    startEgg(nursery, nurseryConfig.eggHatchMs - eggHatchReductionSeconds(state) * 1000);
     return [{ type: "eggStarted" }];
   }
 
@@ -215,10 +212,7 @@
 
   function addDevelopmentEgg(state) {
     if (!canStartEgg(state.nursery)) return null;
-    const activation = calculateHabitatActivation(
-      state.habitats.counts, foodValueFromUpgrades(state.upgrades), state.notables, state.habitats.upgradeLevels);
-    const reductionMs = activation.eggHatchReductionSeconds * 1000;
-    startEgg(state.nursery, Math.max(0, nurseryConfig.eggHatchMs - reductionMs));
+    startEgg(state.nursery, nurseryConfig.eggHatchMs - eggHatchReductionSeconds(state) * 1000);
     return { type: "developmentEggAdded" };
   }
 
@@ -260,11 +254,11 @@
     });
   }
 
-  // Port of game.js advanceNursery: burns seeds to grow hatchlings, graduates
-  // them into the colony, and shuffles them around the pen. Mutates `nursery`
+  // Time-based growth graduates hatchlings into the colony without spending
+  // resources, and shuffles them around the pen. Mutates `nursery`
   // in place and returns the new seed total plus a `changed` flag.
   function advanceNursery(nursery, seeds, deltaMs, rng) {
-    if (deltaMs <= 0) return { seeds, changed: false };
+    if (deltaMs < 0 || (deltaMs === 0 && !nursery.hatchlings.some((h) => h.progressMs >= nurseryConfig.growthMs))) return { seeds, changed: false };
     let changed = false;
 
     if (nursery.hatchlings.length === 0) {
@@ -273,32 +267,15 @@
       return { seeds, changed: false };
     }
 
-    let remainingMs = deltaMs;
-    while (!nursery.feedingPaused && remainingMs > 0 && nursery.hatchlings.length > 0) {
-      const activeCount = nursery.hatchlings.length;
-      if (seeds < activeCount) break;
-      const slice = Math.min(remainingMs, ...nursery.hatchlings.map((h) => Math.min(
-        nurseryConfig.seedIntervalMs - (h.feedingAccumulatorMs ?? (h.progressMs % nurseryConfig.seedIntervalMs)),
-        nurseryConfig.growthMs - h.progressMs)));
-      nursery.hatchlings.forEach((hatchling) => {
-        hatchling.feedingAccumulatorMs = (hatchling.feedingAccumulatorMs ?? (hatchling.progressMs % nurseryConfig.seedIntervalMs)) + slice;
-        hatchling.progressMs = Math.min(nurseryConfig.growthMs, hatchling.progressMs + slice);
-        if (hatchling.feedingAccumulatorMs >= nurseryConfig.seedIntervalMs || hatchling.progressMs >= nurseryConfig.growthMs) {
-          seeds -= 1;
-          hatchling.feedingAccumulatorMs = 0;
-        }
-      });
-      remainingMs -= slice;
-      nursery.seedTickAccumulatorMs = nursery.hatchlings[0]?.feedingAccumulatorMs || 0;
-      changed = true;
-
-      const graduates = nursery.hatchlings.filter((h) => h.progressMs >= nurseryConfig.growthMs);
-      if (graduates.length > 0) {
-        nursery.colonyCount += graduates.length;
-        nursery.hatchlings = nursery.hatchlings.filter((h) => h.progressMs < nurseryConfig.growthMs);
-        changed = true;
-      }
-    }
+    nursery.hatchlings.forEach((hatchling) => {
+      hatchling.progressMs = advanceNurseryTimer(hatchling.progressMs, deltaMs, nurseryConfig.growthMs);
+      hatchling.feedingAccumulatorMs = 0;
+    });
+    nursery.seedTickAccumulatorMs = 0;
+    const graduates = nursery.hatchlings.filter((h) => h.progressMs >= nurseryConfig.growthMs);
+    nursery.colonyCount += graduates.length;
+    nursery.hatchlings = nursery.hatchlings.filter((h) => h.progressMs < nurseryConfig.growthMs);
+    changed = true;
 
     if (nursery.hatchlings.length === 0) {
       nursery.seedTickAccumulatorMs = 0;
@@ -324,7 +301,10 @@
   // remainder) — matching the original wall-clock boundary split.
   function tickNursery(nursery, seeds, dtMs, rng) {
     const events = [];
-    if (dtMs <= 0) return { seeds, events };
+    if (dtMs < 0) return { seeds, events };
+    // Settle saved/completed graduates before resolving held eggs, even when
+    // no time elapses. This prevents a full yard from delaying an instant hatch.
+    ({ seeds } = advanceNursery(nursery, seeds, 0, rng));
     // Transported eggs wait safely off-nest, then enter incubation as actual
     // nest slots become available. They are never discarded for lack of space.
     const occupiedSlots = () => (nursery.eggElapsedMs === null ? 0 : 1) + nursery.nestEggs.length;
@@ -333,7 +313,7 @@
       nursery.resupplyEggHolding -= 1;
     }
     // Split time at every hatch and graduation. A hatchling must not receive
-    // feeding time from the interval in which it was still an egg.
+    // growth time from the interval in which it was still an egg.
     const hatchFinishedEggs = () => {
       const capacity = nurseryCapacity(nursery);
       if (nursery.eggElapsedMs !== null && nursery.eggElapsedMs >= nursery.eggHatchDurationMs
@@ -353,17 +333,30 @@
     while (remainingMs > 0) {
       const boundaries = nursery.nestEggs.map((egg) => egg.hatchDurationMs - egg.elapsedMs);
       if (nursery.eggElapsedMs !== null) boundaries.push(nursery.eggHatchDurationMs - nursery.eggElapsedMs);
-      if (!nursery.feedingPaused && seeds >= nursery.hatchlings.length) {
-        boundaries.push(...nursery.hatchlings.map((h) => nurseryConfig.growthMs - h.progressMs));
-      }
+      boundaries.push(...nursery.hatchlings.map((h) => nurseryConfig.growthMs - h.progressMs));
       const slice = Math.min(remainingMs, ...boundaries.filter((time) => time > 0));
       ({ seeds } = advanceNursery(nursery, seeds, slice, rng));
-      if (nursery.eggElapsedMs !== null) nursery.eggElapsedMs = Math.min(nursery.eggHatchDurationMs, nursery.eggElapsedMs + slice);
-      nursery.nestEggs.forEach((egg) => { egg.elapsedMs = Math.min(egg.hatchDurationMs, egg.elapsedMs + slice); });
+      if (nursery.eggElapsedMs !== null) nursery.eggElapsedMs = advanceNurseryTimer(nursery.eggElapsedMs, slice, nursery.eggHatchDurationMs);
+      nursery.nestEggs.forEach((egg) => { egg.elapsedMs = advanceNurseryTimer(egg.elapsedMs, slice, egg.hatchDurationMs); });
       hatchFinishedEggs();
       remainingMs -= slice;
     }
     return { seeds, events };
+  }
+
+  function nurseryBoundaryMs(nursery) {
+    const boundaries = nursery.hatchlings.map((h) => nurseryConfig.growthMs - h.progressMs);
+    if (nursery.eggElapsedMs !== null) boundaries.push(nursery.eggHatchDurationMs - nursery.eggElapsedMs);
+    boundaries.push(...nursery.nestEggs.map((egg) => egg.hatchDurationMs - egg.elapsedMs));
+    return Math.min(...boundaries.filter((time) => time > 0));
+  }
+
+  function advanceNurseryTimer(elapsed, dtMs, deadline) {
+    const remaining = deadline - elapsed;
+    // A consumed deadline can differ by a few floating-point units after
+    // fractional production slices. Snap only within arithmetic precision.
+    const precision = Number.EPSILON * Math.max(1, deadline, elapsed, dtMs) * 8;
+    return dtMs >= remaining - precision ? deadline : elapsed + dtMs;
   }
 
   function layEgg() {
@@ -372,6 +365,14 @@
   }
 
   // ---- Habitat income --------------------------------------------------------
+
+  // New progression requires the entire preceding chain. Occupied legacy
+  // habitats retain their population and output, but cannot expand until repaired.
+  function habitatUnlocked(counts, index) {
+    return Number.isInteger(index) && index >= 0 && index < habitatConfig.habitats.length
+      && habitatConfig.habitats.slice(0, index).every((_, previous) =>
+        Number(counts?.[previous]) >= habitatConfig.unlockPreviousSnakes);
+  }
 
   function habitatMultiplier(habitat, snakeCount) {
     return habitat.milestones.reduce((multiplier, milestone) => {
@@ -383,6 +384,10 @@
   }
 
   function habitatIncomePerSecond(habitat, snakeCount, foodValue) {
+    return habitatUpkeepPerSecond(habitat, snakeCount, foodValue) * habitatConfig.income.productionMultiplier;
+  }
+
+  function habitatUpkeepPerSecond(habitat, snakeCount, foodValue = 1) {
     const foodMultiplier = habitatConfig.income.foodValueMultiplier ? foodValue : 1;
     return habitatConfig.income.basePerSecond
       * habitat.incomeMultiplier
@@ -419,6 +424,8 @@
       habitatIncomePerSecond(habitat, normalizedCounts[index], 1));
     const seedPerSnakeRates = habitatConfig.habitats.map((habitat, index) =>
       habitatIncomePerSecond(habitat, normalizedCounts[index], foodValue));
+    const upkeepPerSnakeRates = habitatConfig.habitats.map((habitat, index) =>
+      habitatUpkeepPerSecond(habitat, normalizedCounts[index]));
     const productionMultipliers = leaders.map((leader) => leader?.powerType === "PRODUCTION_INCREASE" ? 1 + leader.powerMagnitude : 1);
     const consumptionMultipliers = leaders.map((leader) => leader?.powerType === "CONSUMPTION_REDUCTION" ? Math.max(0, 1 - leader.powerMagnitude) : 1);
     const rationerFloors = leaders.map((leader) => leader?.powerType === "RATIONER" ? leader.powerMagnitude : 0);
@@ -453,7 +460,7 @@
       let requiredStartingBudget = 0;
       candidates.forEach((index) => {
         const habitat = habitatConfig.habitats[index];
-        const cost = perSnakeRates[index] * habitatConfig.income.overCapacityProvisionCost * consumptionMultipliers[index];
+        const cost = upkeepPerSnakeRates[index] * habitatConfig.income.overCapacityProvisionCost * consumptionMultipliers[index];
         requiredStartingBudget = Math.max(requiredStartingBudget, cost - prefixBudgetChange);
         prefixBudgetChange += (habitat.producesProvisions ? perSnakeRates[index] * productionMultipliers[index] : 0) - cost;
       });
@@ -467,7 +474,7 @@
         const rows = Math.min(rowsUntilExhausted, affordableRows);
         candidates.forEach((index) => {
           const habitat = habitatConfig.habitats[index];
-          const cost = perSnakeRates[index] * habitatConfig.income.overCapacityProvisionCost * consumptionMultipliers[index];
+          const cost = upkeepPerSnakeRates[index] * habitatConfig.income.overCapacityProvisionCost * consumptionMultipliers[index];
           activeOverCapacityCounts[index] += rows;
           provisionsConsumedPerSecond += rows * cost;
           if (habitat.producesProvisions) provisionsProducedPerSecond += rows * perSnakeRates[index] * productionMultipliers[index];
@@ -480,7 +487,7 @@
       // eligible habitat is still waiting in this one.
       for (const index of candidates) {
         const habitat = habitatConfig.habitats[index];
-        const cost = perSnakeRates[index] * habitatConfig.income.overCapacityProvisionCost * consumptionMultipliers[index];
+        const cost = upkeepPerSnakeRates[index] * habitatConfig.income.overCapacityProvisionCost * consumptionMultipliers[index];
         if (provisionsConsumedPerSecond + cost > provisionsProducedPerSecond + epsilon) break;
         activeOverCapacityCounts[index] += 1;
         provisionsConsumedPerSecond += cost;
@@ -497,7 +504,7 @@
       total + (habitat.producesProvisions ? activeCounts[index] * perSnakeRates[index] * productionMultipliers[index] : 0), 0);
     provisionsConsumedPerSecond = activeOverCapacityCounts.reduce((total, active, index) => {
       const habitat = habitatConfig.habitats[index];
-      return total + active * perSnakeRates[index] * habitatConfig.income.overCapacityProvisionCost * consumptionMultipliers[index];
+      return total + active * upkeepPerSnakeRates[index] * habitatConfig.income.overCapacityProvisionCost * consumptionMultipliers[index];
     }, 0);
     const outputCounts = activeCounts.map((count, index) => count + idleCounts[index] * rationerFloors[index]);
     const habitatSeedOutputs = habitatConfig.habitats.map((habitat, index) =>
@@ -519,6 +526,7 @@
       idleCounts,
       overCapacityCounts,
       perSnakeRates,
+      upkeepPerSnakeRates,
       seedPerSnakeRates,
       leaders,
       hardCapacities,
@@ -527,6 +535,7 @@
       rationerFloors,
       habitatSeedOutputs,
       habitatBranchOutputs,
+      habitatProvisionOutputs: habitatConfig.habitats.map((habitat, index) => habitat.producesProvisions ? activeCounts[index] * perSnakeRates[index] * productionMultipliers[index] : 0),
       incomePerSecond,
       branchesPerSecond,
       eggHatchReductionSeconds,
@@ -551,30 +560,99 @@
     const level = Math.max(0, Math.floor(Number(state.upgrades?.lengthBonusLevel) || 0));
     const perSegment = upgradeConfig.lengthBonus.basePerSegment + level * upgradeConfig.lengthBonus.increasePerLevel;
     const length = state.mode === "snake" ? state.active?.snake?.length || 0 : 0;
-    const activation = calculateHabitatActivation(state.habitats.counts, foodValueFromUpgrades(state.upgrades), state.notables, state.habitats.upgradeLevels, { activateAllOverCapacity: state.provisions > 0 });
+    const activation = habitatProductionPlan(state, foodValueFromUpgrades(state.upgrades)).currentActivation;
     const applied = state.mode === "snake" && state.phase === "running" && length > 0 && activation.incomePerSecond > 0;
     const multiplier = applied ? 1 + length * perSegment : 1;
     return { level, length, perSegment, nextPerSegment: perSegment + upgradeConfig.lengthBonus.increasePerLevel,
       applied, multiplier, seedIncomePerSecond: activation.incomePerSecond * multiplier };
   }
 
-  function tickHabitats(state, dtMs, foodValue, seedIncomeMultiplier = 1) {
-    if (dtMs <= 0) return { events: [] };
+  // Incubation uses recurring-supported activity, independently of the bank
+  // that can temporarily fund current production. Share this with read models.
+  function eggHatchReductionSeconds(state) {
+    const activation = calculateHabitatActivation(state.habitats.counts,
+      foodValueFromUpgrades(state.upgrades), state.notables, state.habitats.upgradeLevels);
+    return Math.min(nurseryConfig.eggHatchMs / 1000, activation.eggHatchReductionSeconds);
+  }
+
+  // Contribution rates share the exact output/cost inputs used by production
+  // and panel queries. Service itself is independent of a power's current gain.
+  function notableContributionRates(activation, index, upgradeLevels, counts, seedIncomeMultiplier = 1) {
+    const leader = activation.leaders[index];
+    if (!leader) return {};
+    const habitat = habitatConfig.habitats[index];
+    const rates = {};
+    if (leader.powerType === "PRODUCTION_INCREASE") {
+      const baseOutput = activation.activeCounts[index] * (
+        (habitat.producesSeeds === false ? 0 : activation.seedPerSnakeRates[index] * seedIncomeMultiplier)
+        + (habitat.producesBranches ? activation.perSnakeRates[index] : 0)
+        + (habitat.producesProvisions ? activation.perSnakeRates[index] : 0));
+      rates.totalProductionAdded = baseOutput * leader.powerMagnitude;
+    }
+    if (leader.powerType === "CONSUMPTION_REDUCTION") {
+      const baseCost = activation.activeOverCapacityCounts[index] * activation.upkeepPerSnakeRates[index] * habitatConfig.income.overCapacityProvisionCost;
+      rates.totalConsumptionPrevented = baseCost * leader.powerMagnitude;
+    }
+    if (leader.powerType === "CAPACITY_INCREASE") {
+      const upgradedBase = habitatBaseMaxCapacity(habitat, upgradeLevels?.[index]);
+      rates.totalCapacityEnabled = Math.max(0, Math.min(counts[index], activation.hardCapacities[index]) - upgradedBase);
+    }
+    if (leader.powerType === "FORAGER") rates.totalProvisionsForaged = activation.habitatSeedOutputs[index] * leader.powerMagnitude;
+    if (leader.powerType === "RATIONER") {
+      const perSnakeOutput = (habitat.producesSeeds === false ? 0 : activation.seedPerSnakeRates[index] * seedIncomeMultiplier)
+        + (habitat.producesBranches ? activation.perSnakeRates[index] : 0);
+      rates.totalShortageOutputPreserved = activation.idleCounts[index] * perSnakeOutput * leader.powerMagnitude;
+    }
+    return rates;
+  }
+
+  function habitatProductionPlan(state, foodValue) {
     const baselineActivation = calculateHabitatActivation(state.habitats.counts, foodValue, state.notables, state.habitats.upgradeLevels);
     const fullActivation = calculateHabitatActivation(
       state.habitats.counts, foodValue, state.notables, state.habitats.upgradeLevels, { activateAllOverCapacity: true });
     const startingProvisions = Math.max(0, Number(state.provisions) || 0);
     const fullDeficitPerSecond = fullActivation.provisionsConsumedPerSecond
       - fullActivation.provisionsProducedPerSecond - fullActivation.foragerProducedPerSecond;
-    // Run all assigned snakes while the bank can cover the full-activation
-    // deficit. Once exhausted, use the existing self-sustaining fair allocation.
+    // Run all assigned snakes while the bank covers the full-activation
+    // deficit. Split exactly at depletion before using the continuous limit.
     const bankedSeconds = startingProvisions > 0 && fullDeficitPerSecond > 0
-      ? Math.min(dtMs / 1000, startingProvisions / fullDeficitPerSecond)
-      : (fullDeficitPerSecond <= 0 ? dtMs / 1000 : 0);
+      ? startingProvisions / fullDeficitPerSecond
+      : (fullDeficitPerSecond <= 0 ? Infinity : 0);
+    const baselineSurplus = Math.max(0, baselineActivation.provisionsProducedPerSecond
+      + baselineActivation.foragerProducedPerSecond - baselineActivation.provisionsConsumedPerSecond);
+    // At an empty bank, renewable surplus immediately funds a brief full
+    // allocation, then falls back to renewable work. This duty cycle is the
+    // continuous limit of those existing states, with zero net Provision flow.
+    const depletedFullDuty = fullDeficitPerSecond > 0 && baselineSurplus > 0
+      ? baselineSurplus / (fullDeficitPerSecond + baselineSurplus) : 0;
+    const depletedActivation = blendProductionActivation(baselineActivation, fullActivation, depletedFullDuty);
+    const currentActivation = bankedSeconds > 0 ? fullActivation : depletedActivation;
+    return { baselineActivation, fullActivation, depletedActivation, currentActivation, startingProvisions, bankedSeconds, depletedFullDuty };
+  }
+
+  function blendProductionActivation(baseline, full, fullDuty) {
+    if (fullDuty === 0) return baseline;
+    const activation = { ...baseline };
+    for (const field of ["activeCounts", "activeOverCapacityCounts", "idleCounts", "habitatSeedOutputs", "habitatBranchOutputs", "habitatProvisionOutputs"]) {
+      activation[field] = baseline[field].map((value, index) => value * (1 - fullDuty) + full[field][index] * fullDuty);
+    }
+    for (const field of ["incomePerSecond", "branchesPerSecond", "provisionsProducedPerSecond", "provisionsConsumedPerSecond", "foragerProducedPerSecond"]) {
+      activation[field] = baseline[field] * (1 - fullDuty) + full[field] * fullDuty;
+    }
+    // Incubation remains the separate recurring-supported mechanic; it is
+    // never time-shared or changed by temporary bank-funded production.
+    return activation;
+  }
+
+  function tickHabitats(state, dtMs, foodValue, seedIncomeMultiplier = 1, plan) {
+    if (dtMs <= 0) return { events: [] };
+    plan = plan || habitatProductionPlan(state, foodValue);
+    const { depletedActivation, fullActivation, startingProvisions } = plan;
+    const bankedSeconds = Math.min(dtMs / 1000, plan.bankedSeconds);
     const segments = [];
     if (bankedSeconds > 0) segments.push({ activation: fullActivation, seconds: bankedSeconds });
     const remainingSeconds = dtMs / 1000 - bankedSeconds;
-    if (remainingSeconds > 0) segments.push({ activation: baselineActivation, seconds: remainingSeconds });
+    if (remainingSeconds > 0) segments.push({ activation: depletedActivation, seconds: remainingSeconds });
 
     let income = 0;
     let branchIncome = 0;
@@ -588,30 +666,25 @@
       spentProvisions += activation.provisionsConsumedPerSecond * seconds;
       foragedProvisions += activation.foragerProducedPerSecond * seconds;
       activation.leaders.forEach((leader, index) => {
-      if (!leader) return;
-      const baseActiveOutput = activation.activeCounts[index] * activation.perSnakeRates[index];
-      const contributions = {};
-      if (leader.powerType === "PRODUCTION_INCREASE") contributions.totalProductionAdded = baseActiveOutput * leader.powerMagnitude * seconds;
-      if (leader.powerType === "CONSUMPTION_REDUCTION") {
-        const baseCost = activation.activeOverCapacityCounts[index] * activation.perSnakeRates[index] * habitatConfig.income.overCapacityProvisionCost;
-        contributions.totalConsumptionPrevented = baseCost * leader.powerMagnitude * seconds;
-      }
-      if (leader.powerType === "CAPACITY_INCREASE") {
-        const upgradedBase = habitatBaseMaxCapacity(habitatConfig.habitats[index], state.habitats.upgradeLevels[index]);
-        contributions.totalCapacityEnabled = Math.max(0, Math.min(state.habitats.counts[index], activation.hardCapacities[index]) - upgradedBase) * seconds;
-      }
-      if (leader.powerType === "FORAGER") contributions.totalProvisionsForaged = activation.habitatSeedOutputs[index] * leader.powerMagnitude * seconds;
-      if (leader.powerType === "RATIONER") contributions.totalShortageOutputPreserved = activation.idleCounts[index] * activation.perSnakeRates[index] * leader.powerMagnitude * activation.productionMultipliers[index] * seconds;
+        if (!leader || activation.activeCounts[index] <= 0) return;
+        const rates = notableContributionRates(activation, index, state.habitats.upgradeLevels, state.habitats.counts, seedIncomeMultiplier);
+        const contributions = Object.fromEntries(Object.entries(rates).map(([field, rate]) => [field, rate * seconds]));
         notables.recordContribution(state.notables, leader.id, index, seconds * 1000, contributions);
       });
     });
-    state.provisions = roundSeeds(Math.max(0, startingProvisions + provisionsIncome - spentProvisions + foragedProvisions));
+    // Keep the reserve integral unrounded: rounding each frame would change
+    // its depletion time and therefore egg production. Saves already retain
+    // numeric balances. At the consumed deficit boundary the reserve is zero.
+    const fullNet = fullActivation.provisionsProducedPerSecond + fullActivation.foragerProducedPerSecond - fullActivation.provisionsConsumedPerSecond;
+    const depletedNet = plan.depletedFullDuty > 0 ? 0 : depletedActivation.provisionsProducedPerSecond + depletedActivation.foragerProducedPerSecond - depletedActivation.provisionsConsumedPerSecond;
+    const fundedReserve = dtMs >= plan.bankedSeconds * 1000 && fullNet < 0 ? 0 : startingProvisions + fullNet * bankedSeconds;
+    state.provisions = Math.max(0, fundedReserve + depletedNet * remainingSeconds);
     state.branches = roundSeeds(Math.max(0, (Number(state.branches) || 0) + branchIncome));
     if (income > 0) {
       state.seeds = roundSeeds(state.seeds + income);
       return { income, branchIncome, provisionsIncome, foragedProvisions, events: [{ type: "seedsChanged" }] };
     }
-    return { income: 0, branchIncome, provisionsIncome: 0, foragedProvisions, events: branchIncome > 0 ? [{ type: "branchesChanged" }] : [] };
+    return { income: 0, branchIncome, provisionsIncome, foragedProvisions, events: branchIncome > 0 ? [{ type: "branchesChanged" }] : [] };
   }
 
   // ---- Unified economy tick --------------------------------------------------
@@ -624,30 +697,36 @@
     const foodValue = ctx.foodValue != null ? ctx.foodValue : foodValueFromUpgrades(state.upgrades);
     const events = [];
 
-    // Split passive time at egg thresholds. This lets an offline catch-up begin
-    // incubation at the moment its passive income reaches the requirement,
-    // rather than incorrectly waiting until the end of a long catch-up.
-    let remainingMs = Math.max(0, Number(dtMs) || 0);
-    let guard = 0;
-    while (remainingMs > 0 && guard < 10000) {
+    // Split passive time at income, incubation and graduation thresholds.
+    // Reconsider egg creation whenever a nest slot or yard slot becomes free,
+    // so recurring offline production follows the same scheduler as live time.
+    let remainingMs = Number.isFinite(Number(dtMs)) ? Math.max(0, Number(dtMs)) : 0;
+    while (remainingMs > 0) {
+      events.push(...tickNursery(state.nursery, state.seeds, 0, rng).events);
       events.push(...tryStartEgg(state));
+      // Lake reductions can create an egg with zero incubation duration.
+      events.push(...tickNursery(state.nursery, state.seeds, 0, rng).events);
       // Slice at the moment PROVISIONS income (not total habitat income) would
       // complete the current egg, since only provisions contribute to it.
-      const activation = calculateHabitatActivation(state.habitats.counts, foodValue, state.notables, state.habitats.upgradeLevels);
+      const productionPlan = habitatProductionPlan(state, foodValue);
+      const activation = productionPlan.currentActivation;
       const provisionsPerSecond = activation.provisionsProducedPerSecond;
       const needed = eggRequirement(state.nursery) - state.nursery.eggProgress;
       const canAccrue = provisionsPerSecond > 0 && needed > 0;
-      const untilEggMs = canAccrue ? Math.max(1, needed / provisionsPerSecond * 1000) : Infinity;
-      const sliceMs = Math.min(remainingMs, untilEggMs);
+      const untilEggMs = canAccrue ? needed / provisionsPerSecond * 1000 : Infinity;
+      const untilBankDepletionMs = productionPlan.bankedSeconds > 0 ? productionPlan.bankedSeconds * 1000 : Infinity;
+      const sliceMs = Math.min(remainingMs, untilEggMs, nurseryBoundaryMs(state.nursery), untilBankDepletionMs);
 
       const nurseryResult = tickNursery(state.nursery, state.seeds, sliceMs, rng);
       state.seeds = nurseryResult.seeds;
       events.push(...nurseryResult.events);
-      const habitatResult = tickHabitats(state, sliceMs, foodValue, ctx.seedIncomeMultiplier ?? 1);
+      const habitatResult = tickHabitats(state, sliceMs, foodValue, ctx.seedIncomeMultiplier ?? 1, productionPlan);
       events.push(...habitatResult.events);
-      events.push(...creditEggProgress(state, habitatResult.provisionsIncome));
+      // The known income deadline has been consumed; avoid leaving egg
+      // progress a floating-point unit below the required threshold.
+      const eggCredit = sliceMs === untilEggMs ? Math.max(needed, habitatResult.provisionsIncome) : habitatResult.provisionsIncome;
+      events.push(...creditEggProgress(state, eggCredit));
       remainingMs -= sliceMs;
-      guard += 1;
     }
 
     events.push(...tryStartEgg(state));
@@ -671,6 +750,7 @@
     addDevelopmentEgg,
     addDevelopmentHatchling,
     eggRequirement,
+    eggHatchReductionSeconds,
     canStartEgg,
     eggHeldForSpace,
     creditEggProgress,
@@ -681,15 +761,19 @@
     advanceNursery,
     tickNursery,
     layEgg,
+    habitatUnlocked,
     habitatMultiplier,
+    habitatUpkeepPerSecond,
     habitatIncomePerSecond,
     habitatUpgradeCost,
     habitatBaseMaxCapacity,
     habitatMaxCapacity,
     calculateHabitatActivation,
+    habitatProductionPlan,
     totalHabitatIncomePerSecond,
     totalProvisionsIncomePerSecond,
     lengthBonus,
+    notableContributionRates,
     tickHabitats,
     tickEconomy
   };
