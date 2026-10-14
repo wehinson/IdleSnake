@@ -259,6 +259,7 @@ const seedIncomePerSecondEl = document.querySelector("#seedIncomePerSecond");
 const lengthBonusSummaryEl = document.querySelector("#lengthBonusSummary");
 const lengthBonusMultiplierEl = document.querySelector("#lengthBonusMultiplier");
 const overlay = document.querySelector("#overlay");
+const minigameBackButton = document.querySelector("#minigameBackButton");
 const stateText = document.querySelector("#stateText");
 const readyStartPrompt = document.querySelector("#readyStartPrompt");
 const screenHint = document.querySelector("#screenHint");
@@ -533,6 +534,8 @@ let tailWiggleStartedAt = null;
 const snakeAnimationClock = window.IdleSnakeAnimationClock.createAnimationClock();
 const snakeAnimationNow = () => snakeAnimationClock.now(performance.now());
 let deathAnimation = null;
+let duelDeathAnimations = [];
+let duelLossActors = [];
 // Sticky Goo Fork tongue: when a Seed is straight ahead within two steps, the
 // tongue grabs it and pulls it to the mouth before the head arrives. Display
 // only; the engine still eats the Seed when the head enters its cell.
@@ -613,6 +616,7 @@ function applySessionSnapshot(snapshot, savedAt = Date.now()) {
 }
 
 function presentReadyGame() {
+  duelDeathAnimations = []; duelLossActors = []; delete overlay.dataset.duelHalf;
   snakeAnimationClock.reset();
   digestionAnimations = []; crumbAnimations = []; tailWiggleStartedAt = null; deathAnimation = null;
   clearTimeout(deathOverlayTimer); deathOverlayTimer = null;
@@ -1846,7 +1850,7 @@ function interpretSessionEvents(events) {
           showOverlay(`Runner Down · +${formatNumber(event.reward || 0)} Seeds`);
           setScreenHint("Start to run again");
         } else if (event.mode === "duel") {
-
+          presentDuelTerminal(event);
           syncHud();
           showOverlay(`${event.winner === "player" ? "Winner" : event.winner === "opponent" ? "Defeated" : "Draw"} · +${formatNumber(event.reward || 0)} Seeds`);
         } else if (event.mode === "centipede") {
@@ -1856,8 +1860,8 @@ function interpretSessionEvents(events) {
         } else if (event.mode === "maze") {
 
           syncHud();
-          showOverlay(`Nibbler · Game Over · +${formatNumber(event.reward || 0)} Seeds`);
-          setScreenHint("Start to explore again");
+          showOverlay(`Nibbler · ${event.won ? "Level Clear" : event.reason === "timeout" ? "Time Up" : "Body Collision"} · +${formatNumber(event.reward || 0)} Seeds`);
+          setScreenHint(event.won ? "Start for the next level" : "Start to retry this level");
         } else if (event.mode === "crossing") {
 
           syncHud();
@@ -2546,6 +2550,8 @@ function drawVsSnake() {
     ctx.fillRect(rect.x + rect.size * 0.3, rect.y + rect.size * 0.3, rect.size * 0.4, rect.size * 0.4);
   });
   [gameView.duelPlayer, gameView.duelOpponent].forEach((snakeRef) => {
+    const actor = snakeRef === gameView.duelPlayer ? "player" : "opponent";
+    if (gameView.state === "gameover" && duelLossActors.includes(actor) && !effectiveReducedMotion()) return;
     const previousBody = snakeRef === gameView.duelPlayer ? previousDuelPlayerBody : previousDuelOpponentBody;
     drawSnakeConnectors(snakeRef.body, snakeRef === gameView.duelOpponent ? "#d5d5c8" : snakeColors.body, { wrap: true });
     snakeRef.body.forEach((part, index) => {
@@ -2562,6 +2568,22 @@ function drawVsSnake() {
         ctx.fillRect(rect.x + rect.size - 4, rect.y + 2, 2, 2);
       }
     });
+  });
+  if (gameView.state === "gameover" && !effectiveReducedMotion()) duelDeathAnimations.forEach((animation) => drawDeathAnimation(performance.now(), animation));
+}
+
+function presentDuelTerminal(event) {
+  duelLossActors = event.winner === "player" ? ["opponent"] : event.winner === "opponent" ? ["player"] : ["player", "opponent"];
+  const fatal = event.collisions?.find((collision) => duelLossActors.includes(collision.actor));
+  // The engine supplies the attempted collision cell, including wrapped heads.
+  if (fatal) overlay.dataset.duelHalf = fatal.point.y < gameView.grid.rows / 2 ? "bottom" : "top";
+  duelDeathAnimations = effectiveReducedMotion() ? [] : duelLossActors.map((actor) => {
+    const snakeRef = actor === "player" ? gameView.duelPlayer : gameView.duelOpponent;
+    const point = event.collisions?.find((collision) => collision.actor === actor)?.point;
+    const segments = point ? [{ ...point }, ...snakeRef.body.slice(0, -1).map((p) => ({ ...p }))] : snakeRef.body.map((p) => ({ ...p }));
+    return { startedAt: performance.now(), direction: snakeRef.direction, segments,
+      colors: actor === "player" ? { ...snakeColors } : { head: "#fffdf0", body: "#d5d5c8" },
+      seeds: buildDeathSeedParticles(0), delayMs: Math.min(DEATH_TILE_DELAY_MS, DEATH_MAX_STAGGER_MS / Math.max(1, segments.length - 1)) };
   });
 }
 
@@ -3273,9 +3295,9 @@ function buildDeathSeedParticles(seedsEarned) {
   });
 }
 
-function drawDeathAnimation(now) {
-  const animation = deathAnimation;
+function drawDeathAnimation(now, animation = deathAnimation) {
   if (!animation) return;
+  const colors = animation.colors || snakeColors;
   const cell = boardMetrics.cellSize;
   const elapsed = now - animation.startedAt;
 
@@ -3285,6 +3307,7 @@ function drawDeathAnimation(now) {
   // Draw these first so unreleased connectors still sit underneath the tiles.
   animation.segments.slice(0, -1).forEach((part, index) => {
     const nextPart = animation.segments[index + 1];
+    if (Math.hypot(nextPart.x - part.x, nextPart.y - part.y) > 1.2) return;
     const rawLocal = (elapsed - (index + 0.45) * animation.delayMs) / DEATH_CONNECTOR_DURATION_MS;
     if (rawLocal >= 1) return;
     const local = Math.max(0, rawLocal);
@@ -3313,7 +3336,7 @@ function drawDeathAnimation(now) {
     ctx.beginPath();
     ctx.roundRect(-length / 2 + connectorShadowOffset, -thickness / 2 + connectorShadowOffset, length, thickness, thickness / 2);
     ctx.fill();
-    ctx.fillStyle = window.IdleSnakeAppearance.connectorColor(window.ThemeKit ? window.ThemeKit.color(snakeColors.body) : snakeColors.body);
+    ctx.fillStyle = window.IdleSnakeAppearance.connectorColor(window.ThemeKit ? window.ThemeKit.color(colors.body) : colors.body);
     ctx.beginPath();
     ctx.roundRect(-length / 2, -thickness / 2, length, thickness, thickness / 2);
     ctx.fill();
@@ -3350,18 +3373,18 @@ function drawDeathAnimation(now) {
     } else {
       drawRoundedRect(rect.x + shadowOffset, y + shadowOffset, rect.size, rect.size);
     }
-    ctx.fillStyle = index === 0 || isTail ? snakeColors.head : snakeColors.body;
+    ctx.fillStyle = index === 0 || isTail ? colors.head : colors.body;
     if (isTail) {
       const previousPart = animation.segments[index - 1];
       drawTail({ ...rect, y }, part, previousPart);
     } else {
       drawRoundedRect(rect.x, y, rect.size, rect.size);
       if (index === 0) {
-        ctx.fillStyle = lightenColor(snakeColors.head, 0.10);
+        ctx.fillStyle = lightenColor(colors.head, 0.10);
         ctx.fillRect(rect.x + 3, y + 3, Math.max(1, rect.size - 6), Math.max(2, rect.size * 0.12));
       }
     }
-    if (index === 0) drawEyes(rect.x, y, rect.size, animation.direction);
+    if (index === 0) drawEyes(rect.x, y, rect.size, animation.direction, colors.head);
     ctx.restore();
   });
 
@@ -3440,7 +3463,7 @@ function drawTail(rect, cur, prev, wiggle = 0) {
   ctx.fill();
 }
 
-function drawEyes(x, y, size, facing = gameView.direction) {
+function drawEyes(x, y, size, facing = gameView.direction, headColor = snakeColors.head) {
   if (size < 12) return;
 
   const vector = vectors[facing] || vectors[gameView.direction];
@@ -3452,7 +3475,7 @@ function drawEyes(x, y, size, facing = gameView.direction) {
   const centerX = x + size / 2 + forwardX;
   const centerY = y + size / 2 + forwardY;
 
-  ctx.fillStyle = contrastingEyeColor(snakeColors.head);
+  ctx.fillStyle = contrastingEyeColor(headColor);
   ctx.fillRect(centerX + sideX - eyeSize / 2, centerY + sideY - eyeSize / 2, eyeSize, eyeSize);
   ctx.fillRect(centerX - sideX - eyeSize / 2, centerY - sideY - eyeSize / 2, eyeSize, eyeSize);
 }
@@ -3763,6 +3786,7 @@ function screenEffectStrength() {
 }
 
 function syncHud() {
+  if (minigameBackButton) minigameBackButton.hidden = gameView.gameMode === "snake";
   syncPrimaryActionButton();
   const bonus = gameView.lengthBonus;
   setText(seedIncomePerSecondEl, `+${formatDecimal(bonus.seedIncomePerSecond)}/s`);
@@ -4591,6 +4615,9 @@ document.addEventListener("keydown", (event) => {
       if (!event.repeat) runnerJump();
       return;
     }
+    if (gameView.gameMode === "duel" && gameView.state === "ready") {
+      startGame(); return;
+    }
     togglePause();
   }
 
@@ -4978,6 +5005,7 @@ minigameKeys.forEach((key) => {
     presentGameResult(dispatchSession({ type: "openMinigame", number: gameNumber }));
   });
 });
+minigameBackButton?.addEventListener("click", returnToRegularSnake);
 
 notablesButtonEl?.addEventListener("click", showNotablesMenu);
 closeNotablesButtonEl?.addEventListener("click", showColonyOverview);

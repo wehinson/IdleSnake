@@ -197,6 +197,7 @@
       cosmetics: raw.cosmetics && typeof raw.cosmetics === "object" ? clone(raw.cosmetics) : { body: null, head: null },
       minigameRewards: rewards.createLedger(raw.minigameRewards, raw.minigameEarnings), rewardRun: null,
       snakebirdProgress: raw.snakebirdProgress && typeof raw.snakebirdProgress === "object" ? clone(raw.snakebirdProgress) : { unlockedLevel: 1, clearedLevels: [], bestMoves: [], lastSelectedLevel: 1 },
+      mazeProgress: maze.normalProgress(raw.mazeProgress),
       nursery: economy.createNursery(raw.nursery, now), habitats: economy.createHabitats(raw.habitats),
       notables: notables.createState(raw.notables),
       eggBoardCountdown: Number.isInteger(Number(raw.eggBoardCountdown)) && Number(raw.eggBoardCountdown) > 0 ? Number(raw.eggBoardCountdown) : null,
@@ -312,9 +313,9 @@
       return;
     }
     if (mode === "maze") {
-      const grid = setup.grid || { columns: 21, rows: 21 };
-      const active = { grid, open: Array.isArray(setup.open) ? new Set(setup.open) : buildMaze(setup.layoutIndex ?? Math.floor(state.rng() * 4)), path: Array.isArray(setup.path) ? clone(setup.path) : [{ x: 10, y: 15 }, { x: 9, y: 15 }, { x: 8, y: 15 }], food: setup.food ? clone(setup.food) : null, foodsEaten: 0, level: 1, score: 0, tickMs: setup.tickMs || maze.TICK_MS, direction: "up", directionQueue: [] };
-      if (!active.food) maze.spawnFood(active, () => state.rng()); state.active = active;
+      const levelIndex = Math.max(0, Math.min(maze.LEVEL_COUNT - 1, Math.floor(Number(setup.levelIndex ?? state.mazeProgress.lastSelectedLevel) || 0)));
+      const active = maze.createState(setup, levelIndex); state.active = active;
+      state.mazeProgress.lastSelectedLevel = levelIndex;
       if (state.rewardRun) state.rewardRun.lastAppliedHeading = active.direction;
       return;
     }
@@ -361,6 +362,7 @@
       minigameRewards: clone(state.minigameRewards),
       seeds: state.seeds, provisions: state.provisions, branches: state.branches, best: state.best, records: memoizedFrozenClone(state.snapshotCache.records, state.records), upgrades: memoizedFrozenClone(state.snapshotCache.upgrades, state.upgrades), selectedBoardLevel: state.selectedBoardLevel,
       selectedDuelGridSize: state.selectedDuelGridSize, snakeSpeed: state.snakeSpeed, reducedMotion: state.reducedMotion, fullscreenMode: state.fullscreenMode, mobileControls: memoizedFrozenClone(state.snapshotCache.mobileControls, state.mobileControls),
+      mazeProgress: clone(state.mazeProgress),
       cosmetics: memoizedFrozenClone(state.snapshotCache.cosmetics, state.cosmetics), snakebirdProgress: memoizedFrozenClone(state.snapshotCache.snakebirdProgress, state.snakebirdProgress), nursery: clone(state.nursery), habitats: clone(state.habitats), notables: clone(state.notables), eggBoardCountdown: state.eggBoardCountdown, active,
       migration: clone(state.migration), migrationChallenge: clone(state.migrationChallenge), tradeRoutes: clone(state.tradeRoutes),
       activeResupplyMissions: clone(state.activeResupplyMissions), completedResupplyMissions: clone(state.completedResupplyMissions), resupplyTotals: clone(state.resupplyTotals),
@@ -841,7 +843,9 @@
           {
             const active = state.active;
             const crossingRequiresStart = state.mode === "crossing" && (state.phase === "gameover" || active?.awaitingStart);
-            const setup = action.setup || (isPuzzleMode(state.mode) && active ? puzzleRestartSetup(active) : undefined);
+            const setup = action.setup || (state.mode === "maze" && active
+              ? { levelIndex: active.result === "won" ? (active.levelIndex + 1) % maze.LEVEL_COUNT : active.levelIndex }
+              : isPuzzleMode(state.mode) && active ? puzzleRestartSetup(active) : undefined);
             startMode(state, state.mode, setup); rememberPuzzle();
             if (crossingRequiresStart) state.active.awaitingStart = true;
           } events.push(event("runReady", { mode: state.mode })); break;
@@ -1333,7 +1337,7 @@
       // Snake and fixed-step Breakout preserve elapsed time across long frames.
       // Other modes retain their existing live-frame limit.
       const rawDt = Math.max(0, Number(dtMs) || 0);
-      const dt = ["snake", "breakout"].includes(state.mode) ? rawDt : Math.min(MAX_LIVE_DT, rawDt);
+      const dt = ["snake", "breakout", "maze"].includes(state.mode) ? rawDt : Math.min(MAX_LIVE_DT, rawDt);
       const events = [];
       if (!rawDt) return events;
       events.push(...advanceSettlementWorld(rawDt));
@@ -1385,10 +1389,17 @@
         }
       }
       if (state.phase === "running" && state.active && state.mode === "maze") {
-        state.modeAccumulatorMs += dt;
-        while (state.modeAccumulatorMs >= state.active.tickMs && state.phase === "running") {
-          const stepped = stepControlledMinigame(state, () => maze.stepMaze(state.active, { rng: () => state.rng() })); state.modeAccumulatorMs -= state.active.tickMs; events.push(...stepped.events);
-          if (!stepped.alive) { state.phase = "gameover"; state.records.mazeBest = Math.max(state.records.mazeBest, state.active.score); endMinigame(state, {}, events); }
+        const advanced = maze.advanceTime(state.active, dt, state.modeAccumulatorMs,
+          () => stepControlledMinigame(state, () => maze.stepMaze(state.active)));
+        state.modeAccumulatorMs = advanced.accumulatorMs; events.push(...advanced.events);
+        state.elapsedMs -= dt - advanced.consumedMs;
+        if (!advanced.alive) {
+          state.phase = "gameover"; state.records.mazeBest = Math.max(state.records.mazeBest, state.active.score);
+          if (advanced.won) {
+            state.mazeProgress.clearedLevels = [...new Set([...state.mazeProgress.clearedLevels, state.active.levelIndex])].sort((a, b) => a - b);
+            state.mazeProgress.unlockedLevel = Math.min(maze.LEVEL_COUNT, Math.max(state.mazeProgress.unlockedLevel, state.active.levelIndex + 2));
+          }
+          endMinigame(state, maze.terminal(state.active), events);
         }
       }
       if (state.phase === "running" && state.active && state.mode === "crossing") {
