@@ -272,7 +272,7 @@
   function startMode(state, mode, setup) {
     setup = setup || {};
     state.mode = mode; state.phase = "ready"; state.modeAccumulatorMs = 0; state.elapsedMs = 0;
-    if (mode === "snake") return startSnake(state, setup);
+    if (mode === "snake") { state.rewardRun = null; return startSnake(state, setup); }
     state.rewardRun = rewards.beginRun(state.minigameRewards, mode, () => state.rng());
     if (mode === "duel") {
       const grid = { ...duel.GRID };
@@ -931,7 +931,16 @@
             } else return reject("cursorUnavailable");
             events.push(event("battleshipCursorMoved", { direction: action.direction })); break;
           }
-          if (state.mode === "maze" && state.phase === "ready") {
+          if (state.mode === "duel" && state.phase === "ready") {
+            // Ready has no applied turn yet. A downward opening rotates the
+            // initial straight body behind its head instead of hitting its neck.
+            if (reversesDirection(state.active.player.direction, action.direction)) {
+              const head = state.active.player.body[0]; const v = directionVectors[action.direction];
+              state.active.player.body = state.active.player.body.map((_, i) => duel.wrap(state.active.grid, { x: head.x - v.x * i, y: head.y - v.y * i }));
+            }
+            state.active.player.direction = action.direction; state.active.direction = action.direction;
+            state.active.nextDirection = action.direction; state.active.directionQueue = [action.direction];
+          } else if (state.mode === "maze" && state.phase === "ready") {
             // All four inputs can start; the first tick still checks walls/body.
             // Normal reversal checks apply after the opening input.
             state.active.direction = action.direction; state.active.directionQueue = [action.direction];
@@ -1279,7 +1288,7 @@
         state.modeAccumulatorMs += dt;
         while (state.modeAccumulatorMs >= state.active.tickMs && state.phase === "running") {
           const stepped = stepControlledMinigame(state, () => duel.stepVsSnake(state.active, { rng: () => state.rng() })); state.modeAccumulatorMs -= state.active.tickMs; events.push(...stepped.events);
-          if (!stepped.alive) { state.phase = "gameover"; endMinigame(state, { winner: stepped.winner }, events); }
+          if (!stepped.alive) { state.phase = "gameover"; endMinigame(state, { winner: stepped.winner, collisions: stepped.collisions, playerHead: stepped.playerHead, opponentHead: stepped.opponentHead }, events); }
         }
       }
       if (state.phase === "running" && state.active && state.mode === "maze") {

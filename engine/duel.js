@@ -49,13 +49,35 @@
       const foodDistance = distance(state.grid, food, state.opponent.body[0]);
       return !closest || foodDistance < closest.distance ? { food, distance: foodDistance } : closest;
     }, null);
-    safe.sort((a, b) => {
+    const exits = (candidate) => {
+      const point = nextHead(state.opponent, state.grid, candidate);
+      const remaining = contains(state.foods, point) ? state.opponent.body : state.opponent.body.slice(0, -1);
+      return Object.keys(vectors).filter((direction) => {
+        const v = vectors[direction]; const forward = vectors[candidate];
+        if (v.x + forward.x === 0 && v.y + forward.y === 0) return false;
+        const next = wrap(state.grid, { x: point.x + v.x, y: point.y + v.y });
+        return !contains(remaining, next) && !contains(state.player.body, next);
+      }).length;
+    };
+    const viable = safe.filter((direction) => exits(direction) > 0);
+    // A single lookahead avoids greedy closed pockets without a perfect pathfinder.
+    const candidates = viable.length ? viable : safe;
+    candidates.sort((a, b) => {
       const aPoint = nextHead(state.opponent, state.grid, a);
       const bPoint = nextHead(state.opponent, state.grid, b);
       if (!target) return 0;
       return distance(state.grid, aPoint, target.food) - distance(state.grid, bPoint, target.food);
     });
-    state.opponent.direction = safe[0];
+    state.aiTicks = (state.aiTicks || 0) + 1;
+    let chosen = candidates[0];
+    // Occasionally keep a safe heading instead of chasing a Seed. Limit the
+    // detour to two cells, so the handicap never substitutes reckless collisions.
+    if (target && state.aiTicks % 13 === 0 && candidates.includes(state.opponent.direction)) {
+      const straight = nextHead(state.opponent, state.grid);
+      const best = nextHead(state.opponent, state.grid, chosen);
+      if (distance(state.grid, straight, target.food) <= distance(state.grid, best, target.food) + 2) chosen = state.opponent.direction;
+    }
+    state.opponent.direction = chosen;
   }
 
   function spawnFoods(state, count, rng) {
@@ -113,8 +135,16 @@
         winner = playerCollision && !opponentCollision ? "opponent"
           : opponentCollision && !playerCollision ? "player" : null;
       }
-      events.push({ type: "gameOver", winner });
-      return { state, events, alive: false, winner };
+      const collisions = [];
+      const record = (actor, point, ownBody, hit) => {
+        if (hit) collisions.push({ actor, point: { ...point }, kind: contains(ownBody, point) ? "self" : "other" });
+        else if (headToHead && (winner === null || winner !== actor)) collisions.push({ actor, point: { ...point }, kind: "headOn" });
+      };
+      record("player", playerHead, playerBodyAfterMove, playerCollision);
+      record("opponent", opponentHead, opponentBodyAfterMove, opponentCollision);
+      state.outcome = { winner, collisions, playerHead: { ...playerHead }, opponentHead: { ...opponentHead } };
+      events.push({ type: "gameOver", ...state.outcome });
+      return { state, events, alive: false, ...state.outcome };
     }
 
     state.player.body.unshift(playerHead);
@@ -122,7 +152,7 @@
     const eatenFoods = new Set();
     if (playerFood >= 0) { state.score += 1; eatenFoods.add(`${playerHead.x},${playerHead.y}`); events.push({ type: "eat" }); }
     else state.player.body.pop();
-    if (opponentFood >= 0) eatenFoods.add(`${opponentHead.x},${opponentHead.y}`);
+    if (opponentFood >= 0) { state.opponentSeeds = (state.opponentSeeds || 0) + 1; eatenFoods.add(`${opponentHead.x},${opponentHead.y}`); }
     else state.opponent.body.pop();
     if (eatenFoods.size) state.foods = state.foods.filter((f) => !eatenFoods.has(`${f.x},${f.y}`));
     while (state.foods.length < 5) {
