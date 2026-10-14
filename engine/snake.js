@@ -175,6 +175,26 @@
     return true;
   }
 
+  // Earlier buffered turns own the imminent step. Late Seed turns live outside
+  // that queue so presentation continues to face the step that will consume it.
+  function seedTurnGraceHeading(state, elapsedMs) {
+    if (state.shieldImpact || state.collisionGraceRemainingMs !== null
+      || elapsedMs < nextMoveInterval(state) * 0.85) return null;
+    const heading = state.directionQueue[0] || state.direction;
+    const vector = vectors[heading];
+    const head = state.snake[0];
+    return state.foods.some(food => food.kind !== "egg"
+      && food.x === head.x + vector.x && food.y === head.y + vector.y) ? heading : null;
+  }
+
+  function deferSeedTurn(state, next) {
+    // Preserve the existing early buffer; replace only the latest grace input.
+    const trial = { ...state, direction: state.directionQueue.at(-1) || state.direction, directionQueue: [] };
+    if (!queueDirection(trial, next)) return false;
+    state.deferredSeedTurn = next;
+    return true;
+  }
+
   // Immediate session turns validate against the last completed move.
   // A second perpendicular input can therefore complete a quick U-turn.
   function turnDirection(state, next) {
@@ -185,6 +205,7 @@
     state.direction = next;
     state.nextDirection = next;
     state.directionQueue = [];
+    delete state.seedTurnQueueGuards;
     return true;
   }
 
@@ -269,6 +290,12 @@
       && saved.shieldImpact.ticksRemaining >= 1 && saved.shieldImpact.ticksRemaining <= 3
       ? state.shieldImpact : null;
     state.tickMs = movementInterval(state);
+    delete state.deferredSeedTurn;
+    if (seedTurnGraceHeading(state, state.tickMs) && vectors[saved.deferredSeedTurn]) deferSeedTurn(state, saved.deferredSeedTurn);
+    delete state.seedTurnQueueGuards;
+    const guards = Array.isArray(saved.seedTurnQueueGuards) ? [...new Set(saved.seedTurnQueueGuards)]
+      .filter(index => Number.isInteger(index) && index >= 0 && index < state.directionQueue.length).sort((a, b) => a - b) : [];
+    if (guards.length) state.seedTurnQueueGuards = guards;
     return state;
   }
 
@@ -313,6 +340,8 @@
     ctx = ctx || {};
     const rng = ctx.rng || Math.random;
     const events = [];
+    const deferredSeedTurn = state.deferredSeedTurn;
+    delete state.deferredSeedTurn;
 
     if (state.shieldImpact) {
       const impact = state.shieldImpact;
@@ -327,7 +356,24 @@
       state.shieldImpact = null;
       events.push({ type: "shieldRedirected", from: impact.incomingDirection, to: impact.redirectDirection });
     } else if (state.directionQueue.length > 0) {
-      state.direction = state.directionQueue.shift();
+      // A grace turn can wait behind earlier pickups. Their respawns may grow
+      // the body, so validate this turn against actual geometry when it is due.
+      const guards = new Set(state.seedTurnQueueGuards || []);
+      if (guards.has(0) && !canMoveDirection(state, state.directionQueue[0])) {
+        const remaining = state.directionQueue.slice(1);
+        state.directionQueue = [];
+        delete state.seedTurnQueueGuards;
+        remaining.forEach((direction, index) => {
+          if (queueDirection(state, direction) && guards.has(index + 1)) {
+            (state.seedTurnQueueGuards ||= []).push(state.directionQueue.length - 1);
+          }
+        });
+      } else {
+        state.direction = state.directionQueue.shift();
+        const remainingGuards = [...guards].filter(index => index > 0).map(index => index - 1);
+        if (remainingGuards.length) state.seedTurnQueueGuards = remainingGuards;
+        else delete state.seedTurnQueueGuards;
+      }
       state.nextDirection = state.directionQueue.length > 0
         ? state.directionQueue[state.directionQueue.length - 1]
         : state.direction;
@@ -344,6 +390,7 @@
         state.upgrades.shieldLevel -= 1;
         state.nextDirection = redirect.direction;
         state.directionQueue = [];
+        delete state.seedTurnQueueGuards;
         state.shieldImpact = {
           incomingDirection: state.direction,
           redirectDirection: redirect.direction,
@@ -357,6 +404,7 @@
         if (ctx.collisionGraceMs > 0) {
           state.collisionGraceRemainingMs = ctx.collisionGraceMs;
           state.directionQueue = [];
+          delete state.seedTurnQueueGuards;
           state.nextDirection = state.direction;
           events.push({ type: "collisionPending" });
           return { state, events, alive: true };
@@ -413,6 +461,15 @@
       }
     }
 
+    // Release only after the canonical pickup, without an extra movement or
+    // RNG draw. Buffered grace turns remain guarded until their own step.
+    if (respawnSeed && deferredSeedTurn) {
+      if ((state.directionQueue.length || canMoveDirection(state, deferredSeedTurn))
+        && queueDirection(state, deferredSeedTurn)) {
+        (state.seedTurnQueueGuards ||= []).push(state.directionQueue.length - 1);
+      }
+    }
+
     return { state, events, alive: true };
   }
 
@@ -434,6 +491,8 @@
     findShieldRedirect,
     queueDirection,
     queueDirectionAfterShield,
+    seedTurnGraceHeading,
+    deferSeedTurn,
     turnDirection,
     createSnakeMode,
     restoreSnakeMode,

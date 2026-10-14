@@ -36,11 +36,11 @@
         <div class="menu-stat">
           <span>Seeds</span>
           <strong id="seedsTotal">000000</strong>
-          <div class="seed-income-summary">
-            Income <b id="seedIncomePerSecond">+0/s</b>
-          </div>
-          <div class="length-bonus-summary" id="lengthBonusSummary" hidden>
-            Length Bonus <b id="lengthBonusMultiplier">1.00×</b>
+          <div class="seed-income-row">
+            <div class="seed-income-summary">Income <b id="seedIncomePerSecond">+0/s</b></div>
+            <div class="length-bonus-summary" id="lengthBonusSummary" hidden>
+              Length Bonus <b id="lengthBonusMultiplier">1.00&#215;</b>
+            </div>
           </div>
         </div>
         <nav class="menu-tabs" aria-label="Menu areas">
@@ -187,7 +187,6 @@
                 <span class="upgrade-label">Hatchling yard</span>
                 <strong>Nursery</strong>
               </div>
-              <button id="pauseFeedingButton" class="nursery-feeding-button" type="button" aria-pressed="false">Pause feeding</button>
               <span class="upgrade-level" id="nurseryCapacity">0 / 2</span>
             </div>
             <div class="nursery-grid" id="nurseryGrid" aria-label="12 by 15 Nursery grid"></div>
@@ -222,36 +221,16 @@
                   <li>Branches <strong id="colonyBranchIncomeRate">0</strong></li>
                 </ul>
               </section>
-              <section class="colony-summary-section" aria-label="Consumption per second">
-                <span class="colony-summary-heading">Consumption (per second)</span>
-                <ul class="colony-summary-list">
-                  <li>Provisions <strong id="colonyProvisionConsumptionRate">0</strong></li>
-                </ul>
-              </section>
             </div>
             <p class="colony-note">Place a snake for steady income. Food upgrades increase habitat rates too.</p>
             <div class="habitat-list" id="habitatList" aria-label="Habitats"></div>
           </div>
           <section class="notables-panel" id="notablesPanel" hidden aria-label="Notables">
             <div class="notables-heading">
-              <div><span class="upgrade-label">Colony leaders</span><strong id="notablesSummary">Notables: 0 / 1</strong></div>
-              <span class="menu-section-mark">LEAD</span>
+              <button class="notables-back-button" id="closeNotablesButton" type="button">Back to Colony</button>
+              <strong id="notablesSummary" aria-label="Retained Notables / capacity">(0/1)</strong>
             </div>
-            <section class="notable-candidates" aria-labelledby="notableCandidatesHeading">
-              <div class="notable-section-heading">
-                <h3 id="notableCandidatesHeading">Candidates</h3>
-                <span id="candidateQueueSummary">0 waiting</span>
-              </div>
-              <p class="colony-note">Select a candidate to review. Five candidates are shown on each page.</p>
-              <div class="candidate-list" id="candidateList"></div>
-              <nav class="candidate-pagination" id="candidatePagination" aria-label="Candidate pages" hidden>
-                <button type="button" id="candidatePreviousPage">Previous</button>
-                <span id="candidatePageStatus">Page 1 of 1</span>
-                <button type="button" id="candidateNextPage">Next</button>
-              </nav>
-            </section>
-            <section class="candidate-decision" aria-labelledby="candidateDecisionHeading">
-              <h3 id="candidateDecisionHeading">Candidate to keep</h3>
+            <section class="candidate-decision" id="candidateDecision" aria-label="Candidate to keep" hidden>
               <div id="pendingNotable"></div>
             </section>
             <button class="upgrade-button" id="recruitNotableButton" type="button">Recruit Notable · Sacrifice 150 unassigned snakes</button>
@@ -260,7 +239,6 @@
             <h3>Elders</h3>
             <p class="colony-note">Retired leaders remain in the archive. Elders may receive additional functions in a future update.</p>
             <div class="notables-roster" id="eldersRoster"></div>
-            <button class="notables-back-button" id="closeNotablesButton" type="button">Back to Colony</button>
           </section>
         </section>
 
