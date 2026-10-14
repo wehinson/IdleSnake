@@ -53,7 +53,6 @@ test("every gameplay control resumes a paused run without resetting or applying 
   const session = createGameSession({ now: 0, rng: () => ((seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 4294967296) });
   const controls = [
     { type: "primaryAction" }, { type: "togglePause" }, { type: "resetRun" },
-    { type: "openMinigame", number: 1 },
     ...["up", "down", "left", "right"].map((direction) => ({ type: "playDirection", direction }))
   ];
   for (const mode of session.snapshot().supportedModes) {
@@ -76,7 +75,7 @@ test("every gameplay control resumes a paused run without resetting or applying 
 
 test("named minigames agree with engine launches and unlocks, including the Runner shortcut", () => {
   const session = createGameSession({ now: 0, rng: () => 0.3 });
-  const names = ["Vs Snake", "Snake Forever", "Brick Breakout", "Snakeger", "Snakebird", "Sokoban", "Broodline", "Venom Strike", "Centipede"];
+  const names = ["Vs Snake", "Nibbler", "Brick Breakout", "Snakeger", "Snakebird", "Sokoban", "Broodline", "Venom Strike", "Centipede"];
   const options = queries.minigameOptions(session.snapshot());
   assert.deepEqual(options.map((option) => option.name), names);
   assert.equal(options.every((option) => !option.unlocked), true);
@@ -96,7 +95,7 @@ test("named minigames agree with engine launches and unlocks, including the Runn
 test("headless play uses the browser controls to solve and advance Sokoban", () => {
   const session = createGameSession({ now: 0 });
   session.dispatch({ type: "launchGame", mode: "sokoban" });
-  const moves = ["right", "right", "right", "up", "up", "up", "up", "right", "right", "right", "right"];
+  const moves = ["right", "right", "right"];
   const result = runHeadless(session, { steps: 50, controller: (_, step) => ({ type: "playDirection", direction: moves[step] }) });
   assert.equal(result.ended, true);
   assert.equal(result.steps, moves.length);
@@ -120,7 +119,7 @@ test("board and food-count purchases reset inside the engine, once per action", 
   assert.equal(food.active.foods.length, 2);
   session.dispatch({ type: "selectMode", mode: "duel" });
   const duel = session.dispatch({ type: "setSelectedDuelGridSize", selectedDuelGridSize: 15 }).snapshot;
-  assert.deepEqual(duel.active.grid, { columns: 15, rows: 15 });
+  assert.deepEqual(duel.active.grid, { columns: 20, rows: 25 });
 });
 
 test("panel availability agrees with engine purchase and assignment validation", () => {

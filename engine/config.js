@@ -14,7 +14,7 @@
   const boardLevels = ["5x8", "5x10", "8x10", "11x11", "12x15", "15x21", "15x22", "20x25"];
   const minigameCatalog = [
     { mode: "duel", name: "Vs Snake" },
-    { mode: "maze", name: "Snake Forever" },
+    { mode: "maze", name: "Nibbler" },
     { mode: "breakout", name: "Brick Breakout" },
     { mode: "crossing", name: "Snakeger" },
     { mode: "snakebird", name: "Snakebird" },

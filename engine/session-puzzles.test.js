@@ -5,7 +5,7 @@ const { runHeadless } = require("./simulate.js");
 const levels = require("./puzzle-levels.js");
 const snakebird = require("../snakebird-engine.js");
 const sokoban = require("./sokoban.js");
-const firstPush = ["right", "right", "right", "up", "up", "up", "up", "right", "right", "right", "right"];
+const firstPush = ["right", "right", "right"];
 
 test("all shipped puzzle levels load through the session with unchanged content", () => {
   const game = createGameSession({ now: 0 });
@@ -34,7 +34,7 @@ test("puzzle selection rejects invalid actions without changing the session", ()
   for (const action of [
     { type: "launchPuzzle", mode: "toString" },
     { type: "continuePuzzle" },
-    ...[-1, 5, 0.5, NaN].map(levelIndex => ({ type: "selectPuzzleLevel", mode: "snakebird", levelIndex }))
+    ...[-1, levels.snakebird.length, 0.5, NaN].map(levelIndex => ({ type: "selectPuzzleLevel", mode: "snakebird", levelIndex }))
   ]) {
     const result = game.dispatch(action);
     assert.ok(result.events.some(e => e.type === "actionRejected"));
@@ -77,7 +77,8 @@ test("headless shipped Sokoban completion pays once, persists records, and advan
   assert.equal(result.ended, true);
   assert.equal(result.steps, firstPush.length);
   assert.equal(result.snapshot.phase, "gameover");
-  assert.equal(result.snapshot.seeds, levels.sokoban[0].reward);
+  assert.equal(result.snapshot.seeds, result.events.find(e => e.type === "runEnded").reward);
+  assert.ok(result.snapshot.seeds > 0);
   assert.equal(result.events.filter(e => e.type === "runEnded").length, 1);
   game.dispatch({ type: "direction", direction: "right" });
   assert.equal(game.snapshot().seeds, result.snapshot.seeds);
@@ -96,11 +97,13 @@ test("Snakebird input completion stops headless ticks, preserves rewards and pro
   const first = driver();
   assert.equal(first.ended, true);
   assert.equal(first.steps, 1);
-  assert.equal(first.snapshot.seeds, 20);
+  assert.equal(first.snapshot.seeds, first.events.find(e => e.type === "runEnded").reward);
+  assert.ok(first.snapshot.seeds > 0);
   assert.equal(game.serialize().savedAt, 0, "no clock update after the winning action");
   game.dispatch({ type: "restart" });
   const replay = driver();
-  assert.equal(replay.snapshot.seeds, 25);
+  assert.equal(replay.snapshot.seeds, first.snapshot.seeds + replay.events.find(e => e.type === "runEnded").reward);
+  assert.ok(replay.events.find(e => e.type === "runEnded").reward < first.snapshot.seeds);
   assert.equal(replay.snapshot.snakebirdProgress.bestMoves[0], 1);
   assert.deepEqual(createGameSession({ now: 0, save: game.serialize() }).snapshot().snakebirdProgress, replay.snapshot.snakebirdProgress);
   const next = game.dispatch({ type: "continuePuzzle" }).snapshot;
@@ -111,7 +114,7 @@ test("Snakebird input completion stops headless ticks, preserves rewards and pro
 test("Sokoban final-level completion wraps to the first shipped level", () => {
   const game = createGameSession({ now: 0 });
   const definition = { reward: 1, map: ["#####", "#...#", "#####"], snake: [{ x: 1, y: 1 }], crates: [{ x: 2, y: 1, kind: "light" }], goals: [{ x: 3, y: 1 }], pellets: [], plates: [], gates: [] };
-  game.dispatch({ type: "selectMode", mode: "sokoban", setup: { definition, levelIndex: 4 } });
+  game.dispatch({ type: "selectMode", mode: "sokoban", setup: { definition, levelIndex: levels.sokoban.length - 1 } });
   assert.equal(game.dispatch({ type: "direction", direction: "right" }).snapshot.phase, "gameover");
   const next = game.dispatch({ type: "continuePuzzle" }).snapshot;
   assert.equal(next.active.stageIndex, 0);

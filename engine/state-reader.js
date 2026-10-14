@@ -32,7 +32,7 @@
         const [columns, rows] = config.upgradeConfig.board.levels[full().selectedBoardLevel].split("x").map(Number);
         return Object.freeze({ columns, rows });
       },
-      duelGrid: () => Object.freeze({ columns: full().selectedDuelGridSize, rows: full().selectedDuelGridSize }),
+      duelGrid: () => Object.freeze({ columns: 20, rows: 25 }),
       snake: () => active().snake || active().path || empty,
       runSeedsEarned: () => active().runSeedsEarned || 0,
       foods: () => active().foods || empty, score: () => active().score || 0,

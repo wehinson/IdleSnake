@@ -60,7 +60,7 @@ test("Runner is a session-owned mode with pause, restart, and per-mode record pe
   }
   assert.equal(ended?.mode, "runner");
   assert.ok(ended.reward > 0);
-  assert.equal(ending.snapshot().records.runnerBest, ended.reward);
+  assert.equal(ending.snapshot().records.runnerBest, ending.snapshot().active.score);
   assert.equal(ending.snapshot().seeds, ended.reward);
 });
 
@@ -88,7 +88,8 @@ test("Centipede is a session-owned mode with deterministic input, cadence, pause
   ending.dispatch({ type: "direction", direction: "left" });
   const ended = ending.tick(70);
   assert.equal(ended.snapshot.phase, "gameover");
-  assert.deepEqual(ended.events.find((item) => item.type === "runEnded"), { type: "runEnded", mode: "centipede", reward: 0 });
+  assert.equal(ended.events.find((item) => item.type === "runEnded").reward, 0);
+  assert.equal(ended.events.find((item) => item.type === "runEnded").outcome, "loss");
 });
 
 test("held input axes are lifecycle-neutral, bounded, and can be cleared while paused", () => {
@@ -216,7 +217,8 @@ test("serialize never contains the injected rng and round-trips through a new se
   game.dispatch({ type: "buyUpgrade", upgrade: "board" }); // no-op if unaffordable, still safe
   game.dispatch({ type: "start" });
   const save = game.serialize();
-  assert.equal(JSON.stringify(save).includes("rng"), false);
+  assert.equal(Object.hasOwn(save.session, "rng"), false);
+  assert.ok(save.session.minigameRewards.rngState === null || Number.isInteger(save.session.minigameRewards.rngState));
   const restored = createGameSession({ save, now: 0, rng: lcg(3) });
   const a = restored.snapshot();
   assert.equal(a.seeds, game.snapshot().seeds);
@@ -253,30 +255,30 @@ test("migrates durable UI preferences from legacy V2 fields without changing cos
 
   const settingsFallback = createGameSession({ save: { saveVersion: 2, settings: { reducedMotion: true, duelGridSize: 15 } }, now: 10 }).snapshot();
   assert.equal(settingsFallback.reducedMotion, true);
-  assert.equal(settingsFallback.selectedDuelGridSize, 15);
+  assert.equal(settingsFallback.selectedDuelGridSize, 20);
 });
 
 test("session preferences dispatch, validate, serialize, and round-trip deterministically", () => {
   const game = createGameSession({ now: 0 });
   const motion = game.dispatch({ type: "setReducedMotion", reducedMotion: true });
   assert.deepEqual(motion.events, [{ type: "reducedMotionChanged", reducedMotion: true }]);
-  const grid = game.dispatch({ type: "setSelectedDuelGridSize", selectedDuelGridSize: 40 });
-  assert.deepEqual(grid.events, [{ type: "duelGridSizeChanged", selectedDuelGridSize: 40 }]);
+  const grid = game.dispatch({ type: "setSelectedDuelGridSize", selectedDuelGridSize: 20 });
+  assert.deepEqual(grid.events, [{ type: "duelGridSizeChanged", selectedDuelGridSize: 20 }]);
   game.dispatch({ type: "setCosmetics", cosmetics: { head: "#fff" } });
 
   const save = game.serialize();
   assert.equal(save.session.reducedMotion, true);
-  assert.equal(save.session.selectedDuelGridSize, 40);
+  assert.equal(save.session.selectedDuelGridSize, 20);
   const restored = createGameSession({ save, now: 0 }).snapshot();
   assert.equal(restored.reducedMotion, true);
-  assert.equal(restored.selectedDuelGridSize, 40);
+  assert.equal(restored.selectedDuelGridSize, 20);
   assert.deepEqual(restored.cosmetics, { body: null, head: "#fff" });
   assert.deepEqual(createGameSession({ save, now: 0 }).serialize(), createGameSession({ save, now: 0 }).serialize());
 
-  for (const invalid of [false, null, undefined, 0, 12, 31, 50, {}, []]) {
+  for (const invalid of [false, null, undefined, 0, 10, 15, 12, 30, 31, 40, 50, {}, []]) {
     const rejected = game.dispatch({ type: "setSelectedDuelGridSize", selectedDuelGridSize: invalid });
     assert.ok(rejected.events.some((event) => event.type === "actionRejected" && event.reason === "invalidDuelGridSize"));
-    assert.equal(rejected.snapshot.selectedDuelGridSize, 40);
+    assert.equal(rejected.snapshot.selectedDuelGridSize, 20);
   }
   for (const invalid of [null, 1, "true", undefined]) {
     const rejected = game.dispatch({ type: "setReducedMotion", reducedMotion: invalid });
@@ -288,7 +290,7 @@ test("session preferences dispatch, validate, serialize, and round-trip determin
 test("malformed persisted preferences normalize to safe defaults", () => {
   for (const invalid of [null, false, 0, 9, 11, 100, "not-a-size", {}, []]) {
     const snapshot = createGameSession({ save: { saveVersion: 2, board: { selectedDuelGridSize: invalid } }, now: 0 }).snapshot();
-    assert.equal(snapshot.selectedDuelGridSize, 30);
+    assert.equal(snapshot.selectedDuelGridSize, 20);
   }
   for (const invalid of [null, 0, 1, "true", {}, []]) {
     const snapshot = createGameSession({ save: { saveVersion: 2, accessibility: { reducedMotion: invalid } }, now: 0 }).snapshot();
@@ -304,7 +306,7 @@ test("every shipped mode selects into a ready board and runs on first input", ()
     assert.equal(selected.snapshot.phase, "ready", mode);
     assert.ok(selected.snapshot.active, mode);
     assert.ok(selected.events.some((e) => e.type === "runReady"), mode);
-    const firstDirections = { duel: "left", maze: "left", crossing: "up", snakebird: "left", broodline: "up" };
+    const firstDirections = { duel: "left", maze: "left", crossing: "up", snakebird: "left", sokoban: "right", broodline: "up" };
     const started = game.dispatch({ type: "direction", direction: firstDirections[mode] || "up" });
     assert.equal(started.snapshot.phase, "running", mode);
     assert.doesNotThrow(() => game.tick(100), mode);
@@ -336,7 +338,7 @@ test("real-time modes use engine dimensions while grid modes accept host grids",
   assert.equal(runner.active.boardWidth, 720);
   assert.equal(runner.active.boardHeight, 720);
   const duel = game.dispatch({ type: "selectMode", mode: "duel", setup: { grid: { columns: 15, rows: 15 } } }).snapshot;
-  assert.deepEqual(duel.active.grid, { columns: 15, rows: 15 });
+  assert.deepEqual(duel.active.grid, { columns: 20, rows: 25 });
 });
 
 test("offline catch-up credits idle income from the save's savedAt, not boot time", () => {
@@ -429,26 +431,26 @@ test("Crossing owns its timed clear transition, rejects input, pauses, and reset
   game.dispatch({ type: "direction", direction: "up" });
   const first = game.tick(1);
   assert.equal(first.events.filter((item) => item.type === "stageClear").length, 1);
-  assert.equal(first.events.filter((item) => item.type === "reward" && item.amount === 15).length, 1);
+  assert.equal(first.events.filter((item) => item.type === "reward").length, 0);
   assert.equal(first.snapshot.active.stage, 1);
   assert.equal(first.snapshot.active.score, 100);
   assert.equal(first.snapshot.active.snakeLength, 4);
   assert.equal(first.snapshot.active.subphase, "clearing");
-  assert.equal(first.snapshot.active.transitionRemainingMs, 500);
+  assert.equal(first.snapshot.active.transitionRemainingMs, 1000);
   assert.equal(first.snapshot.records.crossingBest, 100);
-  assert.equal(first.snapshot.seeds, 15);
+  assert.equal(first.snapshot.seeds, 0, "progress settles only at run end");
 
   const rejected = game.dispatch({ type: "direction", direction: "right" });
   assert.ok(rejected.events.some((item) => item.type === "actionRejected" && item.reason === "stageTransition"));
   assert.deepEqual(rejected.snapshot.active.directionQueue, []);
   const partial = game.tick(200).snapshot;
-  assert.equal(partial.active.transitionRemainingMs, 300);
+  assert.equal(partial.active.transitionRemainingMs, 800);
   assert.equal(partial.active.stage, 1);
   game.dispatch({ type: "pause" });
   const paused = game.tick(1000).snapshot;
-  assert.equal(paused.active.transitionRemainingMs, 300);
+  assert.equal(paused.active.transitionRemainingMs, 800);
   game.dispatch({ type: "resume" });
-  assert.equal(game.tick(299).snapshot.active.transitionRemainingMs, 1);
+  assert.equal(game.tick(799).snapshot.active.transitionRemainingMs, 1);
   const stageStarted = game.tick(1);
   const stageTwo = stageStarted.snapshot.active;
   assert.ok(stageStarted.events.some((item) => item.type === "stageStarted" && item.stage === 2));
@@ -461,23 +463,28 @@ test("Crossing owns its timed clear transition, rejects input, pauses, and reset
   assert.equal(stageTwo.snake.some((part) => part.y === 0), false);
   assert.deepEqual(stageTwo.directionQueue, []);
   assert.equal(stageTwo.direction, "up");
+  assert.equal(stageStarted.snapshot.phase, "ready");
+  assert.equal(stageTwo.awaitingStart, true);
   assert.ok(Math.abs(stageTwo.cars[0].speed - 0.14592) < 1e-10);
 
+  assert.ok(game.dispatch({ type: "direction", direction: "up" }).events.some((item) => item.reason === "explicitStartRequired"));
+  assert.equal(game.tick(1000).snapshot.phase, "ready");
+  game.dispatch({ type: "begin" });
   game.dispatch({ type: "direction", direction: "up" });
   const moved = game.tick(1);
   assert.ok(moved.events.some((item) => item.type === "move"));
   assert.equal(moved.events.some((item) => item.type === "wall"), false);
-  assert.equal(moved.snapshot.seeds, 15);
+  assert.equal(moved.snapshot.seeds, 0, "progress settles only at run end");
 
   game.dispatch({ type: "direction", direction: "up" });
   const second = game.tick(1);
   assert.equal(second.events.filter((item) => item.type === "stageClear").length, 1);
-  assert.equal(second.events.filter((item) => item.type === "reward" && item.amount === 20).length, 1);
+  assert.equal(second.events.filter((item) => item.type === "reward").length, 0);
   assert.equal(second.snapshot.active.stage, 2);
   assert.equal(second.snapshot.active.subphase, "clearing");
   assert.equal(second.snapshot.active.snakeLength, 5);
   assert.equal(second.snapshot.active.score, 300);
-  assert.equal(second.snapshot.seeds, 35);
+  assert.equal(second.snapshot.seeds, 0, "progress settles only at run end");
   assert.equal(second.snapshot.records.crossingBest, 300);
 
   const reset = game.dispatch({ type: "restart", setup });
@@ -487,7 +494,7 @@ test("Crossing owns its timed clear transition, rejects input, pauses, and reset
   assert.equal(reset.snapshot.active.transitionRemainingMs, 0);
   assert.equal(reset.snapshot.active.score, 0);
   assert.equal(reset.snapshot.records.crossingBest, 300);
-  assert.equal(reset.snapshot.seeds, 35);
+  assert.equal(reset.snapshot.seeds, 0, "progress settles only at run end");
 });
 
 test("Breakout pauses after a non-final ball loss and resumes without settling the run", () => {
@@ -528,7 +535,8 @@ test("Breakout pauses after a non-final ball loss and resumes without settling t
   }
   assert.ok(ended, "the replacement ball can resume and finish the run");
   assert.equal(ended.snapshot.phase, "gameover");
-  assert.deepEqual(ended.events.find((item) => item.type === "runEnded"), { type: "runEnded", mode: "breakout", reward: 0 });
+  assert.equal(ended.events.find((item) => item.type === "runEnded").reward, 0);
+  assert.equal(ended.events.find((item) => item.type === "runEnded").won, false);
   assert.equal(ended.snapshot.seeds, 100);
   assert.equal(ended.snapshot.records.breakoutBest, 9);
 
@@ -544,7 +552,7 @@ test("Snakebird session completion records real level metadata and survives hydr
   const game = createGameSession({ now: 0 });
   game.dispatch({ type: "selectMode", mode: "snakebird", setup: { definition, levelIndex: 2, levelCount: 5 } });
   const completion = game.dispatch({ type: "direction", direction: "right" });
-  assert.ok(completion.events.some((item) => item.type === "runEnded" && item.won && item.reward === 20));
+  assert.ok(completion.events.some((item) => item.type === "runEnded" && item.won && item.reward > 0));
   assert.deepEqual(completion.snapshot.snakebirdProgress.clearedLevels, [false, false, true, false, false]);
   assert.deepEqual(completion.snapshot.snakebirdProgress.bestMoves, [null, null, 1, null, null]);
   assert.equal(completion.snapshot.snakebirdProgress.unlockedLevel, 4);
@@ -553,7 +561,7 @@ test("Snakebird session completion records real level metadata and survives hydr
   assert.deepEqual(hydrated.snakebirdProgress, completion.snapshot.snakebirdProgress);
 });
 
-test("Snakebird session uses first-clear and replay rewards without overwriting better moves", () => {
+test("Snakebird session tracks earnings on replays without overwriting better moves", () => {
   const quick = { firstClearReward: 20, replayReward: 5, map: ["....", "HG..", "####"] };
   const slower = { firstClearReward: 20, replayReward: 5, map: ["....", "H.G.", "####"] };
   const game = createGameSession({ now: 0 });
@@ -562,8 +570,8 @@ test("Snakebird session uses first-clear and replay rewards without overwriting 
   game.dispatch({ type: "selectMode", mode: "snakebird", setup: { definition: slower, levelIndex: 0, levelCount: 5 } });
   game.dispatch({ type: "direction", direction: "right" });
   const replay = game.dispatch({ type: "direction", direction: "right" });
-  assert.ok(replay.events.some((item) => item.type === "runEnded" && item.reward === 5));
-  assert.equal(replay.snapshot.seeds, 25);
+  assert.ok(replay.events.some((item) => item.type === "runEnded" && item.reward > 0));
+  assert.equal(replay.snapshot.seeds, replay.snapshot.minigameRewards.earnings.snakebird);
   assert.equal(replay.snapshot.snakebirdProgress.bestMoves[0], 1);
   assert.equal(replay.snapshot.snakebirdProgress.unlockedLevel, 2);
 });
@@ -595,8 +603,9 @@ test("queued modes validate atomically and use their browser-aligned buffers", (
   for (const scenario of cases) {
     const game = createGameSession({ now: 0, rng: lcg(7) });
     game.dispatch({ type: "selectMode", mode: scenario.mode });
+    if (scenario.mode === "maze") game.dispatch({ type: "begin" });
     const rejected = game.dispatch({ type: "direction", direction: scenario.rejected });
-    assert.equal(rejected.snapshot.phase, "ready", `${scenario.mode} rejected Ready input stays ready`);
+    assert.equal(rejected.snapshot.phase, scenario.mode === "maze" ? "running" : "ready", `${scenario.mode} rejected input preserves phase`);
     assert.equal(rejected.snapshot.active[scenario.queue].length, 0);
     assert.equal(rejected.events.some((item) => item.type === "runStarted" || item.type === "directionQueued"), false);
     for (const direction of scenario.accepted) game.dispatch({ type: "direction", direction });
@@ -652,11 +661,13 @@ test("puzzle sessions route lifecycle, rewards, records, and isolated snapshots 
   const blocked = snakebird.dispatch({ type: "direction", direction: "down" });
   assert.equal(blocked.snapshot.phase, "ready");
   const won = snakebird.dispatch({ type: "direction", direction: "right" });
-  assert.deepEqual(won.events.filter((item) => item.type === "runEnded"), [{ type: "runEnded", mode: "snakebird", reward: 20, won: true }]);
+  assert.equal(won.events.filter((item) => item.type === "runEnded").length, 1);
+  assert.equal(won.events.find((item) => item.type === "runEnded").won, true);
+  assert.ok(won.snapshot.seeds > 0);
   const savedProgress = won.snapshot.snakebirdProgress;
   snakebird.dispatch({ type: "restart", setup: { definition: snakebirdDefinition, levelIndex: 0, levelCount: 2 } });
   const replay = snakebird.dispatch({ type: "direction", direction: "right" });
-  assert.equal(replay.events.find((item) => item.type === "runEnded").reward, 5);
+  assert.ok(replay.events.find((item) => item.type === "runEnded").reward < won.snapshot.seeds, "repeat earnings reduce the payout");
   assert.equal(replay.snapshot.snakebirdProgress.bestMoves[0], 1);
   assert.deepEqual(savedProgress.bestMoves, [1, null], "prior snapshots remain isolated");
 
@@ -670,11 +681,12 @@ test("puzzle sessions route lifecycle, rewards, records, and isolated snapshots 
   sokoban.dispatch({ type: "pause" }); // ready cannot pause
   const finished = sokoban.dispatch({ type: "direction", direction: "right" });
   const ended = finished.events.find((item) => item.type === "runEnded");
-  assert.deepEqual(ended, { type: "runEnded", mode: "sokoban", reward: 7, score: 100, stageIndex: 3, won: true });
-  assert.equal(finished.snapshot.seeds, 7);
+  assert.deepEqual({mode: ended.mode, score: ended.score, stageIndex: ended.stageIndex, won: ended.won}, { mode: "sokoban", score: 100, stageIndex: 3, won: true });
+  assert.equal(finished.snapshot.seeds, ended.reward);
+  assert.ok(ended.reward > 0);
   assert.equal(finished.snapshot.best, 0, "Sokoban never changes ordinary Snake best");
   const restarted = sokoban.dispatch({ type: "restart", setup: { definition: sokobanDefinition, grid: { columns: 5, rows: 3 }, levelIndex: 3 } });
-  assert.equal(restarted.snapshot.seeds, 7, "reset does not repeat a reward");
+  assert.equal(restarted.snapshot.seeds, ended.reward, "reset does not repeat a reward");
 });
 
 test("puzzle pause rejects movement and resume restores accepted input", () => {

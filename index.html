@@ -309,13 +309,6 @@
             <div>
               <span class="stat-label">Grid</span>
               <strong id="gridLabel">5x8</strong>
-              <select class="grid-select" id="duelGridSelect" aria-label="VS Snake grid size" hidden>
-                <option value="10">10x10</option>
-                <option value="15">15x15</option>
-                <option value="20">20x20</option>
-                <option value="30">30x30</option>
-                <option value="40">40x40</option>
-              </select>
             </div>
             <div>
               <span class="stat-label" id="bestLabel">Best</span>
@@ -402,6 +395,7 @@
             </section>
           </div>
           <p class="screen-hint" id="screenHint" aria-live="polite"></p>
+          <p class="strike-feedback" id="battleshipFeedback" role="status" aria-live="polite" aria-atomic="true" hidden></p>
           <p class="visually-hidden" id="gameStatus" aria-live="polite" aria-atomic="true"></p>
         </section>
 
@@ -416,7 +410,7 @@
           <div class="keypad" aria-label="Phone keypad controls">
             <div class="minigame-keypad" id="minigameKeypad" aria-label="Minigame keypad">
               <button class="phone-key minigame-key" type="button" data-minigame="1" aria-label="Minigame 1">1</button>
-              <button class="phone-key minigame-key" type="button" data-minigame="2" aria-label="Snake Forever" title="Snake Forever">2</button>
+              <button class="phone-key minigame-key" type="button" data-minigame="2" aria-label="Nibbler" title="Nibbler">2</button>
               <button class="phone-key minigame-key" type="button" data-minigame="3" aria-label="Minigame 3">3</button>
               <button class="phone-key minigame-key" type="button" data-minigame="4" aria-label="Minigame 4">4</button>
               <button class="phone-key minigame-key" type="button" data-minigame="5" aria-label="Minigame 5">5</button>
@@ -446,6 +440,7 @@
     <script src="engine/config.js"></script>
     <script src="engine/notables.js"></script>
     <script src="engine/economy.js"></script>
+    <script src="engine/minigame-rewards.js"></script>
     <script src="engine/migration.js"></script>
     <script src="engine/trade-routes.js"></script>
     <script src="engine/resupply.js"></script>
@@ -472,8 +467,10 @@
     <script src="engine/chomp-sounds.js"></script>
     <script src="engine/tongue.js"></script>
     <script src="scripts/tongue-draw.js"></script>
+    <script src="scripts/snake-connectors.js"></script>
 
     <script src="scripts/ui-sounds.js"></script>
+    <script src="scripts/minigame-feedback.js"></script>
     <script src="game.js"></script>
   </body>
 </html>

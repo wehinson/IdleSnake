@@ -77,8 +77,8 @@ test("Snakebird and Sokoban use session-routed input, lifecycle, records, and pe
   await page.getByRole("button", { name: "Reset", exact: true }).click();
   await expect(page.locator("#stateText")).toContainText("Ready");
 
-  // First Push: navigate behind the crate, then push it right onto its goal.
-  for (const key of ["ArrowRight", "ArrowRight", "ArrowRight", "ArrowUp", "ArrowUp", "ArrowUp", "ArrowUp", "ArrowRight", "ArrowRight", "ArrowRight", "ArrowRight"]) await page.keyboard.press(key);
+  // First Push: eat twice, then brace against the back wall to push the heavy crate.
+  for (const key of ["ArrowRight", "ArrowRight", "ArrowRight"]) await page.keyboard.press(key);
   await expect(page.locator("#stateText")).toContainText("Clear");
   await expect(page.locator("#best")).not.toHaveText("13");
   await page.waitForTimeout(1600);

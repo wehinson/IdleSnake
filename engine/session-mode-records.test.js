@@ -20,13 +20,14 @@ test("canonical per-mode records update without changing Snake best and survive 
     path: [{ x: 2, y: 2 }, { x: 2, y: 3 }, { x: 2, y: 4 }],
     food: { x: 2, y: 1 }
   } });
-  game.dispatch({ type: "begin" });
+  game.dispatch({ type: "direction", direction: "right" });
+  game.dispatch({ type: "direction", direction: "up" });
   game.tick(1);
   const mazeEnded = game.tick(1);
   assert.equal(mazeEnded.snapshot.active.score, 10);
   assert.equal(mazeEnded.snapshot.records.mazeBest, 10);
   assert.equal(mazeEnded.snapshot.hud.best, 10);
-  assert.equal(mazeEnded.events.find((item) => item.type === "runEnded").reward, 2, "Maze reward remains score / 4");
+  assert.equal(mazeEnded.events.find((item) => item.type === "runEnded").reward, 0, "cancelled input preserves records but cannot reward autoplay");
 
   game.dispatch({ type: "selectMode", mode: "crossing", setup: { grid: { columns: 10, rows: 3 }, entryColumn: 0, tickMs: 1 } });
   game.dispatch({ type: "direction", direction: "up" }); game.tick(1);
@@ -35,18 +36,19 @@ test("canonical per-mode records update without changing Snake best and survive 
   assert.equal(crossingClear.snapshot.active.score, 100);
   assert.equal(crossingClear.snapshot.records.crossingBest, 100);
   assert.equal(crossingClear.snapshot.hud.best, 100);
-  assert.ok(crossingClear.events.some((item) => item.type === "reward" && item.amount === 15), "Crossing reward is unchanged");
+  assert.equal(crossingClear.events.some((item) => item.type === "reward"), false, "stage progress is settled at run end");
 
   game.dispatch({ type: "selectMode", mode: "breakout", setup: {
     bricks: [{ x: 350, y: 570, width: 30, height: 30, hp: 1 }]
   } });
+  game.dispatch({ type: "setInputAxis", axis: "x", value: 1 });
   game.dispatch({ type: "begin" });
   const breakoutEnded = game.tick(16);
   assert.equal(breakoutEnded.snapshot.phase, "gameover");
   assert.equal(breakoutEnded.snapshot.active.score, 10);
   assert.equal(breakoutEnded.snapshot.records.breakoutBest, 10);
   assert.equal(breakoutEnded.snapshot.hud.best, 10);
-  assert.equal(breakoutEnded.events.find((item) => item.type === "runEnded").reward, 500, "Breakout win reward is unchanged");
+  assert.ok(breakoutEnded.events.find((item) => item.type === "runEnded").reward > 0, "win uses the shared formula");
 
   const sokobanDefinition = {
     reward: 7, map: ["#####", "#...#", "#####"], snake: [{ x: 1, y: 1 }],
@@ -56,7 +58,7 @@ test("canonical per-mode records update without changing Snake best and survive 
   const sokobanEnded = game.dispatch({ type: "direction", direction: "right" });
   assert.equal(sokobanEnded.snapshot.records.sokobanBest, 100);
   assert.equal(sokobanEnded.snapshot.hud.best, 100);
-  assert.equal(sokobanEnded.events.find((item) => item.type === "runEnded").reward, 7, "Sokoban reward is unchanged");
+  assert.ok(sokobanEnded.events.find((item) => item.type === "runEnded").reward > 0, "completion uses the shared formula");
 
   const final = game.snapshot();
   assert.equal(final.best, 77, "per-mode completions never overwrite ordinary Snake best");

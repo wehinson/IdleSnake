@@ -108,12 +108,38 @@
     let unlockedLevel = 1;
     while (unlockedLevel < levelCount && clearedLevels[unlockedLevel - 1]) unlockedLevel += 1;
     const requestedLevel = Math.floor(Number(saved.lastSelectedLevel) || 1);
-    return {
+    const progress = {
       unlockedLevel,
       clearedLevels,
       bestMoves,
       lastSelectedLevel: Math.max(1, Math.min(unlockedLevel, requestedLevel))
     };
+    // Optional campaign metadata survives completions without changing the
+    // generic/custom puzzle progress contract.
+    if (saved.campaignVersion !== undefined) progress.campaignVersion = saved.campaignVersion;
+    if (saved.legacyRecords) progress.legacyRecords = JSON.parse(JSON.stringify(saved.legacyRecords));
+    return progress;
+  }
+
+  function migrateCampaignProgress(saved, levelCount, campaignVersion) {
+    saved = saved && typeof saved === "object" ? saved : {};
+    if (saved.campaignVersion === campaignVersion) return normalizeProgress(saved, levelCount);
+    const previousCount = Math.max(saved.clearedLevels?.length || 0, saved.bestMoves?.length || 0);
+    const previous = normalizeProgress(saved, previousCount || 5);
+    const progress = normalizeProgress({ ...saved, bestMoves: [], campaignVersion }, levelCount);
+    if (previousCount > 0) {
+      progress.legacyRecords = {
+        ...(saved.legacyRecords || {}),
+        [String(saved.campaignVersion || 1)]: {
+          clearedLevels: previous.clearedLevels,
+          bestMoves: previous.bestMoves,
+          lastSelectedLevel: previous.lastSelectedLevel
+        }
+      };
+    }
+    // Clear credits stay in their original slots: replacing a board must not
+    // renew its first-clear payout. Old move scores live only in the archive.
+    return progress;
   }
 
   function recordCompletion(saved, levelIndex, moves, levelCount, firstClearReward, replayReward) {
@@ -126,5 +152,5 @@
     return { progress, firstClear, reward: firstClear ? firstClearReward : replayReward };
   }
 
-  return { key, parseLevel, bodyContains, isSolid, settleGravity, applyMove, isComplete, normalizeProgress, recordCompletion };
+  return { key, parseLevel, bodyContains, isSolid, settleGravity, applyMove, isComplete, normalizeProgress, migrateCampaignProgress, recordCompletion };
 });

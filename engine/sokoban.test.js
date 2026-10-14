@@ -85,3 +85,57 @@ test("runs headless with no DOM", () => {
   const state = sokoban.parseLevel(level(), grid, 0);
   assert.doesNotThrow(() => sokoban.applyMove(state, "right"));
 });
+
+test("reachable growth push cannot place a crate on the retained tail; non-growing control can", () => {
+  const definition = {
+    map: ["#######", "#.....#", "#.....#", "#.....#", "#.....#", "#######"],
+    snake: [{ x: 1, y: 2 }, { x: 1, y: 3 }, { x: 2, y: 3 }],
+    crates: [{ x: 2, y: 2, kind: "light" }], goals: [{ x: 5, y: 4 }],
+    pellets: [{ x: 3, y: 2 }, { x: 2, y: 1 }, { x: 4, y: 1 }], plates: [], gates: []
+  };
+  const state = sokoban.parseLevel(definition, { columns: 7, rows: 6 }, 0);
+  const directions = { R: "right", U: "up", D: "down", L: "left" };
+  // Before the fix RURRDDLLUR was accepted and overlapped crate/tail at (4,2).
+  for (const move of "RURRDDLLU") assert.equal(sokoban.applyMove(state, directions[move]).accepted, true);
+  assert.deepEqual(state.snake.at(-1), { x: 4, y: 2 });
+  const before = structuredClone(state);
+  assert.equal(sokoban.applyMove(state, "right").accepted, false);
+  assert.deepEqual(state, before, "illegal growth leaves every state field untouched");
+  state.pellets = [];
+  const control = sokoban.applyMove(state, "right");
+  assert.equal(control.accepted, true, "without growth the tail vacates the crate destination");
+  assert.deepEqual(state.crates[0], { x: 4, y: 2, kind: "light" });
+  assert.equal(sokoban.snakeContains(state, state.crates[0]), false);
+});
+
+test("growth cannot move the head onto a retained tail; a moving tail remains legal", () => {
+  const definition = level();
+  definition.snake = [{ x: 1, y: 1 }, { x: 2, y: 1 }, { x: 2, y: 2 }, { x: 1, y: 2 }];
+  definition.pellets = [{ x: 1, y: 2 }];
+  definition.crates = [{ x: 3, y: 3, kind: "light" }];
+  const state = sokoban.parseLevel(definition, grid, 0);
+  const before = structuredClone(state);
+  assert.equal(sokoban.applyMove(state, "down").accepted, false);
+  assert.deepEqual(state, before);
+  state.pellets = [];
+  assert.equal(sokoban.applyMove(state, "down").accepted, true);
+  assert.equal(new Set(state.snake.map(sokoban.key)).size, state.snake.length);
+});
+
+test("gates check plates before movement, permit occupant departure after closure, and block closed entry", () => {
+  const definition = {
+    map: ["#######", "#.....#", "#.....#", "#.....#", "#######"],
+    snake: [{ x: 3, y: 2 }, { x: 2, y: 2 }, { x: 1, y: 2 }],
+    crates: [{ x: 5, y: 3, kind: "light" }], goals: [{ x: 4, y: 3 }], pellets: [],
+    plates: [{ x: 1, y: 2, id: "a" }], gates: [{ x: 4, y: 2, id: "a" }]
+  };
+  const state = sokoban.parseLevel(definition, { columns: 7, rows: 5 }, 0);
+  assert.equal(sokoban.applyMove(state, "right").accepted, true);
+  assert.equal(sokoban.plateActive(state, "a"), false);
+  assert.equal(sokoban.isOpen(state, state.snake[0]), false, "gate closed around its occupant");
+  assert.equal(sokoban.applyMove(state, "right").accepted, true, "occupant can depart");
+  const closed = sokoban.parseLevel({ ...definition, plates: [{ x: 1, y: 1, id: "a" }] }, { columns: 7, rows: 5 }, 0);
+  const before = structuredClone(closed);
+  assert.equal(sokoban.applyMove(closed, "right").accepted, false);
+  assert.deepEqual(closed, before);
+});

@@ -20,7 +20,7 @@ test("control follow-up covers settings, focus, paused effects, and fullscreen c
   expect(await page.locator(".controls").evaluate((el) => getComputedStyle(el).transform)).toBe("matrix(1, 0, 0, 1, 0, -10)");
   await page.locator("#fullscreenMinigamesButton").click();
   const choices = page.locator("#fullscreenMinigameMenu button");
-  await expect(choices).toHaveText(["Vs Snake", "Snake Forever", "Brick Breakout", "Snakeger", "Snakebird", "Sokoban", "Broodline", "Venom Strike", "Centipede"]);
+  await expect(choices).toHaveText(["Vs Snake", "Nibbler", "Brick Breakout", "Snakeger", "Snakebird", "Sokoban", "Broodline", "Venom Strike", "Centipede"]);
   await expect(choices.first()).toBeEnabled();
   await expect(choices.nth(1)).toBeDisabled();
   await page.screenshot({ path: test.info().outputPath("named-minigames.png") });

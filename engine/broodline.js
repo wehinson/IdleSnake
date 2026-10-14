@@ -26,7 +26,10 @@
       const point = { x: 1 + Math.floor(rng() * 28), y: 1 + Math.floor(rng() * 28) };
       if (!occupied.has(key(point))) return point;
     }
-    return { x: 15, y: 15 };
+    for (let y = 1; y < MAX; y += 1) for (let x = 1; x < MAX; x += 1) {
+      if (!occupied.has(key({ x, y }))) return { x, y };
+    }
+    return null;
   }
 
   const roundSize = (round) => 4 + Math.floor((round - 1) * 1.35);
@@ -37,7 +40,9 @@
     const count = roundSize(state.round);
     const rangedCount = Math.max(1, Math.round(count / 4));
     for (let i = 0; i < count; i += 1) {
-      const pos = randomOpen(rng, occupied); occupied.add(key(pos));
+      const pos = randomOpen(rng, occupied);
+      if (!pos) break;
+      occupied.add(key(pos));
       const ranged = i < rangedCount;
       state.enemies.push({ type: ranged ? "ranged" : "melee", pos, hp: ranged ? 4 : 7, maxHp: ranged ? 4 : 7, cooldown: rng() * 5, stun: 0, burn: 0, poison: 0, target: null });
     }
@@ -64,6 +69,7 @@
   }
 
   function nearestEnemy(state, pos, range, forwardOnly = false) {
+    if (typeof range === "number") range = { min: 0, max: range };
     const dir = vectors[state.direction];
     return state.enemies
       .filter((enemy) => enemy.hp > 0 && (!forwardOnly || ((enemy.pos.x - pos.x) * dir.x + (enemy.pos.y - pos.y) * dir.y >= range.min && manhattan(enemy.pos, pos) <= range.max)))
@@ -164,7 +170,7 @@
     const forward = nearestEnemy(state, next, { min: 3, max: 5 }, true);
     if (bite) damage(state, bite, 2, "FANG BITE", rng); else if (forward) damage(state, forward, 1, "VENOM", rng);
 
-    state.chain.slice(1).forEach((part) => {
+    state.chain.forEach((part) => {
       if (!["garden", "electric", "lava", "rattle"].includes(part.kind)) return;
       part.cooldown = Math.max(0, (part.cooldown || 0) - TICK_MS);
       const enemy = nearestEnemy(state, part.pos, part.kind === "rattle" || part.kind === "electric" ? 3 : 2);
@@ -179,7 +185,7 @@
 
     const reserved = new Set();
     state.enemies.forEach((enemy) => {
-      if (enemy.hp <= 0) return;
+      if (state.phase === "ended" || enemy.hp <= 0) return;
       enemy.cooldown -= 1;
       enemy.stun = Math.max(0, enemy.stun - 1);
       if (enemy.burn > 0) { enemy.burn -= 1; damage(state, enemy, 1, "BURN", rng); }
@@ -211,19 +217,18 @@
     state.enemies = state.enemies.filter((enemy) => enemy.hp > 0);
     state.effects.forEach((effect) => { effect.ttl -= TICK_MS; });
     state.effects = state.effects.filter((effect) => effect.ttl > 0);
+    if (state.phase === "ended") {
+      return { state, events: [...events, { type: "endRun", reason: state.endReason || "Overwhelmed" }], alive: false };
+    }
     state.chain.filter((part) => part.kind === "egg").forEach((egg) => {
       egg.hatchAt -= TICK_MS;
       if (egg.hatchAt <= 0) {
         egg.kind = ["garden", "garden", "garden", "cave", "rattle", "electric", "lava"][Math.floor(rng() * 7)];
+        if (egg.kind === "cave") state.maxArmor += 1;
         state.eggsHatched += 1; state.pendingSeeds += 2;
         state.effects.push({ pos: { ...egg.pos }, text: "HATCH!", ttl: 1000 });
       }
     });
-
-    // Lethal damage taken mid-tick ends the run.
-    if (state.phase === "ended") {
-      return { state, events: [...events, { type: "endRun", reason: state.endReason || "Overwhelmed" }], alive: false };
-    }
 
     if (!state.enemies.length) {
       if (state.wave < WAVES_PER_ROUND) {
