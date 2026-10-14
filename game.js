@@ -1160,6 +1160,7 @@ function syncBroodlineFormation() {
 }
 
 function startGame() {
+  if (gameView.gameMode === "crossing") interpretSessionEvents(tickIdleWorld("crossingStart"));
   if (gameView.gameMode === "crossing" && (Date.now() < directionInputLockedUntil || gameView.crossingPhase === "clearing")) return false;
   return presentGameResult(dispatchSession({ type: "primaryAction" }));
 }
@@ -1940,7 +1941,7 @@ function interpretSessionEvents(events) {
         if (gameView.gameMode === "crossing") {
           syncHud();
           showOverlay(`Stage ${event.stage} · Ready`);
-          setScreenHint("Press Start to cross the next road");
+          setScreenHint("Start / Enter / Space: begin · then arrows to cross");
         }
         break;
       case "playerHit":
@@ -1972,6 +1973,7 @@ function togglePause() {
 }
 
 function activatePrimaryAction() {
+  if (gameView.gameMode === "crossing" && gameView.state === "ready") { startGame(); return; }
   if (!controlsEl?.classList.contains("is-large-dpad-controls")) {
     togglePause();
     return;
@@ -3850,7 +3852,8 @@ function syncHud() {
 function syncPrimaryActionButton() {
   if (!pauseButton) return;
   const usesLargeDpad = controlsEl?.classList.contains("is-large-dpad-controls");
-  const label = !usesLargeDpad ? "Pause"
+  const label = gameView.gameMode === "crossing" && gameView.state === "ready" ? "Start"
+    : !usesLargeDpad ? "Pause"
     : gameView.state === "gameover" ? "Reset"
     : gameView.state === "ready" ? "Start"
     : gameView.state === "paused" ? "Resume"
@@ -4435,8 +4438,10 @@ function showOverlay(text) {
   stateText.textContent = text;
   if (readyStartPrompt) {
     const resetPrompt = gameView.state === "gameover";
-    readyStartPrompt.hidden = !(resetPrompt || (gameView.gameMode === "snake" && text === "Ready"));
-    readyStartPrompt.textContent = resetPrompt ? "Press any control to reset." : "Press any control to begin.";
+    const crossingReady = gameView.gameMode === "crossing" && gameView.state === "ready";
+    readyStartPrompt.hidden = !(resetPrompt || crossingReady || (gameView.gameMode === "snake" && text === "Ready"));
+    readyStartPrompt.textContent = resetPrompt ? "Press any control to reset." : crossingReady
+      ? "Press Start, Enter or Space. Then use arrows to cross." : "Press any control to begin.";
   }
   overlay.classList.add("visible");
   if (gameStatus) gameStatus.textContent = `${gameView.gameMode === "snake" ? "Snake Forever" : minigameCatalog.find((game) => game.mode === gameView.gameMode)?.name || gameView.gameMode}: ${text}`;
@@ -4594,6 +4599,10 @@ document.addEventListener("keydown", (event) => {
   if (event.code === "Space") {
     event.preventDefault();
     if (event.repeat) return;
+    if (gameView.gameMode === "crossing") {
+      interpretSessionEvents(tickIdleWorld("crossingSpace"));
+      if (gameView.state === "ready") { startGame(); return; }
+    }
     if (gameView.gameMode === "runner") {
       if (!event.repeat) runnerJump();
       return;
@@ -4699,6 +4708,7 @@ let crossingPrimaryPressEpoch = 0;
 function bindCrossingPrimaryControl(button, activate) {
   let press = null;
   button.addEventListener("pointerdown", (event) => {
+    if (gameView.gameMode === "crossing") interpretSessionEvents(tickIdleWorld("crossingPrimaryPress"));
     press = { epoch: crossingPrimaryPressEpoch, pointerId: event.pointerId, phase: gameView.state,
       allowed: gameView.gameMode !== "crossing" || (Date.now() >= directionInputLockedUntil
         && (gameView.crossingPhase !== "clearing" || button === pauseButton)) };
@@ -4707,6 +4717,7 @@ function bindCrossingPrimaryControl(button, activate) {
     if (press?.pointerId === event.pointerId) press = null;
   });
   button.addEventListener("click", (event) => {
+    if (gameView.gameMode === "crossing") interpretSessionEvents(tickIdleWorld("crossingPrimaryClick"));
     if (gameView.gameMode === "crossing" && event.detail > 0 && (!press?.allowed || press.epoch !== crossingPrimaryPressEpoch
       || press.phase !== gameView.state
       || (event.pointerId >= 0 && event.pointerId !== press.pointerId))) return;

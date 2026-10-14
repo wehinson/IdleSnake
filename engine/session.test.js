@@ -465,7 +465,8 @@ test("Crossing owns its timed clear transition, rejects input, pauses, and reset
   assert.equal(stageTwo.direction, "up");
   assert.equal(stageStarted.snapshot.phase, "ready");
   assert.equal(stageTwo.awaitingStart, true);
-  assert.ok(Math.abs(stageTwo.cars[0].speed - 0.14592) < 1e-10);
+  const firstTierSpeed = { green: 1, blue: 1.25, black: 1.5625 }[stageTwo.cars[0].tier];
+  assert.ok(Math.abs(stageTwo.cars[0].speed - 0.14592 * firstTierSpeed) < 1e-10);
 
   assert.ok(game.dispatch({ type: "direction", direction: "up" }).events.some((item) => item.reason === "explicitStartRequired"));
   assert.equal(game.tick(1000).snapshot.phase, "ready");

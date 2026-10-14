@@ -23,6 +23,8 @@
   const SEGMENT_SIZE = 45;
   const GAP = 4;
   const PHYSICS_MS = 1000 / 240;
+  const BALL_DOUBLE_MS = 90000;
+  const MAX_BALL_SPEED_MULTIPLIER = 3;
   const BRICK_COLORS = { 1: "#4e9c45", 2: "#3979c6", 3: "#14171c" };
 
   function createState(options = {}) {
@@ -38,7 +40,7 @@
       powerups: [],
       seedBoosts: [],
       heartsCollected: 0,
-      bricks: [], physicsAccumulatorMs: 0
+      bricks: [], physicsAccumulatorMs: 0, ballElapsedMs: 0
     };
     if (Array.isArray(options.bricks)) state.bricks = options.bricks.map((brick) => ({ ...brick }));
     else for (let row = 0; row < 4; row += 1) for (let column = 0; column < 10; column += 1) {
@@ -61,14 +63,30 @@
     state.paddle.x = Math.max(0, Math.min(boardWidth - paddleWidth(state), center - paddleWidth(state) / 2));
   }
 
+  function ballSpeedMultiplier(elapsedMs) {
+    // Round clock noise below a microsecond so frame partitions share scalars.
+    const activeMs = Math.round(Math.max(0, Number(elapsedMs) || 0) * 1e6) / 1e6;
+    return Math.min(MAX_BALL_SPEED_MULTIPLIER, 1 + activeMs / BALL_DOUBLE_MS);
+  }
+
+  function accelerateBall(ball, elapsedMs) {
+    const scale = ballSpeedMultiplier(elapsedMs);
+    const ratio = scale / (ball.speedScale || 1);
+    ball.vx *= ratio;
+    ball.vy *= ratio;
+    ball.speedScale = scale;
+  }
+
   function buildBall(state, boardWidth, index = 0) {
     const sign = index % 2 === 0 ? 1 : -1;
+    const speedScale = ballSpeedMultiplier(state.ballElapsedMs);
     return {
       x: boardWidth / 2 + (index ? sign * 14 : 0),
       y: state.paddle.y - state.segmentSize - 34,
       radius: Math.max(5, Math.floor(state.segmentSize * 0.23)),
-      vx: config.ballSpeed * 0.62 * sign,
-      vy: -config.ballSpeed * 0.78
+      vx: config.ballSpeed * 0.62 * sign * speedScale,
+      vy: -config.ballSpeed * 0.78 * speedScale,
+      speedScale
     };
   }
 
@@ -97,7 +115,9 @@
     while (state.physicsAccumulatorMs + 1e-8 >= PHYSICS_MS) {
       state.physicsAccumulatorMs = Math.max(0, state.physicsAccumulatorMs - PHYSICS_MS);
       const elapsedMs = ctx.elapsedMs - state.physicsAccumulatorMs;
-      const maxSpeed = Math.max(config.ballSpeed, ...state.balls.map((ball) => Math.hypot(ball.vx, ball.vy)));
+      // Bound subdivisions using this slice's END speed before accelerating.
+      const nextScale = ballSpeedMultiplier(elapsedMs);
+      const maxSpeed = Math.max(config.ballSpeed * nextScale, ...state.balls.map((ball) => Math.hypot(ball.vx, ball.vy) * nextScale / (ball.speedScale || 1)));
       const radius = Math.max(0.5, Math.min(10, ...state.balls.map((ball) => ball.radius)));
       const count = Math.max(1, Math.ceil(maxSpeed * PHYSICS_MS / 1000 / (radius / 2)));
       for (let index = 0; index < count; index += 1) {
@@ -115,8 +135,8 @@
 
   function randomPowerupType(heartsAllowed, rng) {
     const roll = (rng || Math.random)();
-    if (roll < 0.55) return "seed";
-    if (heartsAllowed && roll < 0.65) return "heart";
+    if (roll < 0.50) return "seed";
+    if (heartsAllowed && roll < 0.60) return "heart";
     return "multiball";
   }
 
@@ -128,6 +148,7 @@
     const boardWidth = ctx.boardWidth;
     const boardHeight = ctx.boardHeight;
     const elapsedMs = ctx.elapsedMs;
+    state.ballElapsedMs = elapsedMs;
     const dt = ctx.deltaMs / 1000;
     const events = [];
     const paddle = state.paddle;
@@ -170,6 +191,7 @@
 
     const remainingBalls = [];
     for (const ball of state.balls) {
+      accelerateBall(ball, elapsedMs);
       const previousX = ball.x;
       const previousY = ball.y;
       ball.x += ball.vx * dt;
@@ -188,7 +210,7 @@
       if (hitPaddle) {
         ball.y = paddleTop - ball.radius;
         const hit = Math.max(-1, Math.min(1, (ball.x - (paddle.x + pWidth / 2)) / (pWidth / 2)));
-        const speed = Math.max(config.ballSpeed, Math.hypot(ball.vx, ball.vy));
+        const speed = Math.max(config.ballSpeed * Math.hypot(0.62, 0.78) * ballSpeedMultiplier(elapsedMs), Math.hypot(ball.vx, ball.vy));
         const horizontal = Math.max(-0.86, Math.min(0.86, hit * 0.92 || (ball.vx < 0 ? -0.16 : 0.16)));
         ball.vx = speed * horizontal;
         ball.vy = -Math.sqrt(Math.max(1, speed * speed - ball.vx * ball.vx));
@@ -202,9 +224,9 @@
       if (brickIndex >= 0) {
         const brick = state.bricks[brickIndex];
         brick.maxHp = brick.maxHp || brick.hp || 1;
+        if (!brick.color) brick.color = BRICK_COLORS[brick.maxHp];
         brick.hp = (brick.hp || 1) - 1;
         const destroyed = brick.hp === 0;
-        if (!destroyed) brick.color = BRICK_COLORS[brick.hp] || brick.color;
         if (destroyed) { state.bricks.splice(brickIndex, 1); state.score += 10; }
         const cameFromAbove = previousY + ball.radius <= brick.y;
         const cameFromBelow = previousY - ball.radius >= brick.y + brick.height;
@@ -247,5 +269,5 @@
     return { state, events, alive: true };
   }
 
-  return { config, BOARD_WIDTH, BOARD_HEIGHT, SEGMENT_SIZE, GAP, BRICK_COLORS, MAX_HEARTS_PER_LEVEL, SEED_BOOST_MS, createState, paddleWidth, setPaddleLength, buildBall, createPowerup, randomPowerupType, tailWarning, step };
+  return { config, BOARD_WIDTH, BOARD_HEIGHT, SEGMENT_SIZE, GAP, BRICK_COLORS, BALL_DOUBLE_MS, MAX_BALL_SPEED_MULTIPLIER, MAX_HEARTS_PER_LEVEL, SEED_BOOST_MS, createState, paddleWidth, setPaddleLength, ballSpeedMultiplier, buildBall, createPowerup, randomPowerupType, tailWarning, step };
 });

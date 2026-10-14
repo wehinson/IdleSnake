@@ -61,13 +61,13 @@ test("actual Breakout renderer draws single circles for balls/multiball and a sm
   assert.ok(calls.indexOf(connector) < calls.findIndex((call) => call.method === "tile" && call.args[1] === 20 + state.paddle.y));
 });
 
-test("actual Breakout damage drawing adds progressive fracture paths and chips with current health colors", () => {
+test("actual Breakout damage drawing adds progressive fractures and chips while preserving original tier color", () => {
   const paths = [];
   for (const hp of [3, 2, 1]) {
     const { sandbox, state, calls } = host();
-    state.bricks = [{ x: 100, y: 28, width: 65.6, height: 32, hp, maxHp: 3, color: breakout.BRICK_COLORS[hp] }];
+    state.bricks = [{ x: 100, y: 28, width: 65.6, height: 32, hp, maxHp: 3, color: breakout.BRICK_COLORS[3] }];
     sandbox.drawBreakout();
-    assert.ok(calls.some((call) => call.method === "fillRect" && call.color === breakout.BRICK_COLORS[hp] && call.args[2] === 65.6));
+    assert.ok(calls.some((call) => call.method === "fillRect" && call.color === breakout.BRICK_COLORS[3] && call.args[2] === 65.6));
     paths.push(calls.filter((call) => call.method === "stroke").length);
   }
   assert.deepEqual(paths, [0, 1, 2]);
@@ -106,6 +106,7 @@ test("actual crossing renderer clips moving obstacles and draws opaque edge rail
 test("crossing Start discards pre-clear/locked pointer presses and held Enter repeats", () => {
   const listeners = {};
   const sandbox = { gameView: { gameMode: "crossing", crossingPhase: "playing" }, directionInputLockedUntil: 0,
+    interpretSessionEvents() {}, tickIdleWorld: () => [],
     Date: { now: () => 1000 }, started: 0,
     startGame: () => { sandbox.started++; },
     startButton: { addEventListener: (name, listener) => { listeners[name] = listener; } },
@@ -140,6 +141,7 @@ test("large D-pad center requires a fresh eligible press after the crossing win 
     controlsEl: { classList: { contains: () => large } }, Date: { now: () => now },
     started: 0, reset: 0, paused: 0,
     showOverlay() {}, setScreenHint() {}, syncHud() {}, formatNumber: String,
+    tickIdleWorld: () => [],
     startGame: () => { sandbox.started++; }, resetGame: () => { sandbox.reset++; }, togglePause: () => { sandbox.paused++; },
     startButton: { addEventListener: (name, listener) => { listeners.start[name] = listener; } },
     pauseButton: { addEventListener: (name, listener) => { listeners.pause[name] = listener; } }
@@ -191,6 +193,7 @@ test("Space-paused crossing clear resumes through a fresh post-lock center or Pa
   let now = 0;
   let large = true;
   const sandbox = { gameView: { gameMode: "crossing", crossingPhase: "clearing", state: "running" }, directionInputLockedUntil: 1000,
+    interpretSessionEvents() {}, tickIdleWorld: () => [],
     controlsEl: { classList: { contains: () => large } }, Date: { now: () => now }, started: 0, toggled: 0,
     startGame: () => { sandbox.started++; }, resetGame() {},
     togglePause: () => { sandbox.toggled++; sandbox.gameView.state = sandbox.gameView.state === "paused" ? "running" : "paused"; },

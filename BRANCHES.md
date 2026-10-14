@@ -577,3 +577,14 @@ The entries below record prior checks and decisions. All intended work is includ
 - Preview: coordinator-owned `http://localhost:4173/test9/`; no server mutation or browser/computer automation.
 - Risks/integration: independent exact-tip coordinator review and combined reward tests remain required. No human/UI difficulty review; witnesses do not assert optimality. Snakebird shared-file changes are independent array hunks; tiny shared test/README fixture hunks need normal conflict care.
 - Last update: 2026-10-11.
+# task/minigame-brick-crossing-20261011 — PR3 revision 8/9, 2026-10-13
+
+- Agent: Codex, GPT 6.1 Sol; original T3 branch/worktree.
+- Status: Active source WIP; coordinator resolved working-base update pending.
+- Revision baseline: authorized same-batch integration `a83251ad840e53cbde0bef5e2c105dfd6080b51c`, fast-forwarded after clean checkout/ancestry/claim verification. No independent working or Colony merge.
+- Scope: elapsed-time Breakout ball acceleration (1× at 0 s, 2× at 90 s, 3× cap at 180 s), fixed original brick colors, modest extra-ball pickup increase; mixed colors in every Crossing lane and reliable obvious fresh primary Start.
+- Source choices: retain paddle/pickup ×1.5 speeds and fixed 240 Hz/microstep collisions, controlledMove and unconsumedMs. Seed threshold 0.55→0.50 and eligible-heart upper threshold 0.65→0.60, retaining 18% drop roll. Crossing keeps green/blue/black speed ratios 1/1.25/1.5625; 4/5/6 obstacles per lane at stages 1/3/5, green most common in every lane.
+- Lifecycle trace: Space and normal Pause/center were no-ops at Ready; Crossing ready prompt was hidden; primary presses read stale frame clocks. Scoped primary controls now synchronize time, Ready center/Space explicitly start, and prompt explains Start/Enter/Space. Existing lock, epoch, pointer identity/cancellation, captured phase and paused-clear resume retained.
+- Current verification: eight actual renderer/input VM tests pass; `node --check` passes for breakout/crossing/game. Acceleration and mixed-lane proof tests plus the coordinator-granted sole bounded full validation lease remain pending. No new individual research/review tasks.
+- Preservation: own-source WIP only; no reward formula, save/version, CI, routes/server, unrelated balances or approved tongue changes. Wait for coordinator's resolved integration SHA before updating baseline again.
+- Last update: 2026-10-13.

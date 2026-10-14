@@ -37,7 +37,7 @@ test("Breakout damage separates each contact, fractures persist, and only destru
     if (hit < 3) {
       assert.equal(state.bricks[0].hp, 3 - hit);
       assert.equal(state.bricks[0].maxHp, 3);
-      assert.equal(state.bricks[0].color, breakout.BRICK_COLORS[3 - hit]);
+      assert.equal(state.bricks[0].color, breakout.BRICK_COLORS[3], "original black tier stays black");
       assert.equal(state.score, 0);
       assert.equal(state.powerups.length, 0);
       assert.ok(state.balls[0].vy > 0);
@@ -97,8 +97,8 @@ test("Breakout scales paddle, every served ball and falling pickups by 1.5 and p
   assert.ok(Math.abs(expected.powerups[0].y - 309.66) < 1e-8);
   for (const index of [0, 1, 2]) {
     const ball = breakout.buildBall(expected, 720, index);
-    assert.equal(Math.abs(ball.vx), 180.6 * 0.62 * 1.5);
-    assert.equal(ball.vy, -180.6 * 0.78 * 1.5);
+    assert.equal(Math.abs(ball.vx), 180.6 * 0.62 * 1.5 * breakout.ballSpeedMultiplier(expected.ballElapsedMs));
+    assert.equal(ball.vy, -180.6 * 0.78 * 1.5 * breakout.ballSpeedMultiplier(expected.ballElapsedMs));
   }
 });
 
@@ -197,7 +197,7 @@ test("caught pickups grow or add a correctly scaled ball and restore collision w
   assert.equal(state.balls.length, 2);
   assert.equal(state.powerups.length, 0);
   assert.ok(state.seedBoosts[0] > 30000);
-  assert.equal(Math.abs(state.balls[1].vx), breakout.config.ballSpeed * 0.62);
+  assert.ok(Math.abs(Math.abs(state.balls[1].vx) - breakout.config.ballSpeed * 0.62 * breakout.ballSpeedMultiplier(state.ballElapsedMs)) < 1e-8);
   const pickup = breakout.createPowerup(state, "multiball", 0, 0);
   assert.ok(pickup.radius < breakout.buildBall(state, 720).radius);
 });
