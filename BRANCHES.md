@@ -2,6 +2,8 @@
 
 ## task/minigame-batch-20261011 — Minigame PR2 coordination
 
+- Current round2026-10-13: Active13 user revisions on existing PR3, common accepted baselinea83251ad. Five original workers resumed; full requirements/current contracts and corrected straight-body Sokoban rule in MINIGAME_REVISION_20261013.md. No round implementation accepted yet; one final combined review and final-head CI/asset proof required. Historical prior-round evidence below remains valid for those exact tips only.
+
 - Agent: local Jimothy, GPT 6.1 Sol high effort, T3 coordinator `mcp:618042fc-9354-4fc9-906a-1b3ca5c689e4`.
 - Status: All six exact tips individually accepted and merged ONLY task integration; combined exacte30f7c9 npm475/syntax139/authority11canonical/diff PASS. Final combined R1 ACCEPT exactcee27b7,12 bounded engine/VM groups, no material/P0-P2 findings. Docs-only successor preserves runtime/tests. One separate Minigame PR targets working; William approval remains required. Separate Colony PR1; no automatic merge/deploy.
 - Base: `31e773efee60c85d6781078803e4eae208911e4e`. Approved tongue behavior retained; root uncommitted balance files excluded.
